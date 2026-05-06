@@ -1,4 +1,5 @@
 """Shared test utilities."""
+
 import os
 import sys
 import tempfile
@@ -15,7 +16,7 @@ os.chdir(PROJECT_ROOT)
 
 PLAYLIST_ID = 17647459371
 SONG_ID = 22699098
-ALBUM_ID = 405493
+ALBUM_ID = 123388631
 
 _passed = 0
 _failed = 0
