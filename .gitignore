@@ -1,0 +1,11 @@
+# Python
+__pycache__/
+.venv/
+
+# macOS Shit
+.DS_Store
+
+# Project
+cookie
+cache/
+downloads/
