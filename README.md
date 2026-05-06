@@ -64,4 +64,4 @@ python vnemd.py album 405493 -d       # 下载专辑
 ## 其他
 
 预览和下载内容时，会在预设目录 `cache/` 中写入缓存。  
-你可以运行 `python clean.py` 来删掉 `cache/` 和 `downloads/` 目录里的内容。
+你可以删掉这个文件夹，下次运行时仍会自动创建。
