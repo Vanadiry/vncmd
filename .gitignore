@@ -9,3 +9,7 @@ __pycache__/
 cookie
 cache/
 downloads/
+
+# Lint
+.ruff_cache/
+/lint/
