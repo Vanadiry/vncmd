@@ -1,4 +1,5 @@
 """Run all vnemd tests."""
+
 import re
 import subprocess
 import sys
@@ -10,8 +11,16 @@ from rich.text import Text
 console = Console()
 
 TESTS = [
-    "test_config", "test_cache", "test_api", "test_audio", "test_image",
-    "test_lyrics", "test_metadata", "test_download", "test_cli", "test_errors",
+    "test_config",
+    "test_cache",
+    "test_api",
+    "test_audio",
+    "test_image",
+    "test_lyrics",
+    "test_metadata",
+    "test_download",
+    "test_cli",
+    "test_errors",
 ]
 
 HERE = os.path.dirname(os.path.abspath(__file__))
@@ -21,14 +30,17 @@ total_passed = 0
 total_failed = 0
 
 for name in TESTS:
-    print(f"\n{'='*60}")
+    print(f"\n{'=' * 60}")
     print(f"  {name}")
-    print(f"{'='*60}")
+    print(f"{'=' * 60}")
     env = os.environ.copy()
     env["FORCE_COLOR"] = "1"
     r = subprocess.run(
         [sys.executable, os.path.join(HERE, "test", f"{name}.py")],
-        capture_output=True, text=True, cwd=HERE, env=env,
+        capture_output=True,
+        text=True,
+        cwd=HERE,
+        env=env,
     )
     sys.stdout.write(r.stdout)
     if r.stderr:

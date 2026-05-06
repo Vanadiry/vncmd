@@ -79,7 +79,9 @@ def display_song_detail(song):
         text.append(f"{key:<{max_key_len}}  ", style="bold cyan")
         text.append(f"{value}\n", style="bright_white")
 
-    panel = Panel(text, title=f"[bold]Song Detail[/]", border_style="cyan", box=box.ROUNDED)
+    panel = Panel(
+        text, title="[bold]Song Detail[/]", border_style="cyan", box=box.ROUNDED
+    )
     console.print(panel)
 
 
@@ -87,11 +89,11 @@ def display_playlist(playlist, max_tracks=100):
     """Display playlist info and its tracks as a table."""
     # Header
     header = Text()
-    header.append(f"Playlist: ", style="bold")
+    header.append("Playlist: ", style="bold")
     header.append(f"{playlist['name']}\n", style="bold bright_white")
-    header.append(f"Creator: ", style="dim")
+    header.append("Creator: ", style="dim")
     header.append(f"{playlist['creator']}", style="yellow")
-    header.append(f"  |  Tracks: ", style="dim")
+    header.append("  |  Tracks: ", style="dim")
     header.append(f"{playlist['track_count']}", style="green")
     console.print(Panel(header, border_style="cyan", box=box.ROUNDED))
 

@@ -1,16 +1,25 @@
 import os
 
 from function.config import (
-    get_download_dir, get_download_content,
-    get_embed_lyrics_mode, get_save_lyrics_mode,
-    get_embed_cover_quality, get_save_cover_quality,
+    get_download_dir,
+    get_download_content,
+    get_embed_lyrics_mode,
+    get_save_lyrics_mode,
+    get_embed_cover_quality,
+    get_save_cover_quality,
 )
 from function.audio import (
-    get_type_from_url, cover_ext, build_filename, resolve_path,
+    get_type_from_url,
+    cover_ext,
+    build_filename,
+    resolve_path,
 )
 from function.download import fetch_audio, fetch_cover, fetch_lyrics
 from function.image import process_cover as process_cover_image
-from function.lyrics import process as process_lyrics, output_files as output_lyrics_files
+from function.lyrics import (
+    process as process_lyrics,
+    output_files as output_lyrics_files,
+)
 from function.metadata import embed as embed_metadata
 
 
@@ -88,9 +97,16 @@ def download_song(
             embed_lyric = "\n".join(embed_result.values())
 
         embed_metadata(
-            music_path, music_type, embed_cover_data, embed_cover_mime,
-            embed_lyric, song_id, song_title, song_artist,
-            song_album, publish_time,
+            music_path,
+            music_type,
+            embed_cover_data,
+            embed_cover_mime,
+            embed_lyric,
+            song_id,
+            song_title,
+            song_artist,
+            song_album,
+            publish_time,
         )
 
     # --- Save lyrics ---

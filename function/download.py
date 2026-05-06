@@ -1,8 +1,11 @@
 import sys
 import requests
 from rich.progress import (
-    Progress, BarColumn, DownloadColumn,
-    TransferSpeedColumn, TimeRemainingColumn,
+    Progress,
+    BarColumn,
+    DownloadColumn,
+    TransferSpeedColumn,
+    TimeRemainingColumn,
 )
 
 

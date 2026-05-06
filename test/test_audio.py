@@ -1,4 +1,7 @@
-import sys, os; sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+import sys
+import os
+
+sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 """Audio utilities tests."""
 import os
 from test._runner import check, section, summary, reset
@@ -9,8 +12,11 @@ TMP = __import__("test._runner", fromlist=["tmp_dir"]).tmp_dir()
 section("Audio utilities")
 
 from function.audio import (
-    check_filename, get_type_from_url, cover_ext,
-    build_filename, resolve_path,
+    check_filename,
+    get_type_from_url,
+    cover_ext,
+    build_filename,
+    resolve_path,
 )
 
 # check_filename

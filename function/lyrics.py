@@ -9,6 +9,7 @@ def _cache_root():
     global CACHE_DIR
     if CACHE_DIR is None:
         from function.config import PROJECT_ROOT
+
         CACHE_DIR = os.path.join(PROJECT_ROOT, "cache", "download")
     return CACHE_DIR
 
@@ -25,8 +26,7 @@ _TIMESTAMP_RE = re.compile(r"^\[(\d{2}):(\d{2})\.(\d{2,3})\](.*)")
 def clean(text):
     """Remove [by:...] tag lines, keep everything else (including empty lines)."""
     return "\n".join(
-        line for line in text.splitlines()
-        if not re.match(r"^\[by:", line)
+        line for line in text.splitlines() if not re.match(r"^\[by:", line)
     )
 
 

@@ -1,7 +1,10 @@
-import sys, os; sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+import sys
+import os
+
+sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 """Download orchestration tests."""
 import os
-from test._runner import check, section, summary, reset, SONG_ID, PLAYLIST_ID, cleanup
+from test._runner import check, section, summary, reset, SONG_ID, cleanup
 
 reset()
 TMP = __import__("test._runner", fromlist=["tmp_dir"]).tmp_dir()
@@ -10,12 +13,11 @@ section("Download — fetch helpers")
 from function.download import fetch_lyrics, fetch_cover
 from function.api import get_song_details
 
-l, t = fetch_lyrics(
-    f"http://music.163.com/api/song/lyric?os=pc&id={SONG_ID}&lv=-1&tv=1",
-    "netease"
+lyrics_text, translated_text = fetch_lyrics(
+    f"http://music.163.com/api/song/lyric?os=pc&id={SONG_ID}&lv=-1&tv=1", "netease"
 )
-check("fetch_lyrics returns strings", isinstance(l, str) and isinstance(t, str))
-check("fetch_lyrics has content", len(l) > 0)
+check("fetch_lyrics returns strings", isinstance(lyrics_text, str) and isinstance(translated_text, str))
+check("fetch_lyrics has content", len(lyrics_text) > 0)
 
 song = get_song_details(SONG_ID)
 cover = fetch_cover(song["cover"])
@@ -31,8 +33,10 @@ url = get_song_url(SONG_ID)
 if url:
     ok, msg, path = download_song(
         song_url=url,
-        song_title=song["title"], song_artist=song["artist"],
-        song_album=song["album"], song_id=str(song["id"]),
+        song_title=song["title"],
+        song_artist=song["artist"],
+        song_album=song["album"],
+        song_id=str(song["id"]),
         cover_url=song["cover"],
         lyrics_api_url=f"http://music.163.com/api/song/lyric?os=pc&id={SONG_ID}&lv=-1&tv=1",
         publish_time=song["publish_time"],

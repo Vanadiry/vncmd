@@ -3,7 +3,10 @@ import requests
 
 from function.config import get_cookie
 from function.cache import get_song as cache_get_song, put_song as cache_put_song
-from function.cache import get_lyrics as cache_get_lyrics, put_lyrics as cache_put_lyrics
+from function.cache import (
+    get_lyrics as cache_get_lyrics,
+    put_lyrics as cache_put_lyrics,
+)
 
 BASE_URL = "http://music.163.com"
 HEADERS = {
@@ -103,26 +106,33 @@ def get_playlist_details(playlist_id, limit=None):
             sid = tid if isinstance(tid, int) else tid["id"]
             ft = ft_map.get(sid)
             if ft:
-                tracks.append({
-                    "id": ft["id"],
-                    "title": ft["name"],
-                    "artist": ", ".join(a["name"] for a in ft.get("ar", [])),
-                    "album": ft.get("al", {}).get("name", ""),
-                    "cover": ft.get("al", {}).get("picUrl", ""),
-                    "publish_time": format_timestamp(
-                        ft.get("publishTime") or ft.get("al", {}).get("publishTime")
-                    ),
-                    "duration": _fmt_duration(ft.get("dt")),
-                })
+                tracks.append(
+                    {
+                        "id": ft["id"],
+                        "title": ft["name"],
+                        "artist": ", ".join(a["name"] for a in ft.get("ar", [])),
+                        "album": ft.get("al", {}).get("name", ""),
+                        "cover": ft.get("al", {}).get("picUrl", ""),
+                        "publish_time": format_timestamp(
+                            ft.get("publishTime") or ft.get("al", {}).get("publishTime")
+                        ),
+                        "duration": _fmt_duration(ft.get("dt")),
+                    }
+                )
             else:
                 try:
                     song = get_song_details(sid)
-                    tracks.append({
-                        "id": song["id"], "title": song["title"],
-                        "artist": song["artist"], "album": song["album"],
-                        "cover": song["cover"], "publish_time": song["publish_time"],
-                        "duration": song["duration"],
-                    })
+                    tracks.append(
+                        {
+                            "id": song["id"],
+                            "title": song["title"],
+                            "artist": song["artist"],
+                            "album": song["album"],
+                            "cover": song["cover"],
+                            "publish_time": song["publish_time"],
+                            "duration": song["duration"],
+                        }
+                    )
                 except Exception:
                     pass
             if (i + 1) % 20 == 0:
@@ -130,16 +140,19 @@ def get_playlist_details(playlist_id, limit=None):
             time.sleep(0.1)
     elif full_tracks:
         for t in full_tracks:
-            tracks.append({
-                "id": t["id"], "title": t["name"],
-                "artist": ", ".join(a["name"] for a in t.get("ar", [])),
-                "album": t.get("al", {}).get("name", ""),
-                "cover": t.get("al", {}).get("picUrl", ""),
-                "publish_time": format_timestamp(
-                    t.get("publishTime") or t.get("al", {}).get("publishTime")
-                ),
-                "duration": _fmt_duration(t.get("dt")),
-            })
+            tracks.append(
+                {
+                    "id": t["id"],
+                    "title": t["name"],
+                    "artist": ", ".join(a["name"] for a in t.get("ar", [])),
+                    "album": t.get("al", {}).get("name", ""),
+                    "cover": t.get("al", {}).get("picUrl", ""),
+                    "publish_time": format_timestamp(
+                        t.get("publishTime") or t.get("al", {}).get("publishTime")
+                    ),
+                    "duration": _fmt_duration(t.get("dt")),
+                }
+            )
 
     result = {
         "id": pl["id"],
@@ -162,15 +175,19 @@ def get_album_details(album_id):
 
     tracks = []
     for s in data.get("songs", []):
-        tracks.append({
-            "id": s["id"],
-            "title": s["name"],
-            "artist": ", ".join(a["name"] for a in s.get("ar", [])),
-            "album": album.get("name", ""),
-            "cover": album.get("picUrl", ""),
-            "publish_time": format_timestamp(s.get("publishTime") or album.get("publishTime")),
-            "duration": _fmt_duration(s.get("dt")),
-        })
+        tracks.append(
+            {
+                "id": s["id"],
+                "title": s["name"],
+                "artist": ", ".join(a["name"] for a in s.get("ar", [])),
+                "album": album.get("name", ""),
+                "cover": album.get("picUrl", ""),
+                "publish_time": format_timestamp(
+                    s.get("publishTime") or album.get("publishTime")
+                ),
+                "duration": _fmt_duration(s.get("dt")),
+            }
+        )
 
     return {
         "id": album["id"],
@@ -191,15 +208,17 @@ def search(q, limit=30, offset=0):
 
     songs = []
     for s in data.get("result", {}).get("songs", []):
-        songs.append({
-            "id": s["id"],
-            "title": s["name"],
-            "artist": ",".join(a["name"] for a in s.get("ar", [])),
-            "album": s.get("al", {}).get("name", ""),
-            "cover": s.get("al", {}).get("picUrl", ""),
-            "publish_time": format_timestamp(s.get("publishTime")),
-            "duration": _fmt_duration(s.get("dt")),
-        })
+        songs.append(
+            {
+                "id": s["id"],
+                "title": s["name"],
+                "artist": ",".join(a["name"] for a in s.get("ar", [])),
+                "album": s.get("al", {}).get("name", ""),
+                "cover": s.get("al", {}).get("picUrl", ""),
+                "publish_time": format_timestamp(s.get("publishTime")),
+                "duration": _fmt_duration(s.get("dt")),
+            }
+        )
 
     return {
         "total": data.get("result", {}).get("songCount", 0),

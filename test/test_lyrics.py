@@ -1,4 +1,7 @@
-import sys, os; sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+import sys
+import os
+
+sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 """Lyrics processing tests."""
 import os
 from test._runner import check, section, summary, reset
@@ -41,8 +44,10 @@ check("empty line preserved", "[00:15.300]" in iv)
 check("metadata kept", "作词" in iv)
 for i, line in enumerate(iv.splitlines()):
     if "Hello World" in line:
-        check("ordering orig→tlyric", i + 1 < len(iv.splitlines()) and
-              "Nihao World" in iv.splitlines()[i + 1])
+        check(
+            "ordering orig→tlyric",
+            i + 1 < len(iv.splitlines()) and "Nihao World" in iv.splitlines()[i + 1],
+        )
         break
 
 # Mode 0: interleaved → single .lrc

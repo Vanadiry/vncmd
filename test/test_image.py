@@ -1,4 +1,7 @@
-import sys, os; sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+import sys
+import os
+
+sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 """Image processing tests."""
 import io
 from PIL import Image as PILImage
@@ -32,8 +35,11 @@ buf2 = io.BytesIO()
 PILImage.new("RGB", (100, 100), (255, 0, 0)).save(buf2, "PNG")
 small_data = buf2.getvalue()
 d_small, _ = process_cover(small_data, "http://x.com/small.png", "1")
-check("small image not larger", len(d_small) <= max(len(small_data) * 2, 10000),
-      f"{len(d_small)} vs {len(small_data)}")
+check(
+    "small image not larger",
+    len(d_small) <= max(len(small_data) * 2, 10000),
+    f"{len(d_small)} vs {len(small_data)}",
+)
 
 # Quality 1 on RGBA PNG
 buf3 = io.BytesIO()

@@ -5,9 +5,16 @@ from mutagen.flac import FLAC, Picture
 
 
 def embed(
-    music_path, music_type, cover_data, cover_mime,
-    lyric_text, song_id, song_title, song_artist,
-    song_album, publish_time,
+    music_path,
+    music_type,
+    cover_data,
+    cover_mime,
+    lyric_text,
+    song_id,
+    song_title,
+    song_artist,
+    song_album,
+    publish_time,
 ):
     if music_type == "mp3":
         audio = eyed3.load(music_path)

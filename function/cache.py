@@ -65,5 +65,7 @@ def put_lyrics(song_id, data):
 
     tlyric_text = data.get("tlyric", {}).get("lyric", "")
     if tlyric_text:
-        with open(os.path.join(lrc_dir, f"{song_id}.tlyric.lrc"), "w", encoding="utf-8") as f:
+        with open(
+            os.path.join(lrc_dir, f"{song_id}.tlyric.lrc"), "w", encoding="utf-8"
+        ) as f:
             f.write(tlyric_text)

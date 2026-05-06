@@ -1,4 +1,3 @@
-#!/usr/bin/env python3
 import argparse
 import sys
 import time
@@ -26,7 +25,10 @@ from function.output import (
 )
 from function.config import (
     validate_config,
-    get_quality, get_download_dir, get_download_content, QUALITY_MAP,
+    get_quality,
+    get_download_dir,
+    get_download_content,
+    QUALITY_MAP,
 )
 
 
@@ -79,7 +81,7 @@ def _download_tracks(tracks, quality, output_dir):
         )
         if ok:
             success_count += 1
-            console.print(f"  [green]✓[/] Downloaded")
+            console.print("  [green]✓[/] Downloaded")
         else:
             fail_count += 1
             fail_ids.append(sid)
@@ -88,7 +90,9 @@ def _download_tracks(tracks, quality, output_dir):
         time.sleep(0.3)
 
     console.print()
-    console.print(f"Done: [green]{success_count} success[/], [red]{fail_count} failed[/]")
+    console.print(
+        f"Done: [green]{success_count} success[/], [red]{fail_count} failed[/]"
+    )
     if fail_ids:
         console.print(f"Failed IDs: {', '.join(str(i) for i in fail_ids)}")
 
@@ -190,7 +194,9 @@ def cmd_album(args):
 def cmd_playlist(args):
     """Preview or download a playlist."""
     try:
-        pl = get_playlist_details(args.id, limit=args.limit if args.download else (args.limit or 10))
+        pl = get_playlist_details(
+            args.id, limit=args.limit if args.download else (args.limit or 10)
+        )
     except Exception as e:
         error(f"Failed to get playlist: {e}")
         sys.exit(1)
@@ -207,23 +213,35 @@ def cmd_playlist(args):
 
 def _add_download_args(parser, batch=False):
     """Add download-related args to a parser."""
-    parser.add_argument("--download", "-d", action="store_true",
-                        help="Download instead of preview only")
+    parser.add_argument(
+        "--download", "-d", action="store_true", help="Download instead of preview only"
+    )
     _add_quality_arg(parser)
     _add_output_arg(parser)
     if batch:
-        parser.add_argument("--limit", "-n", type=int, default=None,
-                            help="Max tracks to download (default: all)")
+        parser.add_argument(
+            "--limit",
+            "-n",
+            type=int,
+            default=None,
+            help="Max tracks to download (default: all)",
+        )
 
 
 def _add_quality_arg(parser):
-    parser.add_argument("--quality", "-q", choices=list(QUALITY_MAP), default=None,
-                        help="Audio quality (default: from config)")
+    parser.add_argument(
+        "--quality",
+        "-q",
+        choices=list(QUALITY_MAP),
+        default=None,
+        help="Audio quality (default: from config)",
+    )
 
 
 def _add_output_arg(parser):
-    parser.add_argument("--output", "-o", default=None,
-                        help="Output directory (default: from config)")
+    parser.add_argument(
+        "--output", "-o", default=None, help="Output directory (default: from config)"
+    )
 
 
 def main():
@@ -235,14 +253,20 @@ def main():
 
     p_search = sub.add_parser("search", help="Search songs")
     p_search.add_argument("query", help="Search keyword")
-    p_search.add_argument("--limit", "-n", type=int, default=30, help="Max results (default: 30)")
-    p_search.add_argument("--offset", type=int, default=0, help="Result offset for pagination")
+    p_search.add_argument(
+        "--limit", "-n", type=int, default=30, help="Max results (default: 30)"
+    )
+    p_search.add_argument(
+        "--offset", type=int, default=0, help="Result offset for pagination"
+    )
 
     p_song = sub.add_parser("song", help="Preview or download a song")
     p_song.add_argument("id", type=int, help="Song ID")
     p_song.add_argument("--lyrics", "-l", action="store_true", help="Show lyrics")
     p_song.add_argument("--tlyric", action="store_true", help="Show translated lyrics")
-    p_song.add_argument("--url", "-u", action="store_true", help="Check stream URL availability")
+    p_song.add_argument(
+        "--url", "-u", action="store_true", help="Check stream URL availability"
+    )
     _add_download_args(p_song)
 
     p_al = sub.add_parser("album", help="Preview or download an album")

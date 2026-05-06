@@ -1,4 +1,7 @@
-import sys, os; sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+import sys
+import os
+
+sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 """Config module tests."""
 import os
 from test._runner import check, section, summary, reset
@@ -9,12 +12,21 @@ TMP = __import__("test._runner", fromlist=["tmp_dir"]).tmp_dir()
 section("Config")
 
 from function.config import (
-    validate_config, load_config, get_download_dir, get_quality,
-    get_filename_format, get_download_content,
-    get_embed_lyrics_mode, get_save_lyrics_mode,
-    get_embed_cover_quality, get_save_cover_quality,
-    get_cookie, is_cache_enabled, get_cache_dir,
-    CONFIG_FILE, QUALITY_MAP,
+    validate_config,
+    load_config,
+    get_download_dir,
+    get_quality,
+    get_filename_format,
+    get_download_content,
+    get_embed_lyrics_mode,
+    get_save_lyrics_mode,
+    get_embed_cover_quality,
+    get_save_cover_quality,
+    get_cookie,
+    is_cache_enabled,
+    get_cache_dir,
+    CONFIG_FILE,
+    QUALITY_MAP,
 )
 
 check("config.toml exists", os.path.exists(CONFIG_FILE))

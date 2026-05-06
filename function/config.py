@@ -52,7 +52,7 @@ def validate_config():
     else:
         for c in dl["download_content"]:
             if c not in "012":
-                errors.append('[download] download_content may only contain 0, 1, 2')
+                errors.append("[download] download_content may only contain 0, 1, 2")
                 break
 
     if not dl.get("embed_lyrics_mode"):
@@ -84,6 +84,7 @@ def validate_config():
 
 def _die(errors):
     from rich.console import Console
+
     c = Console(stderr=True)
     c.print("[red]Config validation failed:[/]")
     for e in errors:

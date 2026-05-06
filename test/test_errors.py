@@ -1,4 +1,7 @@
-import sys, os; sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+import sys
+import os
+
+sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 """Error handling tests."""
 from test._runner import check, section, summary, reset, cleanup
 
@@ -24,14 +27,20 @@ except ValueError as e:
 
 ok, msg, _ = download_song(
     song_url="http://invalid.example/never.mp3",
-    song_title="Test", song_artist="Test", song_album="Test",
-    song_id="0", cover_url="", lyrics_api_url="", publish_time="",
+    song_title="Test",
+    song_artist="Test",
+    song_album="Test",
+    song_id="0",
+    cover_url="",
+    lyrics_api_url="",
+    publish_time="",
     download_dir=TMP,
 )
 check("bad URL", not ok, f"msg={msg[:50]}")
 
 # Search for nonsense should still return results (API fuzzy matches)
 from function.api import search
+
 try:
     result = search("xyzabc123def456ghi789jkl", limit=5)
     check("nonsense search doesn't crash", "songs" in result)
