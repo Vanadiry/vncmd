@@ -16,7 +16,10 @@ from function.api import get_song_details
 lyrics_text, translated_text = fetch_lyrics(
     f"http://music.163.com/api/song/lyric?os=pc&id={SONG_ID}&lv=-1&tv=1", "netease"
 )
-check("fetch_lyrics returns strings", isinstance(lyrics_text, str) and isinstance(translated_text, str))
+check(
+    "fetch_lyrics returns strings",
+    isinstance(lyrics_text, str) and isinstance(translated_text, str),
+)
 check("fetch_lyrics has content", len(lyrics_text) > 0)
 
 song = get_song_details(SONG_ID)

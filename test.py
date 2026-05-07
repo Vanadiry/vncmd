@@ -21,6 +21,7 @@ TESTS = [
     "test_download",
     "test_cli",
     "test_errors",
+    "test_tracker",
 ]
 
 HERE = os.path.dirname(os.path.abspath(__file__))

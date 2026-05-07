@@ -64,6 +64,54 @@ r = run(
 )
 check("album -d", r.returncode == 0)
 
+section("CLI — tracker")
+
+# Create a test tracker via CLI (pipe 'y' to stdin, non-TTY fallback path)
+r = subprocess.run(
+    [sys.executable, "vnemd.py", "tracker", "_test_cli_tracker"],
+    capture_output=True,
+    text=True,
+    timeout=10,
+    cwd=PROJECT_ROOT,
+    input="y\n",
+)
+check("tracker create (new)", r.returncode == 0)
+check("tracker created message", "created" in r.stdout.lower())
+
+# Show existing tracker
+r = run(["tracker", "_test_cli_tracker"])
+check("tracker show", r.returncode == 0)
+
+# Write a source file so fetch-auto has something to do
+import shutil
+
+_td = os.path.join(PROJECT_ROOT, "tracker", "_test_cli_tracker")
+with open(os.path.join(_td, "settings.toml"), "w") as f:
+    f.write(f"""[tracker]
+description = "CLI test"
+
+[[sources]]
+type = "song"
+ids = [{SONG_ID}]
+
+[[sources]]
+type = "playlist"
+ids = []
+
+[[sources]]
+type = "album"
+ids = []
+""")
+
+r = run(["tracker", "_test_cli_tracker", "--fetch-auto"], timeout=60)
+check("tracker --fetch-auto", r.returncode == 0)
+
+r = run(["tracker", "_test_cli_tracker"])
+check("tracker show after fetch", "Cached songs: 1" in r.stdout)
+
+# Cleanup
+shutil.rmtree(_td, ignore_errors=True)
+
 failed = summary()
 if __name__ == "__main__":
     raise SystemExit(failed)
