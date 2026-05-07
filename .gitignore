@@ -9,7 +9,11 @@ __pycache__/
 cookie
 cache/
 downloads/
+tracker/
 
 # Lint
 .ruff_cache/
 /lint/
+
+# Dev
+TODO.md

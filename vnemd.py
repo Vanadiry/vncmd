@@ -30,6 +30,7 @@ from function.config import (
     get_download_content,
     QUALITY_MAP,
 )
+from function.tracker import cmd_tracker
 
 
 def _resolve_quality(args):
@@ -277,6 +278,20 @@ def main():
     p_pl.add_argument("id", type=int, help="Playlist ID")
     _add_download_args(p_pl, batch=True)
 
+    p_tracker = sub.add_parser("tracker", help="Track music sources for changes and batch download")
+    p_tracker.add_argument("name", help="Tracker name")
+    p_tracker.add_argument(
+        "--fetch", "-f", action="store_true", help="Fetch and compare, interactive conflict resolution"
+    )
+    p_tracker.add_argument(
+        "--fetch-auto", action="store_true", help="Fetch and auto-sync without interaction"
+    )
+    p_tracker.add_argument(
+        "--download", "-d", action="store_true", help="Download all cached songs"
+    )
+    _add_quality_arg(p_tracker)
+    _add_output_arg(p_tracker)
+
     args = parser.parse_args()
 
     validate_config()
@@ -290,6 +305,7 @@ def main():
         "song": cmd_song,
         "album": cmd_album,
         "playlist": cmd_playlist,
+        "tracker": cmd_tracker,
     }
 
     handler = dispatch.get(args.command)
