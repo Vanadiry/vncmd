@@ -228,9 +228,7 @@ def compare_songs(fresh, cached_list):
     removed_ids = cached_ids - fresh_ids
     common_ids = fresh_ids & cached_ids
 
-    added = sorted(
-        [fresh[sid] for sid in added_ids], key=lambda x: x.get("title", "")
-    )
+    added = sorted([fresh[sid] for sid in added_ids], key=lambda x: x.get("title", ""))
     removed = sorted(
         [cached[sid] for sid in removed_ids], key=lambda x: x.get("title", "")
     )
@@ -355,9 +353,7 @@ def resolve_conflicts(comparison, cached_list, fresh_dict):
                     border_style="yellow",
                 )
             )
-            if questionary.confirm(
-                "Apply this change?", default=True
-            ).ask():
+            if questionary.confirm("Apply this change?", default=True).ask():
                 result[old["id"]] = fresh_dict[old["id"]]
 
     return sorted(result.values(), key=lambda x: x.get("title", ""))
@@ -434,9 +430,7 @@ def download_tracker(name, quality, output_dir):
                 fail_ids.append(sid)
                 continue
 
-        lyrics_api = (
-            f"http://music.163.com/api/song/lyric?os=pc&id={sid}&lv=-1&tv=1"
-        )
+        lyrics_api = f"http://music.163.com/api/song/lyric?os=pc&id={sid}&lv=-1&tv=1"
         ok, msg, _ = download_song(
             song_url=song_url,
             song_title=details["title"],
@@ -460,13 +454,10 @@ def download_tracker(name, quality, output_dir):
 
     console.print()
     console.print(
-        f"Done: [green]{success_count} success[/], "
-        f"[red]{fail_count} failed[/]"
+        f"Done: [green]{success_count} success[/], [red]{fail_count} failed[/]"
     )
     if fail_ids:
-        console.print(
-            f"Failed IDs: {', '.join(str(i) for i in fail_ids)}"
-        )
+        console.print(f"Failed IDs: {', '.join(str(i) for i in fail_ids)}")
 
 
 def cmd_tracker(args):
@@ -477,6 +468,7 @@ def cmd_tracker(args):
     if not os.path.isdir(tdir):
         try:
             import questionary
+
             if questionary.confirm(
                 f"Tracker '{name}' does not exist. Create it?",
                 default=True,
@@ -499,10 +491,7 @@ def cmd_tracker(args):
     if args.fetch or args.fetch_auto:
         settings = load_settings(name)
         if not settings["sources"]:
-            error(
-                "No sources configured. "
-                "Edit settings.toml to add sources first."
-            )
+            error("No sources configured. Edit settings.toml to add sources first.")
             sys.exit(1)
 
         info(f"Fetching all songs for tracker '{name}'...")

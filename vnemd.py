@@ -278,13 +278,20 @@ def main():
     p_pl.add_argument("id", type=int, help="Playlist ID")
     _add_download_args(p_pl, batch=True)
 
-    p_tracker = sub.add_parser("tracker", help="Track music sources for changes and batch download")
+    p_tracker = sub.add_parser(
+        "tracker", help="Track music sources for changes and batch download"
+    )
     p_tracker.add_argument("name", help="Tracker name")
     p_tracker.add_argument(
-        "--fetch", "-f", action="store_true", help="Fetch and compare, interactive conflict resolution"
+        "--fetch",
+        "-f",
+        action="store_true",
+        help="Fetch and compare, interactive conflict resolution",
     )
     p_tracker.add_argument(
-        "--fetch-auto", action="store_true", help="Fetch and auto-sync without interaction"
+        "--fetch-auto",
+        action="store_true",
+        help="Fetch and auto-sync without interaction",
     )
     p_tracker.add_argument(
         "--download", "-d", action="store_true", help="Download all cached songs"
