@@ -18,15 +18,20 @@
 
 ## 快速开始
 
-确保你已安装好Python，并配置了环境变量。
-确保你的终端已经位于当前项目文件夹。  
+确保你已安装好Python，并配置了环境变量。  
+如果运行pip和python时提示找不到命令，尝试改为pip3和python3。  
+克隆项目之后，确保 cd 到项目文件夹里。
 
 ```bash
+# 克隆项目
+git clone https://github.com/Vanadiry/vNetEaseMusicDownloader.git
+cd vNetEaseMusicDownloader
+
 # 安装依赖（推荐使用虚拟环境）
 pip install -r requirements.txt
+```
 
-# 如果运行pip和python时提示找不到命令，尝试改为pip3和python3。
-
+```bash
 # 搜索
 python vnemd.py search "Beyond"
 
