@@ -1,4 +1,4 @@
-# 配置文件
+# 配置
 
 配置文件存放在 `config/config.toml`。
 Cookie 存放在 `config/cookie`，纯文本。
