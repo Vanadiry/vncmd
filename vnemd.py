@@ -294,6 +294,11 @@ def main():
         help="Fetch and auto-sync without interaction",
     )
     p_tracker.add_argument(
+        "--diff",
+        action="store_true",
+        help="When used with -d, download only tracks added since last fetch",
+    )
+    p_tracker.add_argument(
         "--download", "-d", action="store_true", help="Download all cached songs"
     )
     _add_quality_arg(p_tracker)

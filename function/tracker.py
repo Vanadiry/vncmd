@@ -63,6 +63,10 @@ def _songs_path(name):
     return os.path.join(_tracker_path(name), "songs.json")
 
 
+def _diff_path(name):
+    return os.path.join(_tracker_path(name), "diff.json")
+
+
 def validate_name(name):
     if not _NAME_RE.match(name):
         error(f"Invalid tracker name: '{name}'")
@@ -137,6 +141,34 @@ def save_songs_db(name, songs):
     }
     with open(_songs_path(name), "w", encoding="utf-8") as f:
         json.dump(data, f, ensure_ascii=False, indent=2)
+
+
+def save_diff(name, comparison):
+    diff = {
+        "updated_at": datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"),
+        "added": [{"id": s["id"], "title": s["title"]} for s in comparison["added"]],
+        "removed": [
+            {"id": s["id"], "title": s["title"]} for s in comparison["removed"]
+        ],
+        "changed": [
+            {
+                "id": old["id"],
+                "title_old": old["title"],
+                "title_new": new["title"],
+            }
+            for old, new in comparison["changed"]
+        ],
+    }
+    with open(_diff_path(name), "w", encoding="utf-8") as f:
+        json.dump(diff, f, ensure_ascii=False, indent=2)
+
+
+def load_diff(name):
+    path = _diff_path(name)
+    if not os.path.exists(path):
+        return {"added": [], "removed": [], "changed": []}
+    with open(path, "r", encoding="utf-8") as f:
+        return json.load(f)
 
 
 def show_tracker(name):
@@ -460,6 +492,89 @@ def download_tracker(name, quality, output_dir):
         console.print(f"Failed IDs: {', '.join(str(i) for i in fail_ids)}")
 
 
+def download_diff(name, quality, output_dir):
+    diff = load_diff(name)
+    added = diff.get("added", [])
+    removed = diff.get("removed", [])
+
+    if not added and not removed:
+        info("No diff found — run --fetch first.")
+        return
+
+    if removed:
+        removed_path = os.path.join(output_dir, "removed.txt")
+        lines = [f"{s['id']}  {s['title']}" for s in removed]
+        with open(removed_path, "w", encoding="utf-8") as f:
+            f.write("The following tracks have been removed from this tracker:\n")
+            f.write("\n".join(lines))
+            f.write("\n")
+        info(f"{len(removed)} track(s) removed — see {removed_path}")
+
+    if not added:
+        success("No new tracks to download.")
+        return
+
+    want_song = "0" in get_download_content()
+    total = len(added)
+    success_count = 0
+    fail_count = 0
+    fail_ids = []
+
+    for i, s in enumerate(added, 1):
+        sid = s["id"]
+
+        try:
+            details = get_song_details(sid)
+        except Exception as e:
+            warning(
+                f"[{i}/{total}] Skipping {s.get('title', '?')} "
+                f"(ID: {sid}) — failed to get details: {e}"
+            )
+            fail_count += 1
+            fail_ids.append(sid)
+            continue
+
+        info(f"[{i}/{total}] {details['title']} - {details['artist']}")
+
+        song_url = ""
+        if want_song:
+            song_url = get_song_url(sid, quality=quality) or ""
+            if not song_url:
+                warning(f"  Skipping (no URL — VIP or unavailable): {sid}")
+                fail_count += 1
+                fail_ids.append(sid)
+                continue
+
+        lyrics_api = f"http://music.163.com/api/song/lyric?os=pc&id={sid}&lv=-1&tv=1"
+        ok, msg, _ = download_song(
+            song_url=song_url,
+            song_title=details["title"],
+            song_artist=details["artist"],
+            song_album=details["album"],
+            song_id=str(sid),
+            cover_url=details["cover"],
+            lyrics_api_url=lyrics_api,
+            publish_time=details["publish_time"],
+            download_dir=output_dir,
+        )
+        if ok:
+            success_count += 1
+            console.print("  [green]✓[/] Downloaded")
+        else:
+            fail_count += 1
+            fail_ids.append(sid)
+            console.print(f"  [red]✗[/] {msg}")
+
+        time.sleep(0.3)
+
+    console.print()
+    console.print(
+        f"Done: [green]{success_count} success[/], [red]{fail_count} failed[/]"
+    )
+    if fail_ids:
+        console.print(f"Failed IDs: {', '.join(str(i) for i in fail_ids)}")
+
+
 def cmd_tracker(args):
     name = args.name
     validate_name(name)
@@ -512,12 +627,16 @@ def cmd_tracker(args):
 
         if resolved is not None:
             save_songs_db(name, resolved)
+            save_diff(name, comparison)
             success(f"Saved {len(resolved)} songs to database.")
 
     elif args.download:
         quality = QUALITY_MAP[args.quality] if args.quality else get_quality()
         output_dir = args.output if args.output else get_download_dir()
-        download_tracker(name, quality, output_dir)
+        if args.diff:
+            download_diff(name, quality, output_dir)
+        else:
+            download_tracker(name, quality, output_dir)
 
     else:
         show_tracker(name)
