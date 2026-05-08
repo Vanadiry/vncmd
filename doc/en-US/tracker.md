@@ -34,6 +34,8 @@ vncmd tracker "name" -d --diff  # Download only tracks added since last fetch
 - **Removed**: missing upstream, present locally
 - **Changed**: same ID, different title
 
+Removed tracks (taken down from the platform) are detected and reported separately — they are excluded from the diff and treated as still present.
+
 `--fetch-auto` accepts all changes automatically, mirroring the upstream. A backup is made before each write — restore from `.bak` if needed.
 
 ## Full Command

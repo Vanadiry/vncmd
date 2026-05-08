@@ -96,86 +96,82 @@ def get_song_details(song_id: int) -> dict:
 
 
 def get_playlist_details(playlist_id: int, limit: int | None = None) -> dict:
-    url = f"{BASE_URL}/api/v6/playlist/detail/?id={playlist_id}"
+    n = max(2000, limit) if limit else 2000
+    url = f"{BASE_URL}/api/v6/playlist/detail/?id={playlist_id}&n={n}"
     resp = _get_session().get(url, timeout=15)
     data = resp.json()
-    if not data.get("playlist"):
+
+    pl = data.get("playlist")
+    if not pl:
         raise ValueError(f"Playlist {playlist_id} not found")
 
-    pl = data["playlist"]
+    full_tracks = pl.get("tracks", [])
+    track_ids = pl.get("trackIds", [])
+    total = pl.get("trackCount", len(track_ids))
+
+    # Detect removed tracks: in trackIds but not in tracks
+    t_set = {t["id"] for t in full_tracks}
+    removed_ids = []
+    for tid in track_ids:
+        sid = tid if isinstance(tid, int) else tid["id"]
+        if sid not in t_set:
+            removed_ids.append(sid)
+
+    removed_tracks = []
+    for sid in removed_ids:
+        try:
+            info = _get_removed_song_info(sid)
+            if info:
+                removed_tracks.append(info)
+        except Exception:
+            pass
+
+    # Map tracks to standard format, apply programmatic limit
+    raw_tracks = full_tracks[:limit] if limit else full_tracks
     tracks = []
+    for t in raw_tracks:
+        ar = t.get("ar", [])
+        al = t.get("al", {})
+        tracks.append(
+            {
+                "id": t["id"],
+                "title": t["name"],
+                "artist": ", ".join(a["name"] for a in ar),
+                "album": al.get("name", ""),
+                "cover": al.get("picUrl", ""),
+                "publish_time": format_timestamp(al.get("publishTime")),
+                "duration": _fmt_duration(t.get("dt")),
+            }
+        )
 
-    full_tracks = pl.get("tracks") or []
-    track_ids = pl.get("trackIds") or []
-    ft_map = {t["id"]: t for t in full_tracks}
-
-    # Limit resolution to what's needed
-    resolve_count = min(limit, len(track_ids)) if limit else len(track_ids)
-
-    if track_ids and resolve_count > 0:
-        if resolve_count > len(full_tracks):
-            print(f"Resolving {resolve_count} tracks...")
-        for i, tid in enumerate(track_ids[:resolve_count]):
-            sid = tid if isinstance(tid, int) else tid["id"]
-            ft = ft_map.get(sid)
-            if ft:
-                tracks.append(
-                    {
-                        "id": ft["id"],
-                        "title": ft["name"],
-                        "artist": ", ".join(a["name"] for a in ft.get("ar", [])),
-                        "album": ft.get("al", {}).get("name", ""),
-                        "cover": ft.get("al", {}).get("picUrl", ""),
-                        "publish_time": format_timestamp(
-                            ft.get("publishTime") or ft.get("al", {}).get("publishTime")
-                        ),
-                        "duration": _fmt_duration(ft.get("dt")),
-                    }
-                )
-            else:
-                try:
-                    song = get_song_details(sid)
-                    tracks.append(
-                        {
-                            "id": song["id"],
-                            "title": song["title"],
-                            "artist": song["artist"],
-                            "album": song["album"],
-                            "cover": song["cover"],
-                            "publish_time": song["publish_time"],
-                            "duration": song["duration"],
-                        }
-                    )
-                except Exception:
-                    pass
-            if (i + 1) % 20 == 0:
-                print(f"  ... {i + 1}/{len(track_ids)}")
-            time.sleep(0.1)
-    elif full_tracks:
-        for t in full_tracks:
-            tracks.append(
-                {
-                    "id": t["id"],
-                    "title": t["name"],
-                    "artist": ", ".join(a["name"] for a in t.get("ar", [])),
-                    "album": t.get("al", {}).get("name", ""),
-                    "cover": t.get("al", {}).get("picUrl", ""),
-                    "publish_time": format_timestamp(
-                        t.get("publishTime") or t.get("al", {}).get("publishTime")
-                    ),
-                    "duration": _fmt_duration(t.get("dt")),
-                }
-            )
-
-    result = {
+    creator = pl.get("creator", {})
+    return {
         "id": pl["id"],
         "name": pl["name"],
-        "creator": pl.get("creator", {}).get("nickname", ""),
+        "creator": creator.get("nickname", ""),
         "cover": pl.get("coverImgUrl", ""),
-        "track_count": pl.get("trackCount", len(tracks)),
+        "track_count": total,
         "tracks": tracks,
+        "removed_tracks": removed_tracks,
     }
-    return result
+
+
+def _get_removed_song_info(song_id: int) -> dict | None:
+    url = f"{BASE_URL}/api/v1/song/detail/?id={song_id}&ids=%5B{song_id}%5D"
+    resp = _get_session().get(url, timeout=15)
+    data = resp.json()
+    songs = data.get("songs", [])
+    if not songs:
+        return None
+    s = songs[0]
+    ar = s.get("ar", [])
+    al = s.get("al", {})
+    return {
+        "id": s["id"],
+        "title": s["name"],
+        "artist": ", ".join(a["name"] for a in ar),
+        "album": al.get("name", ""),
+    }
 
 
 def get_album_details(album_id: int) -> dict:

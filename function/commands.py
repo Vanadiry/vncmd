@@ -189,6 +189,18 @@ def cmd_playlist(args: object) -> None:
 
     display_playlist(pl, max_tracks=args.limit or 10)
 
+    removed = pl.get("removed_tracks", [])
+    if removed:
+        console.print()
+        console.print(
+            f"  [yellow]⚠ {len(removed)} removed track(s) in this playlist:[/]"
+        )
+        for r in removed:
+            console.print(
+                f"    [dim]{r['id']}[/]  [red]{r['title']}[/]"
+                f"  [dim]— {r['artist']}  ·  {r['album']}[/]"
+            )
+
     if not args.download:
         return
 

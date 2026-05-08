@@ -183,8 +183,9 @@ def show_tracker(name: str) -> None:
     console.print(f"  Cached songs: [green]{len(songs)}[/]")
 
 
-def fetch_all_songs(settings: dict) -> dict[str, dict]:
+def fetch_all_songs(settings: dict) -> tuple[dict[str, dict], list[dict]]:
     raw = {}  # id -> {id, title, sources: [(type, id)]}
+    removed = []  # removed tracks from playlist sources
 
     for src in settings["sources"]:
         src_type = src["type"]
@@ -197,6 +198,11 @@ def fetch_all_songs(settings: dict) -> dict[str, dict]:
                     pl = get_playlist_details(src_id, limit=None)
                     for track in pl["tracks"]:
                         _add_to_raw(raw, track, src_type, src_id)
+                    for rt in pl.get("removed_tracks", []):
+                        removed.append({"id": rt["id"], "title": rt["title"],
+                                        "artist": rt.get("artist", ""),
+                                        "album": rt.get("album", ""),
+                                        "source_type": src_type, "source_id": src_id})
                 elif src_type == "album":
                     al = get_album_details(src_id)
                     for track in al["tracks"]:
@@ -213,7 +219,7 @@ def fetch_all_songs(settings: dict) -> dict[str, dict]:
         if len(data["sources"]) > 1:
             entry["at"] = data["sources"]
         result[sid] = entry
-    return result
+    return result, removed
 
 
 def _add_to_raw(raw: dict, track: dict, src_type: str, src_id: int) -> None:
@@ -487,7 +493,19 @@ def cmd_tracker(args: object) -> None:
             sys.exit(1)
 
         info(f"Fetching all songs for tracker '{name}'...")
-        fresh = fetch_all_songs(settings)
+        fresh, removed = fetch_all_songs(settings)
+
+        if removed:
+            console.print()
+            console.print(
+                f"  [yellow]⚠ {len(removed)} removed track(s) detected "
+                f"(not included in diff):[/]"
+            )
+            for r in removed:
+                console.print(
+                    f"    [dim]{r['id']}[/]  [red]{r['title']}[/]"
+                    f"  [dim]— {r['artist']}  ·  {r['album']}[/]"
+                )
 
         if not fresh:
             warning("No songs fetched. Check your sources configuration.")

@@ -36,8 +36,8 @@ vncmd playlist <ID> [-n count] [-d] [-q quality] [-o dir]
 vncmd album <ID> [-n count] [-d] [-q quality] [-o dir]
 ```
 
-Displays tracks as a table.
+Displays tracks as a table. If the playlist contains removed tracks, they are listed separately.
 
 | Flag | Short | Default | Description |
 | --- | --- | --- | --- |
-| `--limit` | `-n` | `10` | Preview count; downloads all by default |
+| `--limit` | `-n` | `10` | Preview count (display-only, API always fetches all); downloads all by default |
