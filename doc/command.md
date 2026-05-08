@@ -1,7 +1,7 @@
 此处介绍程序可用的全部命令和参数。
 
 ```bash
-python vnemd.py <type>
+vncmd <type>
 ```
 
 `type` 为 `search` 是搜索模式，能够按关键词查询单曲，并返回曲目ID、歌名、时长等信息。  
@@ -11,7 +11,7 @@ python vnemd.py <type>
 ## search
 
 ```bash
-python vnemd.py search <关键词> [-n 数量] [--offset 偏移]
+vncmd search <关键词> [-n 数量] [--offset 偏移]
 ```
 
 | 参数 | 简写 | 说明 |
@@ -34,7 +34,7 @@ python vnemd.py search <关键词> [-n 数量] [--offset 偏移]
 ## song
 
 ```bash
-python vnemd.py song <ID> [-l] [-u] [-d] [-q 音质] [-o 目录]
+vncmd song <ID> [-l] [-u] [-d] [-q 音质] [-o 目录]
 ```
 
 将会预览指定音乐的信息（标题、歌手、专辑、封面链接、时长）。  
@@ -50,9 +50,9 @@ python vnemd.py song <ID> [-l] [-u] [-d] [-q 音质] [-o 目录]
 
 ```bash
 # 歌单
-python vnemd.py playlist <ID> [-n 数量] [-d] [-q 音质] [-o 目录]
+vncmd playlist <ID> [-n 数量] [-d] [-q 音质] [-o 目录]
 # 专辑
-python vnemd.py album <ID> [-n 数量] [-d] [-q 音质] [-o 目录]
+vncmd album <ID> [-n 数量] [-d] [-q 音质] [-o 目录]
 ```
 
 将会以表格形式预览歌单/专辑中的曲目。
@@ -64,7 +64,7 @@ python vnemd.py album <ID> [-n 数量] [-d] [-q 音质] [-o 目录]
 ## tracker
 
 ```bash
-python vnemd.py tracker <名称> [-f | --fetch-auto] [-d] [--diff] [-q 音质] [-o 目录]
+vncmd tracker <名称> [-f | --fetch-auto] [-d] [--diff] [-q 音质] [-o 目录]
 ```
 
 | 参数 | 简写 | 说明 |

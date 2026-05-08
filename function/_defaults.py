@@ -1,6 +1,6 @@
 CONFIG_TOML = """\
 [download]
-# Absolute path, relative to VNEMD_HOME, or empty for ~/Downloads
+# Absolute path, relative to VNCMD_HOME, or empty for ~/Downloads
 dir = ""
 # Audio quality: 128, 192, 320, 999 (highest)
 quality = "999"
@@ -20,7 +20,7 @@ save_cover_quality = "0"
 [cache]
 # Enable local cache for song details and lyrics
 enabled = true
-# Absolute path, or relative to VNEMD_HOME
+# Absolute path, or relative to VNCMD_HOME
 dir = "cache"
 """
 

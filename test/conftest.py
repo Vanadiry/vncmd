@@ -7,8 +7,8 @@ from pathlib import Path
 import pytest
 
 # Isolate all file I/O to a temp directory — set before anything imports config
-_session_home = tempfile.mkdtemp(prefix="vnemd_home_")
-os.environ["VNEMD_HOME"] = _session_home
+_session_home = tempfile.mkdtemp(prefix="vncmd_home_")
+os.environ["VNCMD_HOME"] = _session_home
 
 # sys.path setup — needed so that `from function.xxx import ...` works in tests
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
@@ -32,7 +32,7 @@ def pytest_configure(config):
 @pytest.fixture
 def temp_dir():
     """Temporary directory that is automatically cleaned up after the test."""
-    d = tempfile.mkdtemp(prefix="vnemd_test_")
+    d = tempfile.mkdtemp(prefix="vncmd_test_")
     yield d
     shutil.rmtree(d, ignore_errors=True)
 

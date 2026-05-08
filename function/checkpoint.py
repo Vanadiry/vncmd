@@ -81,7 +81,7 @@ def sync_checkpoint_tracks(dl_type, dl_id, current_tracks):
             info(f"  Track removed from {dl_type}: ID {tid}")
         info(
             "  Tip: if this list changes often, consider using the tracker feature"
-            " (vnemd tracker --help)"
+            " (vncmd tracker --help)"
         )
 
     for tid in removed_ids:

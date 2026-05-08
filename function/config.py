@@ -5,9 +5,9 @@ from pathlib import Path
 
 from function._defaults import CONFIG_TOML
 
-VNEMD_HOME = Path(os.environ.get("VNEMD_HOME", "~/.vnemd")).expanduser()
-CONFIG_FILE = VNEMD_HOME / "config.toml"
-COOKIE_FILE = VNEMD_HOME / "cookie"
+VNCMD_HOME = Path(os.environ.get("VNCMD_HOME", "~/.vncmd")).expanduser()
+CONFIG_FILE = VNCMD_HOME / "config.toml"
+COOKIE_FILE = VNCMD_HOME / "cookie"
 
 QUALITY_MAP = {
     "128": 128000,
@@ -34,7 +34,7 @@ def _get_cfg():
 def validate_config():
     """Check config file has all required keys.  Auto-creates on first run."""
     if not CONFIG_FILE.exists():
-        VNEMD_HOME.mkdir(parents=True, exist_ok=True)
+        VNCMD_HOME.mkdir(parents=True, exist_ok=True)
         CONFIG_FILE.write_text(CONFIG_TOML, encoding="utf-8")
 
     try:
@@ -110,7 +110,7 @@ def get_download_dir():
     if path:
         path = os.path.expanduser(path)
         if not os.path.isabs(path):
-            path = str(VNEMD_HOME / path)
+            path = str(VNCMD_HOME / path)
         return path
     return str(Path.home() / "Downloads")
 
@@ -150,7 +150,7 @@ def get_save_cover_quality():
 
 
 def get_cache_dir():
-    return str(VNEMD_HOME / _get_cfg()["cache"]["dir"])
+    return str(VNCMD_HOME / _get_cfg()["cache"]["dir"])
 
 
 def is_cache_enabled():

@@ -220,7 +220,7 @@ def _add_output_arg(parser):
 
 def main():
     parser = argparse.ArgumentParser(
-        prog="vnemd",
+        prog="vncmd",
         description="Netease Cloud Music CLI — search, preview, and download",
     )
     sub = parser.add_subparsers(dest="command", help="Available commands")

@@ -3,7 +3,7 @@ requires = ["setuptools"]
 build-backend = "setuptools.build_meta"
 
 [project]
-name = "vnemd"
+name = "vncmd"
 version = "0.1.1"
 description = "NetEase Cloud Music CLI Tool — search, preview, download, and tracker."
 requires-python = ">=3.11"
@@ -18,7 +18,7 @@ dependencies = [
 ]
 
 [project.scripts]
-vnemd = "vnemd:main"
+vncmd = "vncmd:main"
 
 [project.optional-dependencies]
 dev = [
@@ -28,7 +28,7 @@ dev = [
 ]
 
 [tool.setuptools]
-py-modules = ["vnemd", "init"]
+py-modules = ["vncmd", "init"]
 packages = ["function"]
 
 [tool.ruff.lint.per-file-ignores]

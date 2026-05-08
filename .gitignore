@@ -5,12 +5,6 @@ __pycache__/
 # macOS Shit
 .DS_Store
 
-# Project
-cookie
-cache/
-downloads/
-tracker/
-
 # Lint
 .ruff_cache/
 /lint/

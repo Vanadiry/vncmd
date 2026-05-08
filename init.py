@@ -2,7 +2,7 @@ import os
 import sys
 
 REQUIRED_FILES = [
-    "vnemd.py",
+    "vncmd.py",
     "requirements.txt",
 ]
 
@@ -125,7 +125,7 @@ def main():
 
     if ok:
         print(_green(_bold("All checks passed. You can now run:")))
-        print("  python vnemd.py --help")
+        print("  python vncmd.py --help")
         return 0
     else:
         print(_red(_bold("Some checks failed. Fix the issues above and re-run:")))

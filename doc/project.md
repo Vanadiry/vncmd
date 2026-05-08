@@ -2,7 +2,7 @@
 
 ## 流程
 
-CLI (vnemd.py)：
+CLI (vncmd.py)：
 
 - `api.py`：请求网易云 API，缓存歌曲/歌词
 - `downloader.py`：编排下载流程

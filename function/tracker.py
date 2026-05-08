@@ -24,10 +24,10 @@ from function.config import (
     get_quality,
     get_download_dir,
     QUALITY_MAP,
-    VNEMD_HOME,
+    VNCMD_HOME,
 )
 
-TRACKER_DIR = VNEMD_HOME / "tracker"
+TRACKER_DIR = VNCMD_HOME / "tracker"
 
 _NAME_RE = re.compile(r"^[a-zA-Z0-9_-]+$")
 

@@ -1,6 +1,4 @@
-# vNetEaseMusicDownloader
-
-`vnemd`，网易云音乐 CLI 工具。  
+`vncmd`，网易云音乐 CLI 下载工具。  
 之前用的下载器不好使了，又找不到其他能嵌入元数据，还方便的工具，所以自己造了一个。
 
 本项目不提供越权操作，如果你想下载 VIP 音乐，那你要确保你是 VIP。  
@@ -13,7 +11,7 @@
 - 以交错/合并/原始模式处理双语歌词
 - 追踪歌单等多来源，自动同步和批量下载
 - 支持仅下载歌词/封面
-- 端点续传，下载列表时自动记录进度
+- 断点续传，下载列表时自动记录进度
 
 ## 快速开始
 
@@ -26,25 +24,25 @@
 git clone https://github.com/Vanadiry/vNetEaseMusicDownloader.git
 cd vNetEaseMusicDownloader
 
-# 安装依赖（推荐使用虚拟环境）
-pip install -r requirements.txt
+# 安装
+pip install .
 ```
 
 ```bash
 # 搜索
-python vnemd.py search "Beyond"
+vncmd search "Beyond"
 
 # 使用。数字为曲目ID，专辑歌单同理。加入-d参数即为下载。
 # 单曲：song｜歌单：playlist｜专辑：album。
-python vnemd.py song 409926           # 预览单曲
-python vnemd.py song 409926 -d        # 下载单曲
-python vnemd.py playlist 17647459371  # 预览歌单
-python vnemd.py playlist 17647459371 -d -n 5  # 下载歌单前5首
-python vnemd.py album 405493 -d       # 下载专辑
+vncmd song 409926           # 预览单曲
+vncmd song 409926 -d        # 下载单曲
+vncmd playlist 17647459371  # 预览歌单
+vncmd playlist 17647459371 -d -n 5  # 下载歌单前5首
+vncmd album 405493 -d       # 下载专辑
 
 # 追踪
-python vnemd.py tracker my-list       # 新建/查看追踪
-python vnemd.py tracker my-list -f    # 交互式更新
+vncmd tracker my-list       # 新建/查看追踪
+vncmd tracker my-list -f    # 交互式更新
 ```
 
 ### 基本命令
@@ -73,7 +71,7 @@ python vnemd.py tracker my-list -f    # 交互式更新
 你可以拉取远端歌单，并手动解决和本地的冲突（当然了，也可以完全镜像远端）。  
 你可以创建多个追踪列表，并且每个列表里可以任意记录单曲、歌单、专辑，没有限制。
 
-使用 `python vnemd.py tracker [名称]` 来新建一个追踪列表。若列表存在，这个命令会输出列表简介。  
+使用 `vncmd tracker [名称]` 来新建一个追踪列表。若列表存在，这个命令会输出列表简介。  
 然后编辑 `tracker/<名称>/settings.toml` 填入要追踪的单曲/歌单/专辑 ID 即可。
 
 命令：

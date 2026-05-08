@@ -7,7 +7,7 @@ from test.conftest import PROJECT_ROOT, SONG_ID, PLAYLIST_ID, ALBUM_ID
 
 def _run(args, timeout=30, **kwargs):
     return subprocess.run(
-        [sys.executable, "vnemd.py"] + args,
+        [sys.executable, "vncmd.py"] + args,
         capture_output=True, text=True, timeout=timeout, cwd=PROJECT_ROOT, **kwargs
     )
 
@@ -65,7 +65,7 @@ class TestCliTracker:
         cls._tracker_dir = PROJECT_ROOT / "tracker" / cls.TRACKER_NAME
         # Create tracker via CLI
         r = subprocess.run(
-            [sys.executable, "vnemd.py", "tracker", cls.TRACKER_NAME],
+            [sys.executable, "vncmd.py", "tracker", cls.TRACKER_NAME],
             capture_output=True, text=True, timeout=10, cwd=PROJECT_ROOT, input="y\n",
         )
         assert r.returncode == 0
