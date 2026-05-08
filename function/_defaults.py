@@ -28,15 +28,12 @@ TRACKER_SETTINGS_TOML = """\
 [tracker]
 description = "Describe this tracker here"
 
-[[sources]]
-type = "song"
+[sources.song]
 ids = []
 
-[[sources]]
-type = "playlist"
+[sources.playlist]
 ids = []
 
-[[sources]]
-type = "album"
+[sources.album]
 ids = []
 """

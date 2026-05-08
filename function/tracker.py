@@ -67,12 +67,11 @@ def load_settings(name: str) -> dict:
         data = tomllib.load(f)
     tracker = data.get("tracker", {})
     description = tracker.get("description", "")
-    sources = data.get("sources", [])
+    sources = data.get("sources", {})
     result = []
-    for src in sources:
-        src_type = src.get("type", "")
-        ids = src.get("ids", [])
-        if src_type and ids:
+    for src_type, src_data in sources.items():
+        ids = src_data.get("ids", [])
+        if ids:
             result.append({"type": src_type, "ids": ids})
     return {"description": description, "sources": result}
 

@@ -182,16 +182,13 @@ class TestTrackerNetwork:
             f.write(f"""[tracker]
 description = "Network test"
 
-[[sources]]
-type = "song"
+[sources.song]
 ids = [{SONG_ID}]
 
-[[sources]]
-type = "playlist"
+[sources.playlist]
 ids = []
 
-[[sources]]
-type = "album"
+[sources.album]
 ids = []
 """)
 

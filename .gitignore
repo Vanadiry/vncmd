@@ -1,13 +1,7 @@
-# Python
+# Project
 __pycache__/
 .venv/
-
-# macOS Shit
-.DS_Store
-
-# Lint
 .ruff_cache/
-/lint/
 
 # Test
 .pytest_cache/
@@ -21,3 +15,6 @@ htmlcov/
 TODO.md
 .vscode/
 /clean.py
+
+# macOS Shit
+.DS_Store
