@@ -1,9 +1,3 @@
-#!/usr/bin/env python3
-"""Environment check for vNetEaseMusicDownloader.
-
-Run this first:  python init.py
-"""
-
 import os
 import sys
 

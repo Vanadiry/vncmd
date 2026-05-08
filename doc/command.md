@@ -1,4 +1,4 @@
-# 命令
+此处介绍程序可用的全部命令和参数。
 
 ```bash
 python vnemd.py <type>

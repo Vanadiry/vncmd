@@ -1,4 +1,4 @@
-# 项目
+此处介绍项目相关内容。
 
 ## 流程
 
@@ -11,6 +11,8 @@ CLI (vnemd.py)：
   - `lyrics.py`：歌词交错/合并/分别
   - `metadata.py`：嵌入 MP3/FLAC 元数据
   - `audio.py`：文件名、路径
+- `checkpoint.py`：下载断点续传
+- `tracker.py`：歌单/专辑变更追踪与同步
 
 ## 测试
 

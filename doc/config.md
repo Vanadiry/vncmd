@@ -1,4 +1,4 @@
-# 配置
+此处介绍程序配置和 Tracker 功能配置。
 
 配置文件存放在 `config/config.toml`。
 Cookie 存放在 `config/cookie`，纯文本。

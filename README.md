@@ -1,5 +1,3 @@
-# vNetEaseMusicDownloader
-
 `vnemd`，网易云音乐 CLI 工具。  
 之前用的下载器不好使了，又找不到其他能嵌入元数据，还方便的工具，所以自己造了一个。
 
@@ -52,7 +50,7 @@ python vnemd.py tracker my-list -f    # 交互式更新
 读完下面的部分，建议再完整看下 [doc/command](doc/command.md)，和 [doc/config](doc/config.md)。
 
 | 命令 | 说明 |
-|:---|:---|
+| :--- | :--- |
 | `search <关键词>` | 搜索单曲 |
 | `song <ID>` | 预览单曲 |
 | `playlist <ID>` | 预览歌单 |
