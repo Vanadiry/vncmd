@@ -28,7 +28,7 @@ dev = [
 ]
 
 [tool.setuptools]
-py-modules = ["vncmd", "init"]
+py-modules = ["vncmd"]
 packages = ["function"]
 
 [tool.ruff.lint.per-file-ignores]
