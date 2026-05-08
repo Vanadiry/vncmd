@@ -1,0 +1,45 @@
+[build-system]
+requires = ["setuptools"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "vnemd"
+version = "0.1.1"
+description = "NetEase Cloud Music CLI Tool — search, preview, download, and tracker."
+requires-python = ">=3.11"
+dependencies = [
+    "requests",
+    "rich",
+    "eyeD3",
+    "mutagen",
+    "Pillow",
+    "questionary",
+    "prompt-toolkit",
+]
+
+[project.scripts]
+vnemd = "vnemd:main"
+
+[project.optional-dependencies]
+dev = [
+    "pytest",
+    "pytest-cov",
+    "ruff",
+]
+
+[tool.setuptools]
+py-modules = ["vnemd", "init"]
+packages = ["function"]
+
+[tool.ruff.lint.per-file-ignores]
+"test/*" = ["E402"]
+
+[tool.coverage.run]
+source = ["function"]
+omit = ["*/test/*", "*/__pycache__/*"]
+
+[tool.coverage.report]
+exclude_lines = [
+    "pragma: no cover",
+    'if __name__ == "__main__":',
+]

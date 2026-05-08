@@ -1,11 +1,13 @@
+import os
 import sys
 import tomllib
 from pathlib import Path
 
-PROJECT_ROOT = Path(__file__).resolve().parent.parent
-CONFIG_DIR = PROJECT_ROOT / "config"
-CONFIG_FILE = CONFIG_DIR / "config.toml"
-COOKIE_FILE = CONFIG_DIR / "cookie"
+from function._defaults import CONFIG_TOML
+
+VNEMD_HOME = Path(os.environ.get("VNEMD_HOME", "~/.vnemd")).expanduser()
+CONFIG_FILE = VNEMD_HOME / "config.toml"
+COOKIE_FILE = VNEMD_HOME / "cookie"
 
 QUALITY_MAP = {
     "128": 128000,
@@ -30,25 +32,24 @@ def _get_cfg():
 
 
 def validate_config():
-    """Check config file has all required keys. Exit with message if not."""
-    errors = []
-
+    """Check config file has all required keys.  Auto-creates on first run."""
     if not CONFIG_FILE.exists():
-        _die([f"Config file not found: {CONFIG_FILE}"])
+        VNEMD_HOME.mkdir(parents=True, exist_ok=True)
+        CONFIG_FILE.write_text(CONFIG_TOML, encoding="utf-8")
 
     try:
         cfg = load_config()
     except Exception as e:
         _die([f"Failed to parse {CONFIG_FILE}: {e}"])
-        return  # unreachable, but satisfies type checker
+        return
 
     global _cfg
     _cfg = cfg
 
+    errors = []
+
     # [download]
     dl = cfg.get("download", {})
-    if not dl.get("dir"):
-        errors.append("[download] dir is missing or empty")
     if not dl.get("quality"):
         errors.append("[download] quality is missing or empty")
     elif dl["quality"] not in QUALITY_MAP:
@@ -105,10 +106,13 @@ def _die(errors):
 
 
 def get_download_dir():
-    path = Path(_get_cfg()["download"]["dir"]).expanduser()
-    if not path.is_absolute():
-        path = PROJECT_ROOT / path
-    return str(path)
+    path = _get_cfg()["download"].get("dir", "") or ""
+    if path:
+        path = os.path.expanduser(path)
+        if not os.path.isabs(path):
+            path = str(VNEMD_HOME / path)
+        return path
+    return str(Path.home() / "Downloads")
 
 
 def get_quality():
@@ -146,7 +150,7 @@ def get_save_cover_quality():
 
 
 def get_cache_dir():
-    return str(PROJECT_ROOT / _get_cfg()["cache"]["dir"])
+    return str(VNEMD_HOME / _get_cfg()["cache"]["dir"])
 
 
 def is_cache_enabled():
@@ -155,7 +159,7 @@ def is_cache_enabled():
 
 def show_config():
     lines = [
-        "--- Config TOML ---",
+        f"--- Config TOML ({CONFIG_FILE}) ---",
     ]
     lines.append(CONFIG_FILE.read_text(encoding="utf-8").rstrip())
     lines.append("")

@@ -1,9 +1,14 @@
+import os
 import sys
 import shutil
 import tempfile
 from pathlib import Path
 
 import pytest
+
+# Isolate all file I/O to a temp directory — set before anything imports config
+_session_home = tempfile.mkdtemp(prefix="vnemd_home_")
+os.environ["VNEMD_HOME"] = _session_home
 
 # sys.path setup — needed so that `from function.xxx import ...` works in tests
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
@@ -42,8 +47,9 @@ def _reset_config_cache():
 
 @pytest.fixture(scope="session", autouse=True)
 def _ensure_dirs():
-    """Ensure required directories exist for tests."""
+    """Create default config and required directories for tests."""
     import function.config
 
+    function.config.validate_config()
     for path in (function.config.get_download_dir(), function.config.get_cache_dir()):
         Path(path).mkdir(parents=True, exist_ok=True)

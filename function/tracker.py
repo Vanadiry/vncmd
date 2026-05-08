@@ -19,33 +19,17 @@ from function.output import (
     warning,
     console,
 )
+from function._defaults import TRACKER_SETTINGS_TOML
 from function.config import (
     get_quality,
     get_download_dir,
     QUALITY_MAP,
+    VNEMD_HOME,
 )
 
-PROJECT_ROOT = Path(__file__).resolve().parent.parent
-TRACKER_DIR = PROJECT_ROOT / "tracker"
+TRACKER_DIR = VNEMD_HOME / "tracker"
 
 _NAME_RE = re.compile(r"^[a-zA-Z0-9_-]+$")
-
-DEFAULT_SETTINGS = """\
-[tracker]
-description = "Describe this tracker here"
-
-[[sources]]
-type = "song"
-ids = []
-
-[[sources]]
-type = "playlist"
-ids = []
-
-[[sources]]
-type = "album"
-ids = []
-"""
 
 
 def _tracker_path(name):
@@ -101,7 +85,7 @@ def create_tracker(name):
         sys.exit(1)
     tdir.mkdir(parents=True, exist_ok=True)
 
-    _settings_path(name).write_text(DEFAULT_SETTINGS, encoding="utf-8")
+    _settings_path(name).write_text(TRACKER_SETTINGS_TOML, encoding="utf-8")
 
     empty_db = {"updated_at": "", "songs": []}
     _songs_path(name).write_text(

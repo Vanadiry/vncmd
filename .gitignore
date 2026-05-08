@@ -18,6 +18,10 @@ tracker/
 # Test
 .pytest_cache/
 .coverage
+htmlcov/
+
+# Build
+*.egg-info/
 
 # Dev
 TODO.md
