@@ -1,4 +1,5 @@
 import os
+import sys
 import time
 from datetime import datetime
 
@@ -39,6 +40,26 @@ def make_session_dir(base_dir):
     path = os.path.join(base_dir, ts)
     os.makedirs(path, exist_ok=True)
     return path
+
+
+def _print_status(icon, color, i, total, title, artist, suffix=""):
+    """Print a download status line.
+
+    Call without *suffix* before download starts (prints a new line).
+    Call with *suffix* after download completes to rewrite the pre-download
+    status line in-place via ANSI cursor-up when stdout is a tty.
+    """
+    title = title.replace("[", "\\[").replace("]", "\\]")
+    artist = artist.replace("[", "\\[").replace("]", "\\]")
+    line = f"  [{color}]{icon}[/] [{i}/{total}] {title} - {artist}"
+    if suffix:
+        line += f" [dim]({suffix})[/]"
+    if suffix and sys.stdout.isatty():
+        sys.stdout.write("\033[F")
+        sys.stdout.flush()
+        console.print(line)
+    else:
+        console.print(line)
 
 
 def download_song(
@@ -244,7 +265,7 @@ def download_song_batch(tracks, quality, output_dir, dry_run=False,
         else:
             details = track
 
-        info(f"[{i}/{total}] {details['title']} - {details['artist']}")
+        _print_status("ℹ", "blue", i, total, details["title"], details["artist"])
 
         if not want_song:
             if dry_run:
@@ -266,11 +287,11 @@ def download_song_batch(tracks, quality, output_dir, dry_run=False,
                 if ok:
                     success_count += 1
                     _mark_done(dl_type, dl_id, sid)
-                    console.print("  [green]✓[/] Downloaded")
+                    _print_status("✓", "green", i, total, details["title"], details["artist"], "downloaded")
                 else:
                     fail_count += 1
                     fail_ids.append(sid)
-                    console.print(f"  [red]✗[/] {msg}")
+                    _print_status("✗", "red", i, total, details["title"], details["artist"], "failed")
             continue
 
         song_url = get_song_url(sid, quality=quality) or ""
@@ -306,11 +327,11 @@ def download_song_batch(tracks, quality, output_dir, dry_run=False,
         if ok:
             success_count += 1
             _mark_done(dl_type, dl_id, sid)
-            console.print("  [green]✓[/] Downloaded")
+            _print_status("✓", "green", i, total, details["title"], details["artist"], "downloaded")
         else:
             fail_count += 1
             fail_ids.append(sid)
-            console.print(f"  [red]✗[/] {msg}")
+            _print_status("✗", "red", i, total, details["title"], details["artist"], "failed")
 
         time.sleep(0.3)
 
