@@ -3,6 +3,7 @@ import shutil
 import subprocess
 import pytest
 from test.conftest import PROJECT_ROOT, SONG_ID, PLAYLIST_ID, ALBUM_ID
+from function.config import VNCMD_HOME
 
 
 def _run(args, timeout=30, **kwargs):
@@ -71,7 +72,7 @@ class TestCliTracker:
 
     @classmethod
     def setup_class(cls):
-        cls._tracker_dir = PROJECT_ROOT / "tracker" / cls.TRACKER_NAME
+        cls._tracker_dir = VNCMD_HOME / "tracker" / cls.TRACKER_NAME
         # Create tracker via CLI
         r = subprocess.run(
             [sys.executable, "vncmd.py", "tracker", cls.TRACKER_NAME],
