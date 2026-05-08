@@ -1,7 +1,7 @@
-import os
 import sys
 import time
 from datetime import datetime
+from pathlib import Path
 
 from function.api import get_song_details, get_song_url
 from function.config import (
@@ -37,9 +37,9 @@ from function.checkpoint import (
 def make_session_dir(base_dir):
     """Create a timestamped subdirectory and return its path."""
     ts = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-    path = os.path.join(base_dir, ts)
-    os.makedirs(path, exist_ok=True)
-    return path
+    path = Path(base_dir) / ts
+    path.mkdir(parents=True, exist_ok=True)
+    return str(path)
 
 
 def _print_status(icon, color, i, total, title, artist, suffix=""):
@@ -82,7 +82,7 @@ def download_song(
     """
     if download_dir is None:
         download_dir = get_download_dir()
-    os.makedirs(download_dir, exist_ok=True)
+    Path(download_dir).mkdir(parents=True, exist_ok=True)
 
     content = get_download_content()
     want_song = "0" in content
@@ -124,8 +124,8 @@ def download_song(
         err = fetch_audio(song_url, music_path, label)
         if err:
             return False, f"Download failed: {err}", None
-        if os.path.getsize(music_path) == 0:
-            os.remove(music_path)
+        if Path(music_path).stat().st_size == 0:
+            Path(music_path).unlink()
             return False, "Downloaded file is empty — likely VIP-only", None
         # Process lyrics for embedding
         embed_mode = get_embed_lyrics_mode()
@@ -151,7 +151,7 @@ def download_song(
     # --- Save lyrics ---
     if want_lyrics and lyric_text:
         save_mode = get_save_lyrics_mode()
-        base_path = os.path.join(download_dir, filename_base)
+        base_path = str(Path(download_dir) / filename_base)
         result = process_lyrics(lyric_text, tlyric_text, save_mode, song_id)
         lyric_paths = output_lyrics_files(result, base_path)
 
@@ -193,7 +193,7 @@ def download_song_batch(tracks, quality, output_dir, dry_run=False,
     # --- Resolve session directory (checkpoint or new) ---
     if dl_type is not None and dl_id is not None:
         cp = load_checkpoint(dl_type, dl_id)
-        if cp and cp.get("download_dir") and os.path.isdir(cp["download_dir"]):
+        if cp and cp.get("download_dir") and Path(cp["download_dir"]).is_dir():
             session_dir = cp["download_dir"]
             is_resuming = True
         elif cp:

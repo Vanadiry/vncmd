@@ -1,4 +1,4 @@
-import os
+from pathlib import Path
 from function.lyrics import clean, parse, interleave, process, output_files
 
 LRC = """[by:Someone]
@@ -82,10 +82,9 @@ class TestProcess:
 
 class TestOutputFiles:
     def test_creates_file(self, temp_dir):
-        paths = output_files({"lrc": "test content"}, os.path.join(temp_dir, "lyric_test"))
-        assert os.path.exists(paths[0])
+        paths = output_files({"lrc": "test content"}, str(Path(temp_dir) / "lyric_test"))
+        assert Path(paths[0]).exists()
 
     def test_content_correct(self, temp_dir):
-        paths = output_files({"lrc": "test content"}, os.path.join(temp_dir, "lyric_test"))
-        with open(paths[0]) as f:
-            assert f.read() == "test content"
+        paths = output_files({"lrc": "test content"}, str(Path(temp_dir) / "lyric_test"))
+        assert Path(paths[0]).read_text(encoding="utf-8") == "test content"

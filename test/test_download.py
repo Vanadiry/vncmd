@@ -1,4 +1,4 @@
-import os
+from pathlib import Path
 import pytest
 from function.download import fetch_lyrics, fetch_cover
 from function.api import get_song_details, get_song_url
@@ -31,7 +31,7 @@ class TestFetchHelpers:
 class TestFullDownload:
     def test_download_song(self, temp_dir):
         song = get_song_details(SONG_ID)
-        dl_dir = os.path.join(temp_dir, "dl")
+        dl_dir = Path(temp_dir) / "dl"
         url = get_song_url(SONG_ID)
         if not url:
             pytest.skip("No stream URL available (VIP or rate-limited)")
@@ -41,8 +41,8 @@ class TestFullDownload:
             song_album=song["album"], song_id=str(song["id"]),
             cover_url=song["cover"],
             lyrics_api_url=f"http://music.163.com/api/song/lyric?os=pc&id={SONG_ID}&lv=-1&tv=1",
-            publish_time=song["publish_time"], download_dir=dl_dir,
+            publish_time=song["publish_time"], download_dir=str(dl_dir),
         )
         assert ok, msg
-        files = os.listdir(dl_dir) if os.path.isdir(dl_dir) else []
+        files = list(dl_dir.iterdir()) if dl_dir.is_dir() else []
         assert len(files) >= 1

@@ -1,5 +1,5 @@
 import json
-import os
+from pathlib import Path
 
 from function.config import get_cache_dir
 from function.output import info
@@ -10,27 +10,25 @@ _CHECKPOINT_DIR = None
 def _get_checkpoint_dir():
     global _CHECKPOINT_DIR
     if _CHECKPOINT_DIR is None:
-        _CHECKPOINT_DIR = os.path.join(get_cache_dir(), "download")
-    os.makedirs(_CHECKPOINT_DIR, exist_ok=True)
+        _CHECKPOINT_DIR = Path(get_cache_dir()) / "download"
+    _CHECKPOINT_DIR.mkdir(parents=True, exist_ok=True)
     return _CHECKPOINT_DIR
 
 
 def get_checkpoint_path(dl_type, dl_id):
-    return os.path.join(_get_checkpoint_dir(), f"{dl_type}_{dl_id}.json")
+    return _get_checkpoint_dir() / f"{dl_type}_{dl_id}.json"
 
 
 def load_checkpoint(dl_type, dl_id):
     path = get_checkpoint_path(dl_type, dl_id)
-    if not os.path.exists(path):
+    if not path.exists():
         return None
-    with open(path, "r", encoding="utf-8") as f:
-        return json.load(f)
+    return json.loads(path.read_text(encoding="utf-8"))
 
 
 def save_checkpoint(dl_type, dl_id, data):
     path = get_checkpoint_path(dl_type, dl_id)
-    with open(path, "w", encoding="utf-8") as f:
-        json.dump(data, f, ensure_ascii=False, indent=2)
+    path.write_text(json.dumps(data, ensure_ascii=False, indent=2), encoding="utf-8")
 
 
 def create_checkpoint(dl_type, dl_id, download_dir, track_ids):

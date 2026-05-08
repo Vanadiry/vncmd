@@ -1,13 +1,13 @@
 import sys
-import os
 import shutil
 import tempfile
+from pathlib import Path
 
 import pytest
 
 # sys.path setup — needed so that `from function.xxx import ...` works in tests
-PROJECT_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-sys.path.insert(0, PROJECT_ROOT)
+PROJECT_ROOT = Path(__file__).resolve().parent.parent
+sys.path.insert(0, str(PROJECT_ROOT))
 
 # Shared test IDs (real NetEase Music IDs for integration tests)
 PLAYLIST_ID = 17647459371
@@ -44,7 +44,6 @@ def _reset_config_cache():
 def _ensure_dirs():
     """Ensure required directories exist for tests."""
     import function.config
-    import os
 
     for path in (function.config.get_download_dir(), function.config.get_cache_dir()):
-        os.makedirs(path, exist_ok=True)
+        Path(path).mkdir(parents=True, exist_ok=True)

@@ -1,4 +1,3 @@
-import os
 import sys
 import shutil
 import subprocess
@@ -63,7 +62,7 @@ class TestCliTracker:
 
     @classmethod
     def setup_class(cls):
-        cls._tracker_dir = os.path.join(PROJECT_ROOT, "tracker", cls.TRACKER_NAME)
+        cls._tracker_dir = PROJECT_ROOT / "tracker" / cls.TRACKER_NAME
         # Create tracker via CLI
         r = subprocess.run(
             [sys.executable, "vnemd.py", "tracker", cls.TRACKER_NAME],
@@ -72,7 +71,7 @@ class TestCliTracker:
         assert r.returncode == 0
         assert "created" in r.stdout.lower()
         # Write settings
-        with open(os.path.join(cls._tracker_dir, "settings.toml"), "w") as f:
+        with open(cls._tracker_dir / "settings.toml", "w") as f:
             f.write(f"""[tracker]
 description = "CLI test"
 

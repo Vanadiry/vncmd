@@ -1,4 +1,4 @@
-import os
+from pathlib import Path
 from function.config import (
     validate_config,
     load_config,
@@ -20,7 +20,7 @@ from function.config import (
 
 class TestConfigFile:
     def test_exists(self):
-        assert os.path.exists(CONFIG_FILE)
+        assert CONFIG_FILE.exists()
 
     def test_validate_passes(self):
         validate_config()  # would sys.exit if broken
@@ -40,7 +40,7 @@ class TestGetters:
         assert isinstance(get_download_dir(), str)
 
     def test_download_dir_exists(self):
-        assert os.path.isdir(get_download_dir())
+        assert Path(get_download_dir()).is_dir()
 
     def test_quality(self):
         q = get_quality()
@@ -71,7 +71,7 @@ class TestGetters:
         assert isinstance(is_cache_enabled(), bool)
 
     def test_cache_dir_exists(self):
-        assert os.path.isdir(get_cache_dir())
+        assert Path(get_cache_dir()).is_dir()
 
     def test_cookie(self):
         cookie = get_cookie()

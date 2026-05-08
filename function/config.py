@@ -1,11 +1,11 @@
-import os
 import sys
 import tomllib
+from pathlib import Path
 
-PROJECT_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-CONFIG_DIR = os.path.join(PROJECT_ROOT, "config")
-CONFIG_FILE = os.path.join(CONFIG_DIR, "config.toml")
-COOKIE_FILE = os.path.join(CONFIG_DIR, "cookie")
+PROJECT_ROOT = Path(__file__).resolve().parent.parent
+CONFIG_DIR = PROJECT_ROOT / "config"
+CONFIG_FILE = CONFIG_DIR / "config.toml"
+COOKIE_FILE = CONFIG_DIR / "cookie"
 
 QUALITY_MAP = {
     "128": 128000,
@@ -33,7 +33,7 @@ def validate_config():
     """Check config file has all required keys. Exit with message if not."""
     errors = []
 
-    if not os.path.exists(CONFIG_FILE):
+    if not CONFIG_FILE.exists():
         _die([f"Config file not found: {CONFIG_FILE}"])
 
     try:
@@ -105,11 +105,10 @@ def _die(errors):
 
 
 def get_download_dir():
-    path = _get_cfg()["download"]["dir"]
-    path = os.path.expanduser(path)
-    if not os.path.isabs(path):
-        path = os.path.join(PROJECT_ROOT, path)
-    return path
+    path = Path(_get_cfg()["download"]["dir"]).expanduser()
+    if not path.is_absolute():
+        path = PROJECT_ROOT / path
+    return str(path)
 
 
 def get_quality():
@@ -117,10 +116,9 @@ def get_quality():
 
 
 def get_cookie():
-    if not os.path.exists(COOKIE_FILE):
+    if not COOKIE_FILE.exists():
         return ""
-    with open(COOKIE_FILE, "r", encoding="utf-8") as f:
-        return f.read().strip()
+    return COOKIE_FILE.read_text(encoding="utf-8").strip()
 
 
 def get_filename_format():
@@ -148,8 +146,7 @@ def get_save_cover_quality():
 
 
 def get_cache_dir():
-    relative = _get_cfg()["cache"]["dir"]
-    return os.path.join(PROJECT_ROOT, relative)
+    return str(PROJECT_ROOT / _get_cfg()["cache"]["dir"])
 
 
 def is_cache_enabled():
@@ -160,8 +157,7 @@ def show_config():
     lines = [
         "--- Config TOML ---",
     ]
-    with open(CONFIG_FILE, "r", encoding="utf-8") as f:
-        lines.append(f.read().rstrip())
+    lines.append(CONFIG_FILE.read_text(encoding="utf-8").rstrip())
     lines.append("")
     lines.append("--- Cookie ---")
     cookie = get_cookie()

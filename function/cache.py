@@ -1,12 +1,12 @@
 import json
-import os
+from pathlib import Path
 
 from function.config import get_cache_dir, is_cache_enabled
 
 
 def _song_dir(song_id):
-    path = os.path.join(get_cache_dir(), "song", str(song_id))
-    os.makedirs(path, exist_ok=True)
+    path = Path(get_cache_dir()) / "song" / str(song_id)
+    path.mkdir(parents=True, exist_ok=True)
     return path
 
 
@@ -17,36 +17,31 @@ def get_song_cache_dir(song_id):
 def get_song(song_id):
     if not is_cache_enabled():
         return None
-    path = os.path.join(_song_dir(song_id), "info.json")
-    if not os.path.exists(path):
+    path = _song_dir(song_id) / "info.json"
+    if not path.exists():
         return None
-    with open(path, "r", encoding="utf-8") as f:
-        return json.loads(f.read())
+    return json.loads(path.read_text(encoding="utf-8"))
 
 
 def put_song(song_id, data):
     if not is_cache_enabled():
         return
-    path = os.path.join(_song_dir(song_id), "info.json")
-    with open(path, "w", encoding="utf-8") as f:
-        json.dump(data, f, ensure_ascii=False)
+    path = _song_dir(song_id) / "info.json"
+    path.write_text(json.dumps(data, ensure_ascii=False), encoding="utf-8")
 
 
 def get_lyrics(song_id):
     """Read lyrics from cache. Returns dict {lrc, tlyric} or None."""
     if not is_cache_enabled():
         return None
-    lrc_path = os.path.join(_song_dir(song_id), "lyric.lrc")
-    if not os.path.exists(lrc_path):
+    d = _song_dir(song_id)
+    lrc_path = d / "lyric.lrc"
+    if not lrc_path.exists():
         return None
-    with open(lrc_path, "r", encoding="utf-8") as f:
-        lrc_text = f.read()
-
-    result = {"lrc": {"lyric": lrc_text}}
-    tlyric_path = os.path.join(_song_dir(song_id), "tlyric.lrc")
-    if os.path.exists(tlyric_path):
-        with open(tlyric_path, "r", encoding="utf-8") as f:
-            result["tlyric"] = {"lyric": f.read()}
+    result = {"lrc": {"lyric": lrc_path.read_text(encoding="utf-8")}}
+    tlyric_path = d / "tlyric.lrc"
+    if tlyric_path.exists():
+        result["tlyric"] = {"lyric": tlyric_path.read_text(encoding="utf-8")}
     else:
         result["tlyric"] = {"lyric": ""}
     return result
@@ -58,10 +53,8 @@ def put_lyrics(song_id, data):
         return
     d = _song_dir(song_id)
     lrc_text = data.get("lrc", {}).get("lyric", "")
-    with open(os.path.join(d, "lyric.lrc"), "w", encoding="utf-8") as f:
-        f.write(lrc_text)
+    (d / "lyric.lrc").write_text(lrc_text, encoding="utf-8")
 
     tlyric_text = data.get("tlyric", {}).get("lyric", "")
     if tlyric_text:
-        with open(os.path.join(d, "tlyric.lrc"), "w", encoding="utf-8") as f:
-            f.write(tlyric_text)
+        (d / "tlyric.lrc").write_text(tlyric_text, encoding="utf-8")

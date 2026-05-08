@@ -1,5 +1,5 @@
-import os
 import re
+from pathlib import Path
 
 from function.config import get_filename_format
 
@@ -41,7 +41,7 @@ def resolve_path(base, ext, directory):
     counter = 0
     while True:
         suffix = f"({counter})" if counter > 0 else ""
-        path = os.path.join(directory, f"{base}{suffix}.{ext}")
-        if not os.path.exists(path):
-            return path
+        path = Path(directory) / f"{base}{suffix}.{ext}"
+        if not path.exists():
+            return str(path)
         counter += 1

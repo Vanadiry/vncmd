@@ -1,6 +1,6 @@
-import os
 import io
 import struct
+from pathlib import Path
 import eyed3
 from PIL import Image as PILImage
 from mutagen.flac import FLAC
@@ -19,7 +19,7 @@ class TestMp3Embed:
         cls.cover = _cover_data()
 
     def test_embed_and_read(self, temp_dir):
-        mp3_path = os.path.join(temp_dir, "test.mp3")
+        mp3_path = str(Path(temp_dir) / "test.mp3")
         with open(mp3_path, "wb") as f:
             f.write(b"\xff\xfb\x90\x00" + b"\x00" * 413)
 
@@ -46,7 +46,7 @@ class TestFlacEmbed:
         cls.cover = _cover_data()
 
     def test_embed_and_read(self, temp_dir):
-        flac_path = os.path.join(temp_dir, "test.flac")
+        flac_path = str(Path(temp_dir) / "test.flac")
         si = struct.pack(
             ">HH3s3sQ16s",
             4096, 4096,

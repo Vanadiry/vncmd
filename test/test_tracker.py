@@ -1,5 +1,5 @@
-import os
 import shutil
+from pathlib import Path
 import pytest
 from function.tracker import (
     validate_name,
@@ -54,7 +54,7 @@ class TestCreateAndSettings:
     @classmethod
     def setup_class(cls):
         tdir = _tracker_path(NAME_CRUD)
-        if os.path.exists(tdir):
+        if tdir.exists():
             shutil.rmtree(tdir)
         create_tracker(NAME_CRUD)
 
@@ -63,13 +63,13 @@ class TestCreateAndSettings:
         shutil.rmtree(_tracker_path(NAME_CRUD), ignore_errors=True)
 
     def test_tracker_dir_exists(self):
-        assert os.path.isdir(_tracker_path(NAME_CRUD))
+        assert _tracker_path(NAME_CRUD).is_dir()
 
     def test_settings_file_exists(self):
-        assert os.path.isfile(_settings_path(NAME_CRUD))
+        assert _settings_path(NAME_CRUD).is_file()
 
     def test_songs_json_exists(self):
-        assert os.path.isfile(_songs_path(NAME_CRUD))
+        assert _songs_path(NAME_CRUD).is_file()
 
     def test_settings_has_description(self):
         settings = load_settings(NAME_CRUD)
@@ -88,7 +88,7 @@ class TestSongsDb:
     @classmethod
     def setup_class(cls):
         tdir = _tracker_path(NAME_DB)
-        if os.path.exists(tdir):
+        if tdir.exists():
             shutil.rmtree(tdir)
         create_tracker(NAME_DB)
         cls._songs = [
@@ -119,11 +119,11 @@ class TestSongsDb:
         assert loaded[1].get("at") is not None
 
     def test_backup_exists(self):
-        assert os.path.isfile(_songs_path(NAME_DB) + ".bak")
+        assert Path(_songs_path(NAME_DB).__str__() + ".bak").exists()
 
     def test_backup_persists_after_second_save(self):
         save_songs_db(NAME_DB, [{"id": 3, "title": "Song C"}])
-        assert os.path.isfile(_songs_path(NAME_DB) + ".bak")
+        assert Path(_songs_path(NAME_DB).__str__() + ".bak").exists()
 
 
 class TestCompareSongs:
@@ -165,7 +165,7 @@ class TestTrackerNetwork:
     @classmethod
     def setup_class(cls):
         tdir = _tracker_path(NET_NAME)
-        if os.path.exists(tdir):
+        if tdir.exists():
             shutil.rmtree(tdir)
         create_tracker(NET_NAME)
         with open(_settings_path(NET_NAME), "w", encoding="utf-8") as f:
@@ -227,11 +227,11 @@ ids = []
         assert len(cmp2["changed"]) == 0
 
     def test_download(self, temp_dir):
-        dl_dir = os.path.join(temp_dir, "tracker_dl")
+        dl_dir = Path(temp_dir) / "tracker_dl"
         # Ensure songs are in the DB
         settings = load_settings(NET_NAME)
         fresh = fetch_all_songs(settings)
         save_songs_db(NET_NAME, list(fresh.values()))
-        download_tracker(NET_NAME, get_quality(), dl_dir)
-        files = os.listdir(dl_dir) if os.path.isdir(dl_dir) else []
+        download_tracker(NET_NAME, get_quality(), str(dl_dir))
+        files = list(dl_dir.iterdir()) if dl_dir.is_dir() else []
         assert len(files) >= 1

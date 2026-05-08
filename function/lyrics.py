@@ -1,5 +1,5 @@
 import re
-import os
+from pathlib import Path
 
 from function.cache import get_song_cache_dir
 
@@ -98,10 +98,8 @@ def process(lrc_raw, tlyric_raw, mode, song_id):
 
     # Cache raw cleaned lyrics
     d = get_song_cache_dir(song_id)
-    with open(os.path.join(d, "lyric.raw.lrc"), "w", encoding="utf-8") as f:
-        f.write(lrc_clean)
-    with open(os.path.join(d, "tlyric.raw.lrc"), "w", encoding="utf-8") as f:
-        f.write(tlyric_clean)
+    (d / "lyric.raw.lrc").write_text(lrc_clean, encoding="utf-8")
+    (d / "tlyric.raw.lrc").write_text(tlyric_clean, encoding="utf-8")
 
     if mode == "0":
         return {"lrc": interleave(lrc_clean, tlyric_clean)}
@@ -122,10 +120,9 @@ def output_files(lyrics_result, base_path):
         path = f"{base_path}.{suffix}"
         # Resolve duplicate filenames
         counter = 0
-        while os.path.exists(path):
+        while Path(path).exists():
             counter += 1
             path = f"{base_path}({counter}).{suffix}"
-        with open(path, "w", encoding="utf-8") as f:
-            f.write(text)
+        Path(path).write_text(text, encoding="utf-8")
         written.append(path)
     return written

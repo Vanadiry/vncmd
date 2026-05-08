@@ -1,10 +1,10 @@
 import json
-import os
 import re
 import shutil
 import sys
 import tomllib
 from datetime import datetime, timezone
+from pathlib import Path
 
 from function.api import (
     get_song_details,
@@ -25,8 +25,8 @@ from function.config import (
     QUALITY_MAP,
 )
 
-PROJECT_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-TRACKER_DIR = os.path.join(PROJECT_ROOT, "tracker")
+PROJECT_ROOT = Path(__file__).resolve().parent.parent
+TRACKER_DIR = PROJECT_ROOT / "tracker"
 
 _NAME_RE = re.compile(r"^[a-zA-Z0-9_-]+$")
 
@@ -49,19 +49,19 @@ ids = []
 
 
 def _tracker_path(name):
-    return os.path.join(TRACKER_DIR, name)
+    return TRACKER_DIR / name
 
 
 def _settings_path(name):
-    return os.path.join(_tracker_path(name), "settings.toml")
+    return _tracker_path(name) / "settings.toml"
 
 
 def _songs_path(name):
-    return os.path.join(_tracker_path(name), "songs.json")
+    return _tracker_path(name) / "songs.json"
 
 
 def _diff_path(name):
-    return os.path.join(_tracker_path(name), "diff.json")
+    return _tracker_path(name) / "diff.json"
 
 
 def validate_name(name):
@@ -76,7 +76,7 @@ def validate_name(name):
 
 def load_settings(name):
     path = _settings_path(name)
-    if not os.path.exists(path):
+    if not path.exists():
         error(f"Tracker '{name}' not found. Settings file missing: {path}")
         sys.exit(1)
     with open(path, "rb") as f:
@@ -96,17 +96,17 @@ def load_settings(name):
 def create_tracker(name):
     validate_name(name)
     tdir = _tracker_path(name)
-    if os.path.exists(tdir):
+    if tdir.exists():
         error(f"Tracker '{name}' already exists at: {tdir}")
         sys.exit(1)
-    os.makedirs(tdir, exist_ok=True)
+    tdir.mkdir(parents=True, exist_ok=True)
 
-    with open(_settings_path(name), "w", encoding="utf-8") as f:
-        f.write(DEFAULT_SETTINGS)
+    _settings_path(name).write_text(DEFAULT_SETTINGS, encoding="utf-8")
 
     empty_db = {"updated_at": "", "songs": []}
-    with open(_songs_path(name), "w", encoding="utf-8") as f:
-        json.dump(empty_db, f, ensure_ascii=False, indent=2)
+    _songs_path(name).write_text(
+        json.dumps(empty_db, ensure_ascii=False, indent=2), encoding="utf-8"
+    )
 
     success(f"Tracker '{name}' created at: {tdir}")
     info("Edit the settings.toml file to add song/playlist/album IDs to track.")
@@ -114,19 +114,18 @@ def create_tracker(name):
 
 def load_songs_db(name):
     path = _songs_path(name)
-    if not os.path.exists(path):
+    if not path.exists():
         return []
-    with open(path, "r", encoding="utf-8") as f:
-        data = json.load(f)
+    data = json.loads(path.read_text(encoding="utf-8"))
     return data.get("songs", [])
 
 
 def backup_db(name):
     songs_path = _songs_path(name)
-    bak_path = songs_path + ".bak"
-    if os.path.exists(bak_path):
-        os.remove(bak_path)
-    if os.path.exists(songs_path):
+    bak_path = songs_path.parent / (songs_path.name + ".bak")
+    if bak_path.exists():
+        bak_path.unlink()
+    if songs_path.exists():
         shutil.copy2(songs_path, bak_path)
 
 
@@ -136,8 +135,9 @@ def save_songs_db(name, songs):
         "updated_at": datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"),
         "songs": songs,
     }
-    with open(_songs_path(name), "w", encoding="utf-8") as f:
-        json.dump(data, f, ensure_ascii=False, indent=2)
+    _songs_path(name).write_text(
+        json.dumps(data, ensure_ascii=False, indent=2), encoding="utf-8"
+    )
 
 
 def save_diff(name, comparison):
@@ -156,16 +156,16 @@ def save_diff(name, comparison):
             for old, new in comparison["changed"]
         ],
     }
-    with open(_diff_path(name), "w", encoding="utf-8") as f:
-        json.dump(diff, f, ensure_ascii=False, indent=2)
+    _diff_path(name).write_text(
+        json.dumps(diff, ensure_ascii=False, indent=2), encoding="utf-8"
+    )
 
 
 def load_diff(name):
     path = _diff_path(name)
-    if not os.path.exists(path):
+    if not path.exists():
         return {"added": [], "removed": [], "changed": []}
-    with open(path, "r", encoding="utf-8") as f:
-        return json.load(f)
+    return json.loads(path.read_text(encoding="utf-8"))
 
 
 def show_tracker(name):
@@ -453,12 +453,13 @@ def download_diff(name, quality, output_dir, dry_run=False):
     )
 
     if removed:
-        removed_path = os.path.join(session_dir, "removed.txt")
+        removed_path = Path(session_dir) / "removed.txt"
         lines = [f"{s['id']}  {s['title']}" for s in removed]
-        with open(removed_path, "w", encoding="utf-8") as f:
-            f.write("The following tracks have been removed from this tracker:\n")
-            f.write("\n".join(lines))
-            f.write("\n")
+        removed_path.write_text(
+            "The following tracks have been removed from this tracker:\n"
+            + "\n".join(lines) + "\n",
+            encoding="utf-8",
+        )
         info(f"{len(removed)} track(s) removed — see {removed_path}")
 
 
@@ -467,7 +468,7 @@ def cmd_tracker(args):
     validate_name(name)
 
     tdir = _tracker_path(name)
-    if not os.path.isdir(tdir):
+    if not tdir.is_dir():
         try:
             import questionary
 

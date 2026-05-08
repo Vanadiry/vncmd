@@ -1,5 +1,5 @@
-import os
 import shutil
+from pathlib import Path
 from function.cache import (
     get_song as cache_get_song,
     put_song as cache_put_song,
@@ -27,6 +27,6 @@ def test_lyrics_round_trip():
 
 
 def teardown_module():
-    d = os.path.join(get_cache_dir(), "song", "99999999")
-    if os.path.exists(d):
+    d = Path(get_cache_dir()) / "song" / "99999999"
+    if d.exists():
         shutil.rmtree(d)
