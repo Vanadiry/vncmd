@@ -16,8 +16,13 @@ class TestNonexistentResources:
     def test_bad_url_download_fails(self, temp_dir):
         ok, msg, _ = download_song(
             song_url="http://invalid.example/never.mp3",
-            song_title="Test", song_artist="Test", song_album="Test",
-            song_id="0", cover_url="", lyrics_api_url="", publish_time="",
+            song_title="Test",
+            song_artist="Test",
+            song_album="Test",
+            song_id="0",
+            cover_url="",
+            lyrics_api_url="",
+            publish_time="",
             download_dir=temp_dir,
         )
         assert not ok

@@ -93,8 +93,11 @@ class TestSongsDb:
         create_tracker(NAME_DB)
         cls._songs = [
             {"id": 1, "title": "Song A"},
-            {"id": 2, "title": "Song B",
-             "at": [{"type": "song", "id": 2}, {"type": "playlist", "id": 99}]},
+            {
+                "id": 2,
+                "title": "Song B",
+                "at": [{"type": "song", "id": 2}, {"type": "playlist", "id": 99}],
+            },
         ]
         save_songs_db(NAME_DB, cls._songs)
 
@@ -146,7 +149,10 @@ class TestCompareSongs:
         assert cmp["changed"][0][0]["id"] == 3
 
     def test_unchanged(self):
-        fresh = {1: {"id": 1, "title": "Song A"}, 3: {"id": 3, "title": "Song C (renamed)"}}
+        fresh = {
+            1: {"id": 1, "title": "Song A"},
+            3: {"id": 3, "title": "Song C (renamed)"},
+        }
         cached = [{"id": 1, "title": "Song A"}, {"id": 3, "title": "Song C"}]
         cmp = compare_songs(fresh, cached)
         assert len(cmp["changed"]) == 1  # only 3 changed, 1 unchanged
@@ -157,7 +163,11 @@ class TestCompareSongs:
     def test_no_changes(self):
         fresh = {1: {"id": 1, "title": "A"}}
         cached = [{"id": 1, "title": "A"}]
-        assert compare_songs(fresh, cached) == {"added": [], "removed": [], "changed": []}
+        assert compare_songs(fresh, cached) == {
+            "added": [],
+            "removed": [],
+            "changed": [],
+        }
 
 
 @pytest.mark.network

@@ -21,12 +21,8 @@ ALBUM_ID = 123388631
 
 
 def pytest_configure(config):
-    config.addinivalue_line(
-        "markers", "network: tests that call the real NetEase API"
-    )
-    config.addinivalue_line(
-        "markers", "slow: tests that download audio files"
-    )
+    config.addinivalue_line("markers", "network: tests that call the real NetEase API")
+    config.addinivalue_line("markers", "slow: tests that download audio files")
 
 
 @pytest.fixture

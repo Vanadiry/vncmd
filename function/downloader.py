@@ -176,8 +176,9 @@ def download_song(
     return True, "\n".join(parts), music_path
 
 
-def download_song_batch(tracks, quality, output_dir, dry_run=False,
-                         dl_type=None, dl_id=None):
+def download_song_batch(
+    tracks, quality, output_dir, dry_run=False, dl_type=None, dl_id=None
+):
     """Download a batch of songs with progress display and summary.
 
     Each track dict must have at least 'id'.  If 'artist' is missing,
@@ -218,12 +219,13 @@ def download_song_batch(tracks, quality, output_dir, dry_run=False,
             # Read-only: check pending from checkpoint without modifying it
             if is_resuming:
                 cp = load_checkpoint(dl_type, dl_id)
-                done_set = {tid for tid, v in cp["tracks"].items() if v} if cp else set()
+                done_set = (
+                    {tid for tid, v in cp["tracks"].items() if v} if cp else set()
+                )
                 pending_set = set(track_map.keys()) - done_set
                 tracks = [t for t in tracks if str(t["id"]) in pending_set]
         elif is_resuming:
-            pending_ids, has_changes = sync_checkpoint_tracks(
-                dl_type, dl_id, track_map)
+            pending_ids, has_changes = sync_checkpoint_tracks(dl_type, dl_id, track_map)
             if has_changes:
                 info(
                     "Found unfinished download, but the track list has changed."
@@ -287,11 +289,27 @@ def download_song_batch(tracks, quality, output_dir, dry_run=False,
                 if ok:
                     success_count += 1
                     _mark_done(dl_type, dl_id, sid)
-                    _print_status("✓", "green", i, total, details["title"], details["artist"], "downloaded")
+                    _print_status(
+                        "✓",
+                        "green",
+                        i,
+                        total,
+                        details["title"],
+                        details["artist"],
+                        "downloaded",
+                    )
                 else:
                     fail_count += 1
                     fail_ids.append(sid)
-                    _print_status("✗", "red", i, total, details["title"], details["artist"], "failed")
+                    _print_status(
+                        "✗",
+                        "red",
+                        i,
+                        total,
+                        details["title"],
+                        details["artist"],
+                        "failed",
+                    )
             continue
 
         song_url = get_song_url(sid, quality=quality) or ""
@@ -301,7 +319,9 @@ def download_song_batch(tracks, quality, output_dir, dry_run=False,
                 console.print("  [green]✓[/] URL available — would download")
                 success_count += 1
             else:
-                console.print("  [red]✗[/] URL unavailable (VIP or region) — would skip")
+                console.print(
+                    "  [red]✗[/] URL unavailable (VIP or region) — would skip"
+                )
                 fail_count += 1
                 fail_ids.append(sid)
             continue
@@ -327,11 +347,21 @@ def download_song_batch(tracks, quality, output_dir, dry_run=False,
         if ok:
             success_count += 1
             _mark_done(dl_type, dl_id, sid)
-            _print_status("✓", "green", i, total, details["title"], details["artist"], "downloaded")
+            _print_status(
+                "✓",
+                "green",
+                i,
+                total,
+                details["title"],
+                details["artist"],
+                "downloaded",
+            )
         else:
             fail_count += 1
             fail_ids.append(sid)
-            _print_status("✗", "red", i, total, details["title"], details["artist"], "failed")
+            _print_status(
+                "✗", "red", i, total, details["title"], details["artist"], "failed"
+            )
 
         time.sleep(0.3)
 

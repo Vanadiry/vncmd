@@ -8,7 +8,11 @@ from test.conftest import PROJECT_ROOT, SONG_ID, PLAYLIST_ID, ALBUM_ID
 def _run(args, timeout=30, **kwargs):
     return subprocess.run(
         [sys.executable, "vncmd.py"] + args,
-        capture_output=True, text=True, timeout=timeout, cwd=PROJECT_ROOT, **kwargs
+        capture_output=True,
+        text=True,
+        timeout=timeout,
+        cwd=PROJECT_ROOT,
+        **kwargs,
     )
 
 
@@ -48,11 +52,16 @@ class TestCliPreview:
 @pytest.mark.slow
 class TestCliDownload:
     def test_playlist_download(self, temp_dir):
-        r = _run(["playlist", str(PLAYLIST_ID), "-d", "--limit", "1", "-o", temp_dir], timeout=120)
+        r = _run(
+            ["playlist", str(PLAYLIST_ID), "-d", "--limit", "1", "-o", temp_dir],
+            timeout=120,
+        )
         assert r.returncode == 0
 
     def test_album_download(self, temp_dir):
-        r = _run(["album", str(ALBUM_ID), "-d", "--limit", "1", "-o", temp_dir], timeout=120)
+        r = _run(
+            ["album", str(ALBUM_ID), "-d", "--limit", "1", "-o", temp_dir], timeout=120
+        )
         assert r.returncode == 0
 
 
@@ -66,7 +75,11 @@ class TestCliTracker:
         # Create tracker via CLI
         r = subprocess.run(
             [sys.executable, "vncmd.py", "tracker", cls.TRACKER_NAME],
-            capture_output=True, text=True, timeout=10, cwd=PROJECT_ROOT, input="y\n",
+            capture_output=True,
+            text=True,
+            timeout=10,
+            cwd=PROJECT_ROOT,
+            input="y\n",
         )
         assert r.returncode == 0
         assert "created" in r.stdout.lower()

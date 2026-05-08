@@ -37,11 +37,14 @@ class TestFullDownload:
             pytest.skip("No stream URL available (VIP or rate-limited)")
         ok, msg, path = download_song(
             song_url=url,
-            song_title=song["title"], song_artist=song["artist"],
-            song_album=song["album"], song_id=str(song["id"]),
+            song_title=song["title"],
+            song_artist=song["artist"],
+            song_album=song["album"],
+            song_id=str(song["id"]),
             cover_url=song["cover"],
             lyrics_api_url=get_lyrics_url(SONG_ID),
-            publish_time=song["publish_time"], download_dir=str(dl_dir),
+            publish_time=song["publish_time"],
+            download_dir=str(dl_dir),
         )
         assert ok, msg
         files = list(dl_dir.iterdir()) if dl_dir.is_dir() else []

@@ -412,8 +412,9 @@ def download_tracker(name, quality, output_dir, dry_run=False):
         error(f"No songs cached for tracker '{name}'. Run --fetch first.")
         sys.exit(1)
 
-    download_song_batch(songs, quality, output_dir, dry_run=dry_run,
-                        dl_type="tracker", dl_id=name)
+    download_song_batch(
+        songs, quality, output_dir, dry_run=dry_run, dl_type="tracker", dl_id=name
+    )
 
 
 def download_diff(name, quality, output_dir, dry_run=False):
@@ -432,8 +433,12 @@ def download_diff(name, quality, output_dir, dry_run=False):
         return
 
     _, _, session_dir = download_song_batch(
-        added, quality, output_dir, dry_run=dry_run,
-        dl_type="tracker", dl_id=name,
+        added,
+        quality,
+        output_dir,
+        dry_run=dry_run,
+        dl_type="tracker",
+        dl_id=name,
     )
 
     if removed:
@@ -441,7 +446,8 @@ def download_diff(name, quality, output_dir, dry_run=False):
         lines = [f"{s['id']}  {s['title']}" for s in removed]
         removed_path.write_text(
             "The following tracks have been removed from this tracker:\n"
-            + "\n".join(lines) + "\n",
+            + "\n".join(lines)
+            + "\n",
             encoding="utf-8",
         )
         info(f"{len(removed)} track(s) removed — see {removed_path}")

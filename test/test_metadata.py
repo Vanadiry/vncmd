@@ -24,10 +24,15 @@ class TestMp3Embed:
             f.write(b"\xff\xfb\x90\x00" + b"\x00" * 413)
 
         embed(
-            mp3_path, "mp3",
-            cover_data=self.cover, cover_mime="image/jpeg",
-            lyric_text="[00:01.00]Test", song_id=12345,
-            song_title="T", song_artist="A", song_album="AL",
+            mp3_path,
+            "mp3",
+            cover_data=self.cover,
+            cover_mime="image/jpeg",
+            lyric_text="[00:01.00]Test",
+            song_id=12345,
+            song_title="T",
+            song_artist="A",
+            song_album="AL",
             publish_time="2023-01-01 00:00:00",
         )
 
@@ -49,8 +54,10 @@ class TestFlacEmbed:
         flac_path = str(Path(temp_dir) / "test.flac")
         si = struct.pack(
             ">HH3s3sQ16s",
-            4096, 4096,
-            b"\x00\x00\x00", b"\x00\x00\x00",
+            4096,
+            4096,
+            b"\x00\x00\x00",
+            b"\x00\x00\x00",
             0xAC44020F00000000,
             b"\x00" * 16,
         )
@@ -58,10 +65,15 @@ class TestFlacEmbed:
             f.write(b"fLaC\x80\x00\x00\x22" + si)
 
         embed(
-            flac_path, "flac",
-            cover_data=self.cover, cover_mime="image/jpeg",
-            lyric_text="[00:01.00]FLACtest", song_id=67890,
-            song_title="TF", song_artist="AF", song_album="ALF",
+            flac_path,
+            "flac",
+            cover_data=self.cover,
+            cover_mime="image/jpeg",
+            lyric_text="[00:01.00]FLACtest",
+            song_id=67890,
+            song_title="TF",
+            song_artist="AF",
+            song_album="ALF",
             publish_time="2024-06-15 00:00:00",
         )
 

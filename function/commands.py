@@ -46,10 +46,13 @@ def _resolve_output_dir(args):
     return get_download_dir()
 
 
-def _download_tracks(tracks, quality, output_dir, dry_run=False, dl_type=None, dl_id=None):
+def _download_tracks(
+    tracks, quality, output_dir, dry_run=False, dl_type=None, dl_id=None
+):
     """Shared download for playlists and albums."""
-    download_song_batch(tracks, quality, output_dir, dry_run=dry_run,
-                        dl_type=dl_type, dl_id=dl_id)
+    download_song_batch(
+        tracks, quality, output_dir, dry_run=dry_run, dl_type=dl_type, dl_id=dl_id
+    )
 
 
 def cmd_search(args):
@@ -108,7 +111,9 @@ def cmd_song(args):
             if song_url:
                 console.print("  [green]✓[/] URL available — would download")
             else:
-                console.print("  [red]✗[/] URL unavailable (VIP or region) — would skip")
+                console.print(
+                    "  [red]✗[/] URL unavailable (VIP or region) — would skip"
+                )
         return
 
     want_song = "0" in get_download_content()
@@ -157,8 +162,14 @@ def cmd_album(args):
 
     quality = _resolve_quality(args)
     output_dir = _resolve_output_dir(args)
-    _download_tracks(al["tracks"], quality, output_dir, dry_run=args.dry_run,
-                     dl_type="album", dl_id=str(args.id))
+    _download_tracks(
+        al["tracks"],
+        quality,
+        output_dir,
+        dry_run=args.dry_run,
+        dl_type="album",
+        dl_id=str(args.id),
+    )
 
 
 def cmd_playlist(args):
@@ -178,8 +189,14 @@ def cmd_playlist(args):
 
     quality = _resolve_quality(args)
     output_dir = _resolve_output_dir(args)
-    _download_tracks(pl["tracks"], quality, output_dir, dry_run=args.dry_run,
-                     dl_type="playlist", dl_id=str(args.id))
+    _download_tracks(
+        pl["tracks"],
+        quality,
+        output_dir,
+        dry_run=args.dry_run,
+        dl_type="playlist",
+        dl_id=str(args.id),
+    )
 
 
 def cmd_init(args):
@@ -203,6 +220,8 @@ def cmd_init(args):
     else:
         COOKIE_FILE.write_text("", encoding="utf-8")
         console.print("  [green]✓[/] Created empty cookie file")
-        console.print(f"  [dim]Paste your cookie into {COOKIE_FILE} for VIP/high-quality mode.[/]")
+        console.print(
+            f"  [dim]Paste your cookie into {COOKIE_FILE} for VIP/high-quality mode.[/]"
+        )
 
     console.print("\n[bold green]Setup complete.[/]")

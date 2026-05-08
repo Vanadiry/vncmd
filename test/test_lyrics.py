@@ -82,9 +82,13 @@ class TestProcess:
 
 class TestOutputFiles:
     def test_creates_file(self, temp_dir):
-        paths = output_files({"lrc": "test content"}, str(Path(temp_dir) / "lyric_test"))
+        paths = output_files(
+            {"lrc": "test content"}, str(Path(temp_dir) / "lyric_test")
+        )
         assert Path(paths[0]).exists()
 
     def test_content_correct(self, temp_dir):
-        paths = output_files({"lrc": "test content"}, str(Path(temp_dir) / "lyric_test"))
+        paths = output_files(
+            {"lrc": "test content"}, str(Path(temp_dir) / "lyric_test")
+        )
         assert Path(paths[0]).read_text(encoding="utf-8") == "test content"

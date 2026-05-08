@@ -11,6 +11,7 @@ from function.checkpoint import (
 @pytest.fixture(autouse=True)
 def _isolate_checkpoint_dir(monkeypatch, temp_dir):
     from pathlib import Path
+
     checkpoint_dir = Path(temp_dir) / "download"
     monkeypatch.setattr(
         "function.checkpoint._get_checkpoint_dir", lambda: checkpoint_dir
@@ -101,9 +102,7 @@ class TestSyncCheckpointTracks:
 
     def test_removed_tracks_deleted(self, _isolate_checkpoint_dir):
         create_checkpoint("playlist", "p5", "/tmp/x", [1, 2])
-        pending, has_changes = sync_checkpoint_tracks(
-            "playlist", "p5", {"1": "A"}
-        )
+        pending, has_changes = sync_checkpoint_tracks("playlist", "p5", {"1": "A"})
         assert pending == ["1"]
         assert has_changes
         cp = load_checkpoint("playlist", "p5")
@@ -130,4 +129,5 @@ class TestSyncCheckpointTracks:
 
 def teardown_module():
     import function.checkpoint as cp
+
     cp._CHECKPOINT_DIR = None

@@ -10,7 +10,12 @@ from function.config import get_cache_dir
 
 
 def test_song_round_trip():
-    data = {"id": 99999999, "title": "Test Song", "artist": "Tester", "album": "Test Album"}
+    data = {
+        "id": 99999999,
+        "title": "Test Song",
+        "artist": "Tester",
+        "album": "Test Album",
+    }
     cache_put_song(99999999, data)
     cached = cache_get_song(99999999)
     assert cached == data
