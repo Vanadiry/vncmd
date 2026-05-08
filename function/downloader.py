@@ -1,5 +1,7 @@
 import os
+import time
 
+from function.api import get_song_details, get_song_url
 from function.config import (
     get_download_dir,
     get_download_content,
@@ -21,6 +23,7 @@ from function.lyrics import (
     output_files as output_lyrics_files,
 )
 from function.metadata import embed as embed_metadata
+from function.output import info, warning, console
 
 
 def download_song(
@@ -135,3 +138,75 @@ def download_song(
     if not parts:
         return False, "Nothing was downloaded — check download_content config", None
     return True, "\n".join(parts), music_path
+
+
+def download_song_batch(tracks, quality, output_dir):
+    """Download a batch of songs with progress display and summary.
+
+    Each track dict must have at least 'id'.  If 'artist' is missing,
+    ``get_song_details()`` is called to resolve full metadata from the API.
+    Returns ``(success_count, fail_count)``.
+    """
+    want_song = "0" in get_download_content()
+    total = len(tracks)
+    success_count = 0
+    fail_count = 0
+    fail_ids = []
+
+    for i, track in enumerate(tracks, 1):
+        sid = track["id"]
+
+        if "artist" not in track:
+            try:
+                details = get_song_details(sid)
+            except Exception as e:
+                warning(
+                    f"[{i}/{total}] Skipping {track.get('title', '?')} "
+                    f"(ID: {sid}) — failed to get details: {e}"
+                )
+                fail_count += 1
+                fail_ids.append(sid)
+                continue
+        else:
+            details = track
+
+        info(f"[{i}/{total}] {details['title']} - {details['artist']}")
+
+        song_url = ""
+        if want_song:
+            song_url = get_song_url(sid, quality=quality) or ""
+            if not song_url:
+                warning(f"  Skipping (no URL — VIP or unavailable): {sid}")
+                fail_count += 1
+                fail_ids.append(sid)
+                continue
+
+        lyrics_api = f"http://music.163.com/api/song/lyric?os=pc&id={sid}&lv=-1&tv=1"
+        ok, msg, _ = download_song(
+            song_url=song_url,
+            song_title=details["title"],
+            song_artist=details["artist"],
+            song_album=details["album"],
+            song_id=str(sid),
+            cover_url=details["cover"],
+            lyrics_api_url=lyrics_api,
+            publish_time=details["publish_time"],
+            download_dir=output_dir,
+        )
+        if ok:
+            success_count += 1
+            console.print("  [green]✓[/] Downloaded")
+        else:
+            fail_count += 1
+            fail_ids.append(sid)
+            console.print(f"  [red]✗[/] {msg}")
+
+        time.sleep(0.3)
+
+    console.print()
+    console.print(
+        f"Done: [green]{success_count} success[/], [red]{fail_count} failed[/]"
+    )
+    if fail_ids:
+        console.print(f"Failed IDs: {', '.join(str(i) for i in fail_ids)}")
+    return success_count, fail_count

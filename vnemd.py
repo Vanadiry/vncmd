@@ -1,6 +1,5 @@
 import argparse
 import sys
-import time
 
 from function.api import (
     search,
@@ -10,7 +9,7 @@ from function.api import (
     get_lyrics,
     get_song_url,
 )
-from function.downloader import download_song
+from function.downloader import download_song, download_song_batch
 from function.output import (
     display_search_results,
     display_album,
@@ -46,56 +45,8 @@ def _resolve_output_dir(args):
 
 
 def _download_tracks(tracks, quality, output_dir):
-    """Shared download loop for playlists and albums."""
-    want_song = "0" in get_download_content()
-    success_count = 0
-    fail_count = 0
-    fail_ids = []
-
-    for i, track in enumerate(tracks, 1):
-        sid = track["id"]
-        title = track["title"]
-        artist = track["artist"]
-
-        info(f"[{i}/{len(tracks)}] {title} - {artist}")
-
-        song_url = ""
-        if want_song:
-            song_url = get_song_url(sid, quality=quality) or ""
-            if not song_url:
-                warning(f"  Skipping (no URL — VIP or unavailable): {sid}")
-                fail_count += 1
-                fail_ids.append(sid)
-                continue
-
-        lyrics_api = f"http://music.163.com/api/song/lyric?os=pc&id={sid}&lv=-1&tv=1"
-        ok, msg, _ = download_song(
-            song_url=song_url,
-            song_title=title,
-            song_artist=artist,
-            song_album=track["album"],
-            song_id=str(sid),
-            cover_url=track["cover"],
-            lyrics_api_url=lyrics_api,
-            publish_time=track["publish_time"],
-            download_dir=output_dir,
-        )
-        if ok:
-            success_count += 1
-            console.print("  [green]✓[/] Downloaded")
-        else:
-            fail_count += 1
-            fail_ids.append(sid)
-            console.print(f"  [red]✗[/] {msg}")
-
-        time.sleep(0.3)
-
-    console.print()
-    console.print(
-        f"Done: [green]{success_count} success[/], [red]{fail_count} failed[/]"
-    )
-    if fail_ids:
-        console.print(f"Failed IDs: {', '.join(str(i) for i in fail_ids)}")
+    """Shared download for playlists and albums."""
+    download_song_batch(tracks, quality, output_dir)
 
 
 def cmd_search(args):

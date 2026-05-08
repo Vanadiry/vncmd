@@ -3,7 +3,6 @@ import os
 import re
 import shutil
 import sys
-import time
 import tomllib
 from datetime import datetime, timezone
 
@@ -11,9 +10,8 @@ from function.api import (
     get_song_details,
     get_playlist_details,
     get_album_details,
-    get_song_url,
 )
-from function.downloader import download_song
+from function.downloader import download_song_batch
 from function.output import (
     success,
     error,
@@ -24,7 +22,6 @@ from function.output import (
 from function.config import (
     get_quality,
     get_download_dir,
-    get_download_content,
     QUALITY_MAP,
 )
 
@@ -431,65 +428,7 @@ def download_tracker(name, quality, output_dir):
         error(f"No songs cached for tracker '{name}'. Run --fetch first.")
         sys.exit(1)
 
-    want_song = "0" in get_download_content()
-    total = len(songs)
-    success_count = 0
-    fail_count = 0
-    fail_ids = []
-
-    for i, s in enumerate(songs, 1):
-        sid = s["id"]
-
-        try:
-            details = get_song_details(sid)
-        except Exception as e:
-            warning(
-                f"[{i}/{total}] Skipping {s.get('title', '?')} "
-                f"(ID: {sid}) — failed to get details: {e}"
-            )
-            fail_count += 1
-            fail_ids.append(sid)
-            continue
-
-        info(f"[{i}/{total}] {details['title']} - {details['artist']}")
-
-        song_url = ""
-        if want_song:
-            song_url = get_song_url(sid, quality=quality) or ""
-            if not song_url:
-                warning(f"  Skipping (no URL — VIP or unavailable): {sid}")
-                fail_count += 1
-                fail_ids.append(sid)
-                continue
-
-        lyrics_api = f"http://music.163.com/api/song/lyric?os=pc&id={sid}&lv=-1&tv=1"
-        ok, msg, _ = download_song(
-            song_url=song_url,
-            song_title=details["title"],
-            song_artist=details["artist"],
-            song_album=details["album"],
-            song_id=str(sid),
-            cover_url=details["cover"],
-            lyrics_api_url=lyrics_api,
-            publish_time=details["publish_time"],
-            download_dir=output_dir,
-        )
-        if ok:
-            success_count += 1
-            console.print("  [green]✓[/] Downloaded")
-        else:
-            fail_count += 1
-            fail_ids.append(sid)
-            console.print(f"  [red]✗[/] {msg}")
-
-        time.sleep(0.3)
-
-    console.print()
-    console.print(
-        f"Done: [green]{success_count} success[/], [red]{fail_count} failed[/]"
-    )
-    if fail_ids:
-        console.print(f"Failed IDs: {', '.join(str(i) for i in fail_ids)}")
+    download_song_batch(songs, quality, output_dir)
 
 
 def download_diff(name, quality, output_dir):
@@ -514,65 +453,7 @@ def download_diff(name, quality, output_dir):
         success("No new tracks to download.")
         return
 
-    want_song = "0" in get_download_content()
-    total = len(added)
-    success_count = 0
-    fail_count = 0
-    fail_ids = []
-
-    for i, s in enumerate(added, 1):
-        sid = s["id"]
-
-        try:
-            details = get_song_details(sid)
-        except Exception as e:
-            warning(
-                f"[{i}/{total}] Skipping {s.get('title', '?')} "
-                f"(ID: {sid}) — failed to get details: {e}"
-            )
-            fail_count += 1
-            fail_ids.append(sid)
-            continue
-
-        info(f"[{i}/{total}] {details['title']} - {details['artist']}")
-
-        song_url = ""
-        if want_song:
-            song_url = get_song_url(sid, quality=quality) or ""
-            if not song_url:
-                warning(f"  Skipping (no URL — VIP or unavailable): {sid}")
-                fail_count += 1
-                fail_ids.append(sid)
-                continue
-
-        lyrics_api = f"http://music.163.com/api/song/lyric?os=pc&id={sid}&lv=-1&tv=1"
-        ok, msg, _ = download_song(
-            song_url=song_url,
-            song_title=details["title"],
-            song_artist=details["artist"],
-            song_album=details["album"],
-            song_id=str(sid),
-            cover_url=details["cover"],
-            lyrics_api_url=lyrics_api,
-            publish_time=details["publish_time"],
-            download_dir=output_dir,
-        )
-        if ok:
-            success_count += 1
-            console.print("  [green]✓[/] Downloaded")
-        else:
-            fail_count += 1
-            fail_ids.append(sid)
-            console.print(f"  [red]✗[/] {msg}")
-
-        time.sleep(0.3)
-
-    console.print()
-    console.print(
-        f"Done: [green]{success_count} success[/], [red]{fail_count} failed[/]"
-    )
-    if fail_ids:
-        console.print(f"Failed IDs: {', '.join(str(i) for i in fail_ids)}")
+    download_song_batch(added, quality, output_dir)
 
 
 def cmd_tracker(args):
