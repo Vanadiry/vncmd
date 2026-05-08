@@ -14,10 +14,19 @@ QUALITY_MAP = {
     "999": 2147483647,
 }
 
+_cfg: dict | None = None
+
 
 def load_config():
     with open(CONFIG_FILE, "r", encoding="utf-8") as f:
         return tomllib.loads(f.read())
+
+
+def _get_cfg():
+    global _cfg
+    if _cfg is None:
+        _cfg = load_config()
+    return _cfg
 
 
 def validate_config():
@@ -32,6 +41,9 @@ def validate_config():
     except Exception as e:
         _die([f"Failed to parse {CONFIG_FILE}: {e}"])
         return  # unreachable, but satisfies type checker
+
+    global _cfg
+    _cfg = cfg
 
     # [download]
     dl = cfg.get("download", {})
@@ -93,7 +105,7 @@ def _die(errors):
 
 
 def get_download_dir():
-    path = load_config()["download"]["dir"]
+    path = _get_cfg()["download"]["dir"]
     path = os.path.expanduser(path)
     if not os.path.isabs(path):
         path = os.path.join(PROJECT_ROOT, path)
@@ -101,8 +113,7 @@ def get_download_dir():
 
 
 def get_quality():
-    q = load_config()["download"]["quality"]
-    return QUALITY_MAP[q]
+    return QUALITY_MAP[_get_cfg()["download"]["quality"]]
 
 
 def get_cookie():
@@ -113,37 +124,36 @@ def get_cookie():
 
 
 def get_filename_format():
-    return load_config()["download"]["filename_format"]
+    return _get_cfg()["download"]["filename_format"]
 
 
 def get_download_content():
-    return load_config()["download"]["download_content"]
+    return _get_cfg()["download"]["download_content"]
 
 
 def get_embed_lyrics_mode():
-    return load_config()["download"]["embed_lyrics_mode"]
+    return _get_cfg()["download"]["embed_lyrics_mode"]
 
 
 def get_save_lyrics_mode():
-    return load_config()["download"]["save_lyrics_mode"]
+    return _get_cfg()["download"]["save_lyrics_mode"]
 
 
 def get_embed_cover_quality():
-    return load_config()["download"]["embed_cover_quality"]
+    return _get_cfg()["download"]["embed_cover_quality"]
 
 
 def get_save_cover_quality():
-    return load_config()["download"]["save_cover_quality"]
+    return _get_cfg()["download"]["save_cover_quality"]
 
 
 def get_cache_dir():
-    cfg = load_config()
-    relative = cfg["cache"]["dir"]
+    relative = _get_cfg()["cache"]["dir"]
     return os.path.join(PROJECT_ROOT, relative)
 
 
 def is_cache_enabled():
-    return load_config()["cache"]["enabled"]
+    return _get_cfg()["cache"]["enabled"]
 
 
 def show_config():
