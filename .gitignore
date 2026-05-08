@@ -10,6 +10,7 @@ htmlcov/
 
 # Build
 *.egg-info/
+/dist/
 
 # Dev
 TODO.md

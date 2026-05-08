@@ -4,9 +4,16 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "vncmd"
-version = "0.1.6"
+version = "0.1.7"
 description = "NetEase Cloud Music CLI Tool — search, preview, download, and tracker."
+readme = "README.md"
+license-files = ["LICENSE"]
 requires-python = ">=3.11"
+authors = [
+    {name = "Vanadiry", email = "v@vanadiry.com"},
+]
+keywords = ["netease", "music", "download", "cli", "lyrics", "metadata"]
+urls = {Repository = "https://github.com/Vanadiry/vncmd", Documentation = "https://magic.vanadiry.com/wiki/vncmd"}
 dependencies = [
     "requests",
     "rich",
