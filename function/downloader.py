@@ -36,7 +36,7 @@ from function.checkpoint import (
 
 def make_session_dir(base_dir):
     """Create a timestamped subdirectory and return its path."""
-    ts = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    ts = datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
     path = Path(base_dir) / ts
     path.mkdir(parents=True, exist_ok=True)
     return str(path)

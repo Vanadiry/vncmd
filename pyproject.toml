@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "vncmd"
-version = "0.1.5"
+version = "0.1.6"
 description = "NetEase Cloud Music CLI Tool — search, preview, download, and tracker."
 requires-python = ">=3.11"
 dependencies = [
