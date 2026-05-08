@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "vncmd"
-version = "0.2.0"
+version = "0.2.1"
 description = "NetEase Cloud Music CLI Tool — search, preview, download, and tracker."
 readme = "README.md"
 license-files = ["LICENSE"]
