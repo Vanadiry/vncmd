@@ -112,7 +112,7 @@ def get_download_dir():
         if not os.path.isabs(path):
             path = str(VNCMD_HOME / path)
         return path
-    return str(Path.home() / "Downloads")
+    return str(Path.home() / "Downloads" / "vncmd")
 
 
 def get_quality():
