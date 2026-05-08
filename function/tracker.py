@@ -11,7 +11,7 @@ from function.api import (
     get_playlist_details,
     get_album_details,
 )
-from function.downloader import download_song_batch
+from function.downloader import download_song_batch, make_session_dir
 from function.output import (
     success,
     error,
@@ -513,7 +513,7 @@ def cmd_tracker(args):
 
     elif args.download:
         quality = QUALITY_MAP[args.quality] if args.quality else get_quality()
-        output_dir = args.output if args.output else get_download_dir()
+        output_dir = make_session_dir(args.output if args.output else get_download_dir())
         if args.diff:
             download_diff(name, quality, output_dir, dry_run=args.dry_run)
         else:

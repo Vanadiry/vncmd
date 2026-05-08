@@ -1,23 +1,7 @@
 import re
 import os
 
-# Cache raw lyrics at cache/download/{song_id}/
-CACHE_DIR = None  # set by _cache_root()
-
-
-def _cache_root():
-    global CACHE_DIR
-    if CACHE_DIR is None:
-        from function.config import PROJECT_ROOT
-
-        CACHE_DIR = os.path.join(PROJECT_ROOT, "cache", "download")
-    return CACHE_DIR
-
-
-def _cache_path(song_id, suffix):
-    d = os.path.join(_cache_root(), str(song_id))
-    os.makedirs(d, exist_ok=True)
-    return os.path.join(d, suffix)
+from function.cache import get_song_cache_dir
 
 
 _TIMESTAMP_RE = re.compile(r"^\[(\d{2}):(\d{2})\.(\d{2,3})\](.*)")
@@ -113,9 +97,10 @@ def process(lrc_raw, tlyric_raw, mode, song_id):
     tlyric_clean = clean(tlyric_raw)
 
     # Cache raw cleaned lyrics
-    with open(_cache_path(song_id, "lrc.raw"), "w", encoding="utf-8") as f:
+    d = get_song_cache_dir(song_id)
+    with open(os.path.join(d, "lyric.raw.lrc"), "w", encoding="utf-8") as f:
         f.write(lrc_clean)
-    with open(_cache_path(song_id, "tlyric.raw"), "w", encoding="utf-8") as f:
+    with open(os.path.join(d, "tlyric.raw.lrc"), "w", encoding="utf-8") as f:
         f.write(tlyric_clean)
 
     if mode == "0":

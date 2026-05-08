@@ -35,10 +35,10 @@ cached_l = cache_get_lyrics(99999999)
 check("put_lyrics / get_lyrics round-trip", cached_l == test_lyric)
 
 # Cleanup
-for d in ("song", "lyrics"):
-    for f in os.listdir(os.path.join(get_cache_dir(), d)):
-        if f.startswith("99999999"):
-            os.remove(os.path.join(get_cache_dir(), d, f))
+import shutil
+d = os.path.join(get_cache_dir(), "song", "99999999")
+if os.path.exists(d):
+    shutil.rmtree(d)
 
 failed = summary()
 if __name__ == "__main__":

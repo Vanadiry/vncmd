@@ -1,5 +1,6 @@
 import os
 import time
+from datetime import datetime
 
 from function.api import get_song_details, get_song_url
 from function.config import (
@@ -24,6 +25,14 @@ from function.lyrics import (
 )
 from function.metadata import embed as embed_metadata
 from function.output import info, warning, console
+
+
+def make_session_dir(base_dir):
+    """Create a timestamped subdirectory and return its path."""
+    ts = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    path = os.path.join(base_dir, ts)
+    os.makedirs(path, exist_ok=True)
+    return path
 
 
 def download_song(

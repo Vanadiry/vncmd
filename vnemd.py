@@ -9,7 +9,7 @@ from function.api import (
     get_lyrics,
     get_song_url,
 )
-from function.downloader import download_song, download_song_batch
+from function.downloader import download_song, download_song_batch, make_session_dir
 from function.output import (
     display_search_results,
     display_album,
@@ -119,7 +119,7 @@ def cmd_song(args):
             error("Add a cookie to config/cookie for VIP songs.")
             sys.exit(1)
 
-    output_dir = _resolve_output_dir(args)
+    output_dir = make_session_dir(_resolve_output_dir(args))
     info(f"Downloading: {song['title']} - {song['artist']}")
     lyrics_api = f"http://music.163.com/api/song/lyric?os=pc&id={args.id}&lv=-1&tv=1"
     ok, msg, path = download_song(
@@ -153,7 +153,7 @@ def cmd_album(args):
         return
 
     quality = _resolve_quality(args)
-    output_dir = _resolve_output_dir(args)
+    output_dir = make_session_dir(_resolve_output_dir(args))
     _download_tracks(al["tracks"], quality, output_dir, dry_run=args.dry_run)
 
 
@@ -173,7 +173,7 @@ def cmd_playlist(args):
         return
 
     quality = _resolve_quality(args)
-    output_dir = _resolve_output_dir(args)
+    output_dir = make_session_dir(_resolve_output_dir(args))
     _download_tracks(pl["tracks"], quality, output_dir, dry_run=args.dry_run)
 
 
