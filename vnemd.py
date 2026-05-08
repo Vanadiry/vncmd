@@ -44,9 +44,10 @@ def _resolve_output_dir(args):
     return get_download_dir()
 
 
-def _download_tracks(tracks, quality, output_dir, dry_run=False):
+def _download_tracks(tracks, quality, output_dir, dry_run=False, dl_type=None, dl_id=None):
     """Shared download for playlists and albums."""
-    download_song_batch(tracks, quality, output_dir, dry_run=dry_run)
+    download_song_batch(tracks, quality, output_dir, dry_run=dry_run,
+                        dl_type=dl_type, dl_id=dl_id)
 
 
 def cmd_search(args):
@@ -153,8 +154,9 @@ def cmd_album(args):
         return
 
     quality = _resolve_quality(args)
-    output_dir = make_session_dir(_resolve_output_dir(args))
-    _download_tracks(al["tracks"], quality, output_dir, dry_run=args.dry_run)
+    output_dir = _resolve_output_dir(args)
+    _download_tracks(al["tracks"], quality, output_dir, dry_run=args.dry_run,
+                     dl_type="album", dl_id=str(args.id))
 
 
 def cmd_playlist(args):
@@ -173,8 +175,9 @@ def cmd_playlist(args):
         return
 
     quality = _resolve_quality(args)
-    output_dir = make_session_dir(_resolve_output_dir(args))
-    _download_tracks(pl["tracks"], quality, output_dir, dry_run=args.dry_run)
+    output_dir = _resolve_output_dir(args)
+    _download_tracks(pl["tracks"], quality, output_dir, dry_run=args.dry_run,
+                     dl_type="playlist", dl_id=str(args.id))
 
 
 def _add_download_args(parser, batch=False):

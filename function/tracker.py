@@ -11,7 +11,7 @@ from function.api import (
     get_playlist_details,
     get_album_details,
 )
-from function.downloader import download_song_batch, make_session_dir
+from function.downloader import download_song_batch
 from function.output import (
     success,
     error,
@@ -428,7 +428,8 @@ def download_tracker(name, quality, output_dir, dry_run=False):
         error(f"No songs cached for tracker '{name}'. Run --fetch first.")
         sys.exit(1)
 
-    download_song_batch(songs, quality, output_dir, dry_run=dry_run)
+    download_song_batch(songs, quality, output_dir, dry_run=dry_run,
+                        dl_type="tracker", dl_id=name)
 
 
 def download_diff(name, quality, output_dir, dry_run=False):
@@ -440,20 +441,25 @@ def download_diff(name, quality, output_dir, dry_run=False):
         info("No diff found — run --fetch first.")
         return
 
+    if not added:
+        if removed:
+            info(f"{len(removed)} track(s) removed from tracker.")
+        success("No new tracks to download.")
+        return
+
+    _, _, session_dir = download_song_batch(
+        added, quality, output_dir, dry_run=dry_run,
+        dl_type="tracker", dl_id=name,
+    )
+
     if removed:
-        removed_path = os.path.join(output_dir, "removed.txt")
+        removed_path = os.path.join(session_dir, "removed.txt")
         lines = [f"{s['id']}  {s['title']}" for s in removed]
         with open(removed_path, "w", encoding="utf-8") as f:
             f.write("The following tracks have been removed from this tracker:\n")
             f.write("\n".join(lines))
             f.write("\n")
         info(f"{len(removed)} track(s) removed — see {removed_path}")
-
-    if not added:
-        success("No new tracks to download.")
-        return
-
-    download_song_batch(added, quality, output_dir, dry_run=dry_run)
 
 
 def cmd_tracker(args):
@@ -513,7 +519,7 @@ def cmd_tracker(args):
 
     elif args.download:
         quality = QUALITY_MAP[args.quality] if args.quality else get_quality()
-        output_dir = make_session_dir(args.output if args.output else get_download_dir())
+        output_dir = args.output if args.output else get_download_dir()
         if args.diff:
             download_diff(name, quality, output_dir, dry_run=args.dry_run)
         else:

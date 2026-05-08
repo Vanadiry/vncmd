@@ -25,6 +25,12 @@ from function.lyrics import (
 )
 from function.metadata import embed as embed_metadata
 from function.output import info, warning, console
+from function.checkpoint import (
+    load_checkpoint,
+    create_checkpoint,
+    mark_downloaded,
+    sync_checkpoint_tracks,
+)
 
 
 def make_session_dir(base_dir):
@@ -149,15 +155,67 @@ def download_song(
     return True, "\n".join(parts), music_path
 
 
-def download_song_batch(tracks, quality, output_dir, dry_run=False):
+def download_song_batch(tracks, quality, output_dir, dry_run=False,
+                         dl_type=None, dl_id=None):
     """Download a batch of songs with progress display and summary.
 
     Each track dict must have at least 'id'.  If 'artist' is missing,
     ``get_song_details()`` is called to resolve full metadata from the API.
 
+    When ``dl_type`` and ``dl_id`` are provided, resume/checkpoint is enabled:
+    progress is persisted to ``cache/download/<type>_<id>.json`` and
+    already-downloaded tracks are skipped on re-run.
+
     When ``dry_run=True``, only checks URL availability without downloading.
-    Returns ``(success_count, fail_count)``.
+    Returns ``(success_count, fail_count, session_dir)``.
     """
+    # --- Resolve session directory (checkpoint or new) ---
+    if dl_type is not None and dl_id is not None:
+        cp = load_checkpoint(dl_type, dl_id)
+        if cp and cp.get("download_dir") and os.path.isdir(cp["download_dir"]):
+            session_dir = cp["download_dir"]
+            is_resuming = True
+        elif cp:
+            info(
+                "Found unfinished download, but the previous directory is missing."
+                " Starting a new full download."
+            )
+            session_dir = make_session_dir(output_dir)
+            is_resuming = False
+        else:
+            info("Starting a new full download.")
+            session_dir = make_session_dir(output_dir)
+            is_resuming = False
+    else:
+        session_dir = make_session_dir(output_dir)
+        is_resuming = False
+
+    # --- Sync checkpoint tracks & filter to pending ---
+    if dl_type is not None and dl_id is not None:
+        track_map = {str(t["id"]): t.get("title", "?") for t in tracks}
+        if dry_run:
+            # Read-only: check pending from checkpoint without modifying it
+            if is_resuming:
+                cp = load_checkpoint(dl_type, dl_id)
+                done_set = {tid for tid, v in cp["tracks"].items() if v} if cp else set()
+                pending_set = set(track_map.keys()) - done_set
+                tracks = [t for t in tracks if str(t["id"]) in pending_set]
+        elif is_resuming:
+            pending_ids, has_changes = sync_checkpoint_tracks(
+                dl_type, dl_id, track_map)
+            if has_changes:
+                info(
+                    "Found unfinished download, but the track list has changed."
+                    " Continuing with updated list."
+                )
+            else:
+                info("Found unfinished download. Resuming.")
+            console.print()
+            pending_set = set(pending_ids)
+            tracks = [t for t in tracks if str(t["id"]) in pending_set]
+        else:
+            create_checkpoint(dl_type, dl_id, session_dir, list(track_map.keys()))
+
     want_song = "0" in get_download_content()
     total = len(tracks)
     success_count = 0
@@ -166,6 +224,8 @@ def download_song_batch(tracks, quality, output_dir, dry_run=False):
 
     if dry_run:
         console.print(f"[bold cyan]Dry run[/] — previewing {total} track(s)")
+    elif is_resuming and total == 0:
+        console.print("[bold green]All tracks already downloaded — nothing to do.[/]")
 
     for i, track in enumerate(tracks, 1):
         sid = track["id"]
@@ -201,10 +261,11 @@ def download_song_batch(tracks, quality, output_dir, dry_run=False):
                     cover_url=details["cover"],
                     lyrics_api_url=lyrics_api,
                     publish_time=details["publish_time"],
-                    download_dir=output_dir,
+                    download_dir=session_dir,
                 )
                 if ok:
                     success_count += 1
+                    _mark_done(dl_type, dl_id, sid)
                     console.print("  [green]✓[/] Downloaded")
                 else:
                     fail_count += 1
@@ -240,10 +301,11 @@ def download_song_batch(tracks, quality, output_dir, dry_run=False):
             cover_url=details["cover"],
             lyrics_api_url=lyrics_api,
             publish_time=details["publish_time"],
-            download_dir=output_dir,
+            download_dir=session_dir,
         )
         if ok:
             success_count += 1
+            _mark_done(dl_type, dl_id, sid)
             console.print("  [green]✓[/] Downloaded")
         else:
             fail_count += 1
@@ -264,4 +326,9 @@ def download_song_batch(tracks, quality, output_dir, dry_run=False):
         )
     if fail_ids:
         console.print(f"Failed IDs: {', '.join(str(i) for i in fail_ids)}")
-    return success_count, fail_count
+    return success_count, fail_count, session_dir
+
+
+def _mark_done(dl_type, dl_id, song_id):
+    if dl_type is not None and dl_id is not None:
+        mark_downloaded(dl_type, dl_id, song_id)
