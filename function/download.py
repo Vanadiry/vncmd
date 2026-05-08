@@ -1,5 +1,7 @@
 import sys
 import requests
+from requests.adapters import HTTPAdapter
+from urllib3.util.retry import Retry
 from rich.progress import (
     Progress,
     BarColumn,
@@ -7,6 +9,24 @@ from rich.progress import (
     TransferSpeedColumn,
     TimeRemainingColumn,
 )
+
+_dl_session = None
+
+
+def _get_dl_session():
+    global _dl_session
+    if _dl_session is None:
+        _dl_session = requests.Session()
+        retry = Retry(
+            total=3,
+            backoff_factor=0.5,
+            status_forcelist=[500, 502, 503, 504],
+            allowed_methods={"GET"},
+        )
+        adapter = HTTPAdapter(max_retries=retry)
+        _dl_session.mount("http://", adapter)
+        _dl_session.mount("https://", adapter)
+    return _dl_session
 
 
 def fetch_audio(url, path, label):
@@ -46,7 +66,7 @@ def fetch_audio(url, path, label):
 def fetch_cover(cover_url):
     """Download cover image. Returns bytes or None."""
     try:
-        return requests.get(cover_url, timeout=15).content
+        return _get_dl_session().get(cover_url, timeout=15).content
     except Exception:
         return None
 
@@ -54,7 +74,7 @@ def fetch_cover(cover_url):
 def fetch_lyrics(lyrics_api_url, source):
     """Fetch lyrics from API. Returns (lrc_text, tlyric_text)."""
     try:
-        resp = requests.get(lyrics_api_url, timeout=15)
+        resp = _get_dl_session().get(lyrics_api_url, timeout=15)
         if resp.text and source == "netease":
             data = resp.json()
             lyric = data.get("lrc", {}).get("lyric", "")

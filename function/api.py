@@ -1,5 +1,7 @@
 import time
 import requests
+from requests.adapters import HTTPAdapter
+from urllib3.util.retry import Retry
 
 from function.config import get_cookie
 from function.cache import get_song as cache_get_song, put_song as cache_put_song
@@ -23,6 +25,17 @@ def _get_session():
     if _session is None:
         _session = requests.Session()
         _session.headers.update(HEADERS)
+
+        retry = Retry(
+            total=3,
+            backoff_factor=0.5,
+            status_forcelist=[500, 502, 503, 504],
+            allowed_methods={"GET"},
+        )
+        adapter = HTTPAdapter(max_retries=retry)
+        _session.mount("http://", adapter)
+        _session.mount("https://", adapter)
+
         cookie = get_cookie()
         if cookie:
             for item in cookie.split(";"):
