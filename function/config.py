@@ -50,39 +50,42 @@ def validate_config() -> None:
 
     # [download]
     dl = cfg.get("download", {})
-    if not dl.get("quality"):
-        errors.append("[download] quality is missing or empty")
-    elif dl["quality"] not in QUALITY_MAP:
-        errors.append(f"[download] quality must be one of: {', '.join(QUALITY_MAP)}")
 
     if not dl.get("filename_format"):
         errors.append("[download] filename_format is missing or empty")
     elif dl["filename_format"] not in ("10", "01", "1"):
         errors.append('[download] filename_format must be "10", "01", or "1"')
 
-    if not dl.get("download_content"):
-        errors.append("[download] download_content is missing or empty")
+    if not dl.get("content"):
+        errors.append("[download] content is missing or empty")
     else:
-        for c in dl["download_content"]:
+        for c in dl["content"]:
             if c not in "012":
-                errors.append("[download] download_content may only contain 0, 1, 2")
+                errors.append("[download] content may only contain 0, 1, 2")
                 break
 
-    if not dl.get("embed_lyrics_mode"):
-        errors.append("[download] embed_lyrics_mode is missing or empty")
-    elif dl["embed_lyrics_mode"] not in ("0", "1", "2"):
-        errors.append('[download] embed_lyrics_mode must be "0", "1", or "2"')
+    # [download.song]
+    ds = dl.get("song", {})
+    if not ds.get("quality"):
+        errors.append("[download.song] quality is missing or empty")
+    elif ds["quality"] not in QUALITY_MAP:
+        errors.append(f"[download.song] quality must be one of: {', '.join(QUALITY_MAP)}")
 
-    if not dl.get("save_lyrics_mode"):
-        errors.append("[download] save_lyrics_mode is missing or empty")
-    elif dl["save_lyrics_mode"] not in ("0", "1", "2"):
-        errors.append('[download] save_lyrics_mode must be "0", "1", or "2"')
+    # [download.lyric]
+    dly = dl.get("lyric", {})
+    for key in ("embed_mode", "save_mode"):
+        if not dly.get(key):
+            errors.append(f"[download.lyric] {key} is missing or empty")
+        elif dly[key] not in ("0", "1", "2"):
+            errors.append(f'[download.lyric] {key} must be "0", "1", or "2"')
 
-    for cover_key in ("embed_cover_quality", "save_cover_quality"):
-        if not dl.get(cover_key):
-            errors.append(f"[download] {cover_key} is missing or empty")
-        elif dl[cover_key] not in ("0", "1"):
-            errors.append(f'[download] {cover_key} must be "0" or "1"')
+    # [download.cover]
+    dc = dl.get("cover", {})
+    for key in ("embed_quality", "save_quality"):
+        if not dc.get(key):
+            errors.append(f"[download.cover] {key} is missing or empty")
+        elif dc[key] not in ("0", "1"):
+            errors.append(f'[download.cover] {key} must be "0" or "1"')
 
     # [cache]
     cc = cfg.get("cache", {})
@@ -116,7 +119,7 @@ def get_download_dir() -> str:
 
 
 def get_quality() -> int:
-    return QUALITY_MAP[_get_cfg()["download"]["quality"]]
+    return QUALITY_MAP[_get_cfg()["download"]["song"]["quality"]]
 
 
 def get_cookie() -> str:
@@ -130,23 +133,23 @@ def get_filename_format() -> str:
 
 
 def get_download_content() -> str:
-    return _get_cfg()["download"]["download_content"]
+    return _get_cfg()["download"]["content"]
 
 
 def get_embed_lyrics_mode() -> str:
-    return _get_cfg()["download"]["embed_lyrics_mode"]
+    return _get_cfg()["download"]["lyric"]["embed_mode"]
 
 
 def get_save_lyrics_mode() -> str:
-    return _get_cfg()["download"]["save_lyrics_mode"]
+    return _get_cfg()["download"]["lyric"]["save_mode"]
 
 
 def get_embed_cover_quality() -> str:
-    return _get_cfg()["download"]["embed_cover_quality"]
+    return _get_cfg()["download"]["cover"]["embed_quality"]
 
 
 def get_save_cover_quality() -> str:
-    return _get_cfg()["download"]["save_cover_quality"]
+    return _get_cfg()["download"]["cover"]["save_quality"]
 
 
 def get_cache_dir() -> str:
