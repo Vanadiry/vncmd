@@ -63,17 +63,17 @@ def _print_status(icon, color, i, total, title, artist, suffix=""):
 
 
 def download_song(
-    song_url,
-    song_title,
-    song_artist,
-    song_album,
-    song_id,
-    cover_url,
-    lyrics_api_url,
-    publish_time,
-    source="netease",
-    download_dir=None,
-):
+    song_url: str,
+    song_title: str,
+    song_artist: str,
+    song_album: str,
+    song_id: str,
+    cover_url: str,
+    lyrics_api_url: str,
+    publish_time: str,
+    source: str = "netease",
+    download_dir: str | None = None,
+) -> tuple[bool, str, str | None]:
     """
     Download a song with metadata, lyrics, and cover.
 
@@ -177,8 +177,13 @@ def download_song(
 
 
 def download_song_batch(
-    tracks, quality, output_dir, dry_run=False, dl_type=None, dl_id=None
-):
+    tracks: list[dict],
+    quality: int,
+    output_dir: str,
+    dry_run: bool = False,
+    dl_type: str | None = None,
+    dl_id: str | None = None,
+) -> tuple[int, int, str]:
     """Download a batch of songs with progress display and summary.
 
     Each track dict must have at least 'id'.  If 'artist' is missing,
@@ -380,6 +385,6 @@ def download_song_batch(
     return success_count, fail_count, session_dir
 
 
-def _mark_done(dl_type, dl_id, song_id):
+def _mark_done(dl_type: str | None, dl_id: str | None, song_id: int) -> None:
     if dl_type is not None and dl_id is not None:
         mark_downloaded(dl_type, dl_id, song_id)

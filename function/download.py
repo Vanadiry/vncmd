@@ -29,7 +29,7 @@ def _get_dl_session():
     return _dl_session
 
 
-def fetch_audio(url, path, label):
+def fetch_audio(url: str, path: str, label: str) -> str | None:
     """Stream download audio with progress bar. Returns error message or None."""
     try:
         resp = requests.get(url, stream=True, timeout=60)
@@ -63,7 +63,7 @@ def fetch_audio(url, path, label):
         return str(e)
 
 
-def fetch_cover(cover_url):
+def fetch_cover(cover_url: str) -> bytes | None:
     """Download cover image. Returns bytes or None."""
     try:
         return _get_dl_session().get(cover_url, timeout=15).content
@@ -71,7 +71,7 @@ def fetch_cover(cover_url):
         return None
 
 
-def fetch_lyrics(lyrics_api_url, source):
+def fetch_lyrics(lyrics_api_url: str, source: str) -> tuple[str, str]:
     """Fetch lyrics from API. Returns (lrc_text, tlyric_text)."""
     try:
         resp = _get_dl_session().get(lyrics_api_url, timeout=15)

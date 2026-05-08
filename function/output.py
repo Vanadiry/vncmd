@@ -7,7 +7,7 @@ from rich import box
 console = Console()
 
 
-def _display_track_table(tracks, total_count):
+def _display_track_table(tracks: list[dict], total_count: int) -> None:
     table = Table(box=box.ROUNDED, show_header=True, header_style="bold cyan")
     table.add_column("#", style="dim", width=4)
     table.add_column("ID", style="dim", width=12)
@@ -33,7 +33,7 @@ def _display_track_table(tracks, total_count):
         console.print(f"  ... and {remaining} more tracks", style="dim")
 
 
-def display_search_results(query, songs, total):
+def display_search_results(query: str, songs: list[dict], total: int) -> None:
     """Display search results as a table."""
     table = Table(
         title=f'Search: "{query}"  —  {total} results',
@@ -61,7 +61,7 @@ def display_search_results(query, songs, total):
     console.print(table)
 
 
-def display_song_detail(song):
+def display_song_detail(song: dict) -> None:
     """Display a single song's full metadata."""
     lines = [
         ("ID", str(song["id"])),
@@ -85,7 +85,7 @@ def display_song_detail(song):
     console.print(panel)
 
 
-def display_playlist(playlist, max_tracks=100):
+def display_playlist(playlist: dict, max_tracks: int = 100) -> None:
     """Display playlist info and its tracks as a table."""
     # Header
     header = Text()
@@ -100,7 +100,7 @@ def display_playlist(playlist, max_tracks=100):
     _display_track_table(playlist["tracks"][:max_tracks], playlist["track_count"])
 
 
-def display_album(album, max_tracks=100):
+def display_album(album: dict, max_tracks: int = 100) -> None:
     header = Text()
     header.append("Album: ", style="bold")
     header.append(f"{album['name']}\n", style="bold bright_white")
@@ -112,7 +112,7 @@ def display_album(album, max_tracks=100):
     _display_track_table(album["tracks"][:max_tracks], album["track_count"])
 
 
-def display_lyrics(lyrics_text):
+def display_lyrics(lyrics_text: str) -> None:
     """Display lyrics in a panel."""
     if not lyrics_text:
         console.print("[dim]No lyrics available[/]")
@@ -126,17 +126,17 @@ def display_lyrics(lyrics_text):
     console.print(panel)
 
 
-def success(msg):
+def success(msg: str) -> None:
     console.print(f"[green]✓[/] {msg}")
 
 
-def error(msg):
+def error(msg: str) -> None:
     console.print(f"[red]✗[/] {msg}")
 
 
-def info(msg):
+def info(msg: str) -> None:
     console.print(f"[blue]ℹ[/] {msg}")
 
 
-def warning(msg):
+def warning(msg: str) -> None:
     console.print(f"[yellow]⚠[/] {msg}")

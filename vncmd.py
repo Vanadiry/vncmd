@@ -6,7 +6,7 @@ from function.config import validate_config, QUALITY_MAP
 from function.tracker import cmd_tracker
 
 
-def _add_quality_arg(parser):
+def _add_quality_arg(parser: object) -> None:
     parser.add_argument(
         "--quality",
         "-q",
@@ -16,13 +16,13 @@ def _add_quality_arg(parser):
     )
 
 
-def _add_output_arg(parser):
+def _add_output_arg(parser: object) -> None:
     parser.add_argument(
         "--output", "-o", default=None, help="Output directory (default: from config)"
     )
 
 
-def _add_download_args(parser, batch=False):
+def _add_download_args(parser: object, batch: bool = False) -> None:
     """Add download-related args to a parser."""
     parser.add_argument(
         "--download", "-d", action="store_true", help="Download instead of preview only"
@@ -44,7 +44,7 @@ def _add_download_args(parser, batch=False):
         )
 
 
-def main():
+def main() -> None:
     parser = argparse.ArgumentParser(
         prog="vncmd",
         description="Netease Cloud Music CLI — search, preview, and download",

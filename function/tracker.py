@@ -32,23 +32,23 @@ TRACKER_DIR = VNCMD_HOME / "tracker"
 _NAME_RE = re.compile(r"^[a-zA-Z0-9_-]+$")
 
 
-def _tracker_path(name):
+def _tracker_path(name: str) -> Path:
     return TRACKER_DIR / name
 
 
-def _settings_path(name):
+def _settings_path(name: str) -> Path:
     return _tracker_path(name) / "settings.toml"
 
 
-def _songs_path(name):
+def _songs_path(name: str) -> Path:
     return _tracker_path(name) / "songs.json"
 
 
-def _diff_path(name):
+def _diff_path(name: str) -> Path:
     return _tracker_path(name) / "diff.json"
 
 
-def validate_name(name):
+def validate_name(name: str) -> None:
     if not _NAME_RE.match(name):
         error(f"Invalid tracker name: '{name}'")
         info(
@@ -58,7 +58,7 @@ def validate_name(name):
         sys.exit(1)
 
 
-def load_settings(name):
+def load_settings(name: str) -> dict:
     path = _settings_path(name)
     if not path.exists():
         error(f"Tracker '{name}' not found. Settings file missing: {path}")
@@ -77,7 +77,7 @@ def load_settings(name):
     return {"description": description, "sources": result}
 
 
-def create_tracker(name):
+def create_tracker(name: str) -> None:
     validate_name(name)
     tdir = _tracker_path(name)
     if tdir.exists():
@@ -96,7 +96,7 @@ def create_tracker(name):
     info("Edit the settings.toml file to add song/playlist/album IDs to track.")
 
 
-def load_songs_db(name):
+def load_songs_db(name: str) -> list[dict]:
     path = _songs_path(name)
     if not path.exists():
         return []
@@ -104,7 +104,7 @@ def load_songs_db(name):
     return data.get("songs", [])
 
 
-def backup_db(name):
+def backup_db(name: str) -> None:
     songs_path = _songs_path(name)
     bak_path = songs_path.parent / (songs_path.name + ".bak")
     if bak_path.exists():
@@ -113,7 +113,7 @@ def backup_db(name):
         shutil.copy2(songs_path, bak_path)
 
 
-def save_songs_db(name, songs):
+def save_songs_db(name: str, songs: list[dict]) -> None:
     backup_db(name)
     data = {
         "updated_at": datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"),
@@ -124,7 +124,7 @@ def save_songs_db(name, songs):
     )
 
 
-def save_diff(name, comparison):
+def save_diff(name: str, comparison: dict) -> None:
     diff = {
         "updated_at": datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"),
         "added": [{"id": s["id"], "title": s["title"]} for s in comparison["added"]],
@@ -145,14 +145,14 @@ def save_diff(name, comparison):
     )
 
 
-def load_diff(name):
+def load_diff(name: str) -> dict:
     path = _diff_path(name)
     if not path.exists():
         return {"added": [], "removed": [], "changed": []}
     return json.loads(path.read_text(encoding="utf-8"))
 
 
-def show_tracker(name):
+def show_tracker(name: str) -> None:
     settings = load_settings(name)
     songs = load_songs_db(name)
 
@@ -184,7 +184,7 @@ def show_tracker(name):
     console.print(f"  Cached songs: [green]{len(songs)}[/]")
 
 
-def fetch_all_songs(settings):
+def fetch_all_songs(settings: dict) -> dict[str, dict]:
     raw = {}  # id -> {id, title, sources: [(type, id)]}
 
     for src in settings["sources"]:
@@ -217,7 +217,7 @@ def fetch_all_songs(settings):
     return result
 
 
-def _add_to_raw(raw, track, src_type, src_id):
+def _add_to_raw(raw: dict, track: dict, src_type: str, src_id: int) -> None:
     sid = track["id"]
     source_ref = {"type": src_type, "id": src_id}
     if sid in raw:
@@ -232,7 +232,7 @@ def _add_to_raw(raw, track, src_type, src_id):
         }
 
 
-def compare_songs(fresh, cached_list):
+def compare_songs(fresh: dict[str, dict], cached_list: list[dict]) -> dict:
     cached = {s["id"]: s for s in cached_list}
     fresh_ids = set(fresh.keys())
     cached_ids = set(cached.keys())
@@ -256,7 +256,7 @@ def compare_songs(fresh, cached_list):
     return {"added": added, "removed": removed, "changed": changed}
 
 
-def _get_checkbox_style(color="green"):
+def _get_checkbox_style(color: str = "green") -> object | None:
     try:
         from questionary import Style
     except ImportError:
@@ -273,7 +273,7 @@ def _get_checkbox_style(color="green"):
     )
 
 
-def resolve_conflicts(comparison, cached_list, fresh_dict):
+def resolve_conflicts(comparison: dict, cached_list: list[dict], fresh_dict: dict[str, dict]) -> list[dict] | None:
     added = comparison["added"]
     removed = comparison["removed"]
     changed = comparison["changed"]
@@ -372,7 +372,7 @@ def resolve_conflicts(comparison, cached_list, fresh_dict):
     return sorted(result.values(), key=lambda x: x.get("title", ""))
 
 
-def auto_resolve(comparison, cached_list, fresh_dict):
+def auto_resolve(comparison: dict, cached_list: list[dict], fresh_dict: dict[str, dict]) -> list[dict] | None:
     added = comparison["added"]
     removed = comparison["removed"]
     changed = comparison["changed"]
@@ -402,11 +402,11 @@ def auto_resolve(comparison, cached_list, fresh_dict):
     return sorted(result.values(), key=lambda x: x.get("title", ""))
 
 
-def _format_song_choice(s):
+def _format_song_choice(s: dict) -> str:
     return f"{s.get('title', '?')} (ID: {s['id']})"
 
 
-def download_tracker(name, quality, output_dir, dry_run=False):
+def download_tracker(name: str, quality: int, output_dir: str, dry_run: bool = False) -> None:
     songs = load_songs_db(name)
     if not songs:
         error(f"No songs cached for tracker '{name}'. Run --fetch first.")
@@ -417,7 +417,7 @@ def download_tracker(name, quality, output_dir, dry_run=False):
     )
 
 
-def download_diff(name, quality, output_dir, dry_run=False):
+def download_diff(name: str, quality: int, output_dir: str, dry_run: bool = False) -> None:
     diff = load_diff(name)
     added = diff.get("added", [])
     removed = diff.get("removed", [])
@@ -453,7 +453,7 @@ def download_diff(name, quality, output_dir, dry_run=False):
         info(f"{len(removed)} track(s) removed — see {removed_path}")
 
 
-def cmd_tracker(args):
+def cmd_tracker(args: object) -> None:
     name = args.name
     validate_name(name)
 

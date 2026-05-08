@@ -7,14 +7,14 @@ from function.cache import get_song_cache_dir
 _TIMESTAMP_RE = re.compile(r"^\[(\d{2}):(\d{2})\.(\d{2,3})\](.*)")
 
 
-def clean(text):
+def clean(text: str) -> str:
     """Remove [by:...] tag lines, keep everything else (including empty lines)."""
     return "\n".join(
         line for line in text.splitlines() if not re.match(r"^\[by:", line)
     )
 
 
-def parse(text):
+def parse(text: str) -> list[tuple[float, str, str]]:
     """
     Parse cleaned LRC text into list of (time_float, text_content, original_line).
     Lines without timestamps are skipped.
@@ -30,7 +30,7 @@ def parse(text):
     return result
 
 
-def interleave(lrc_text, tlyric_text, threshold=0.3):
+def interleave(lrc_text: str, tlyric_text: str, threshold: float = 0.3) -> str:
     """
     Interleave lrc with tlyric: for each lrc line, find a tlyric line within
     threshold seconds. Output lrc on top, tlyric below, both with lrc's timestamp.
@@ -84,7 +84,7 @@ def interleave(lrc_text, tlyric_text, threshold=0.3):
     return "\n".join(out)
 
 
-def process(lrc_raw, tlyric_raw, mode, song_id):
+def process(lrc_raw: str, tlyric_raw: str, mode: str, song_id: int) -> dict[str, str]:
     """
     Process lyrics according to mode. Caches raw cleaned lyrics.
 
@@ -109,7 +109,7 @@ def process(lrc_raw, tlyric_raw, mode, song_id):
         return {"lrc": lrc_clean, "2.lrc": tlyric_clean}
 
 
-def output_files(lyrics_result, base_path):
+def output_files(lyrics_result: dict[str, str], base_path: str) -> list[str]:
     """
     Write lyrics files from process() result dict.
     base_path: full path without extension (e.g. /downloads/Title - Artist)

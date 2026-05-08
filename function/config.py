@@ -19,19 +19,19 @@ QUALITY_MAP = {
 _cfg: dict | None = None
 
 
-def load_config():
+def load_config() -> dict:
     with open(CONFIG_FILE, "r", encoding="utf-8") as f:
         return tomllib.loads(f.read())
 
 
-def _get_cfg():
+def _get_cfg() -> dict:
     global _cfg
     if _cfg is None:
         _cfg = load_config()
     return _cfg
 
 
-def validate_config():
+def validate_config() -> None:
     """Check config file has all required keys.  Auto-creates on first run."""
     if not CONFIG_FILE.exists():
         VNCMD_HOME.mkdir(parents=True, exist_ok=True)
@@ -95,7 +95,7 @@ def validate_config():
         _die(errors)
 
 
-def _die(errors):
+def _die(errors: list[str]) -> None:
     from rich.console import Console
 
     c = Console(stderr=True)
@@ -105,7 +105,7 @@ def _die(errors):
     sys.exit(1)
 
 
-def get_download_dir():
+def get_download_dir() -> str:
     path = _get_cfg()["download"].get("dir", "") or ""
     if path:
         path = os.path.expanduser(path)
@@ -115,49 +115,49 @@ def get_download_dir():
     return str(Path.home() / "Downloads" / "vncmd")
 
 
-def get_quality():
+def get_quality() -> int:
     return QUALITY_MAP[_get_cfg()["download"]["quality"]]
 
 
-def get_cookie():
+def get_cookie() -> str:
     if not COOKIE_FILE.exists():
         return ""
     return COOKIE_FILE.read_text(encoding="utf-8").strip()
 
 
-def get_filename_format():
+def get_filename_format() -> str:
     return _get_cfg()["download"]["filename_format"]
 
 
-def get_download_content():
+def get_download_content() -> str:
     return _get_cfg()["download"]["download_content"]
 
 
-def get_embed_lyrics_mode():
+def get_embed_lyrics_mode() -> str:
     return _get_cfg()["download"]["embed_lyrics_mode"]
 
 
-def get_save_lyrics_mode():
+def get_save_lyrics_mode() -> str:
     return _get_cfg()["download"]["save_lyrics_mode"]
 
 
-def get_embed_cover_quality():
+def get_embed_cover_quality() -> str:
     return _get_cfg()["download"]["embed_cover_quality"]
 
 
-def get_save_cover_quality():
+def get_save_cover_quality() -> str:
     return _get_cfg()["download"]["save_cover_quality"]
 
 
-def get_cache_dir():
+def get_cache_dir() -> str:
     return str(VNCMD_HOME / _get_cfg()["cache"]["dir"])
 
 
-def is_cache_enabled():
+def is_cache_enabled() -> bool:
     return _get_cfg()["cache"]["enabled"]
 
 
-def show_config():
+def show_config() -> str:
     lines = [
         f"--- Config TOML ({CONFIG_FILE}) ---",
     ]

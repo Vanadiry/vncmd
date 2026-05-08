@@ -4,11 +4,11 @@ from pathlib import Path
 from function.config import get_filename_format
 
 
-def check_filename(name):
+def check_filename(name: str) -> str:
     return re.sub(r'[\\/:*?"<>|]', "-", name)
 
 
-def get_type_from_url(url):
+def get_type_from_url(url: str) -> str:
     pattern = r"((?!.*\.))([^?]+)"
     matches = re.search(pattern, url)
     if matches:
@@ -18,14 +18,14 @@ def get_type_from_url(url):
     return "mp3"
 
 
-def cover_ext(cover_url):
+def cover_ext(cover_url: str | None) -> str:
     if not cover_url:
         return "jpg"
     ext = cover_url.rsplit("?", 1)[0].rsplit(".", 1)[-1].lower()
     return ext if ext in ("jpg", "jpeg", "png") else "jpg"
 
 
-def build_filename(title, artist):
+def build_filename(title: str, artist: str) -> str:
     fmt = get_filename_format()
     safe_title = check_filename(title)
     safe_artist = check_filename(artist)
@@ -37,7 +37,7 @@ def build_filename(title, artist):
         return safe_title
 
 
-def resolve_path(base, ext, directory):
+def resolve_path(base: str, ext: str, directory: str) -> str:
     counter = 0
     while True:
         suffix = f"({counter})" if counter > 0 else ""

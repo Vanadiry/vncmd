@@ -2,12 +2,12 @@ import io
 from PIL import Image
 
 
-def _mime_from_url(url):
+def _mime_from_url(url: str | None) -> str:
     ext = (url or "").rsplit("?", 1)[0].rsplit(".", 1)[-1].lower()
     return "image/jpeg" if ext in ("jpg", "jpeg") else "image/png"
 
 
-def process_cover(cover_data, cover_url, quality):
+def process_cover(cover_data: bytes, cover_url: str | None, quality: str) -> tuple[bytes, str]:
     """
     Process cover image.
 

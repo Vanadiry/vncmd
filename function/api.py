@@ -54,14 +54,14 @@ def _get_session():
     return _session
 
 
-def format_timestamp(ts):
+def format_timestamp(ts: int | None) -> str:
     if ts is None:
         return ""
     t = time.localtime(ts / 1000)
     return time.strftime("%Y-%m-%d %H:%M:%S", t)
 
 
-def _fmt_duration(ms):
+def _fmt_duration(ms: int | None) -> str:
     if not ms:
         return ""
     total_sec = ms // 1000
@@ -69,7 +69,7 @@ def _fmt_duration(ms):
     return f"{m}:{s:02d}"
 
 
-def get_song_details(song_id):
+def get_song_details(song_id: int) -> dict:
     cached = cache_get_song(song_id)
     if cached:
         return cached
@@ -95,7 +95,7 @@ def get_song_details(song_id):
     return result
 
 
-def get_playlist_details(playlist_id, limit=None):
+def get_playlist_details(playlist_id: int, limit: int | None = None) -> dict:
     url = f"{BASE_URL}/api/v6/playlist/detail/?id={playlist_id}"
     resp = _get_session().get(url, timeout=15)
     data = resp.json()
@@ -178,7 +178,7 @@ def get_playlist_details(playlist_id, limit=None):
     return result
 
 
-def get_album_details(album_id):
+def get_album_details(album_id: int) -> dict:
     url = f"{BASE_URL}/api/v1/album/{album_id}"
     resp = _get_session().get(url, timeout=15)
     data = resp.json()
@@ -212,7 +212,7 @@ def get_album_details(album_id):
     }
 
 
-def search(q, limit=30, offset=0):
+def search(q: str, limit: int = 30, offset: int = 0) -> dict:
     url = f"{BASE_URL}/api/cloudsearch/pc?type=1&s={q}&limit={limit}&offset={offset}"
     resp = _get_session().get(url, timeout=15)
     data = resp.json()
@@ -239,11 +239,11 @@ def search(q, limit=30, offset=0):
     }
 
 
-def get_lyrics_url(song_id):
+def get_lyrics_url(song_id: int) -> str:
     return f"{BASE_URL}/api/song/lyric?os=pc&id={song_id}&lv=-1&tv=1"
 
 
-def get_lyrics(song_id):
+def get_lyrics(song_id: int) -> dict:
     cached = cache_get_lyrics(song_id)
     if cached:
         return cached
@@ -263,7 +263,7 @@ def get_lyrics(song_id):
     return result
 
 
-def get_song_url(song_id, quality=None):
+def get_song_url(song_id: int, quality: int | None = None) -> str | None:
     br = quality if quality else 2147483647
     url = f"{BASE_URL}/api/song/enhance/player/url?ids=[{song_id}]&br={br}"
     resp = _get_session().get(url, timeout=15)

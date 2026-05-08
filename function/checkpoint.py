@@ -15,23 +15,23 @@ def _get_checkpoint_dir():
     return _CHECKPOINT_DIR
 
 
-def get_checkpoint_path(dl_type, dl_id):
+def get_checkpoint_path(dl_type: str, dl_id: str) -> Path:
     return _get_checkpoint_dir() / f"{dl_type}_{dl_id}.json"
 
 
-def load_checkpoint(dl_type, dl_id):
+def load_checkpoint(dl_type: str, dl_id: str) -> dict | None:
     path = get_checkpoint_path(dl_type, dl_id)
     if not path.exists():
         return None
     return json.loads(path.read_text(encoding="utf-8"))
 
 
-def save_checkpoint(dl_type, dl_id, data):
+def save_checkpoint(dl_type: str, dl_id: str, data: dict) -> None:
     path = get_checkpoint_path(dl_type, dl_id)
     path.write_text(json.dumps(data, ensure_ascii=False, indent=2), encoding="utf-8")
 
 
-def create_checkpoint(dl_type, dl_id, download_dir, track_ids):
+def create_checkpoint(dl_type: str, dl_id: str, download_dir: str, track_ids: list[int]) -> dict:
     data = {
         "type": dl_type,
         "id": dl_id,
@@ -42,7 +42,7 @@ def create_checkpoint(dl_type, dl_id, download_dir, track_ids):
     return data
 
 
-def mark_downloaded(dl_type, dl_id, song_id):
+def mark_downloaded(dl_type: str, dl_id: str, song_id: int) -> None:
     cp = load_checkpoint(dl_type, dl_id)
     if cp is None:
         return
@@ -50,7 +50,7 @@ def mark_downloaded(dl_type, dl_id, song_id):
     save_checkpoint(dl_type, dl_id, cp)
 
 
-def sync_checkpoint_tracks(dl_type, dl_id, current_tracks):
+def sync_checkpoint_tracks(dl_type: str, dl_id: str, current_tracks: dict[str, str]) -> tuple[list[str], bool]:
     """Sync checkpoint tracks with current API list.
 
     ``current_tracks`` is a dict of ``{id: title}``.

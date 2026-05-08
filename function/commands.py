@@ -34,28 +34,33 @@ from function.config import (
 )
 
 
-def _resolve_quality(args):
+def _resolve_quality(args: object) -> int:
     if args.quality:
         return QUALITY_MAP[args.quality]
     return get_quality()
 
 
-def _resolve_output_dir(args):
+def _resolve_output_dir(args: object) -> str:
     if args.output:
         return args.output
     return get_download_dir()
 
 
 def _download_tracks(
-    tracks, quality, output_dir, dry_run=False, dl_type=None, dl_id=None
-):
+    tracks: list[dict],
+    quality: int,
+    output_dir: str,
+    dry_run: bool = False,
+    dl_type: str | None = None,
+    dl_id: str | None = None,
+) -> None:
     """Shared download for playlists and albums."""
     download_song_batch(
         tracks, quality, output_dir, dry_run=dry_run, dl_type=dl_type, dl_id=dl_id
     )
 
 
-def cmd_search(args):
+def cmd_search(args: object) -> None:
     info(f'Searching "{args.query}"...')
     try:
         result = search(args.query, limit=args.limit, offset=args.offset)
@@ -70,7 +75,7 @@ def cmd_search(args):
     display_search_results(args.query, result["songs"], result["total"])
 
 
-def cmd_song(args):
+def cmd_song(args: object) -> None:
     """Preview or download a single song."""
     try:
         song = get_song_details(args.id)
@@ -147,7 +152,7 @@ def cmd_song(args):
         error(msg)
 
 
-def cmd_album(args):
+def cmd_album(args: object) -> None:
     """Preview or download an album."""
     try:
         al = get_album_details(args.id)
@@ -172,7 +177,7 @@ def cmd_album(args):
     )
 
 
-def cmd_playlist(args):
+def cmd_playlist(args: object) -> None:
     """Preview or download a playlist."""
     try:
         pl = get_playlist_details(
@@ -199,7 +204,7 @@ def cmd_playlist(args):
     )
 
 
-def cmd_init(args):
+def cmd_init(args: object) -> None:
     """Initialize ~/.vncmd/ with default config and empty cookie."""
     console.print("[bold]vncmd init[/]\n")
 
