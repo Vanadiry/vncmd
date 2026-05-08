@@ -18,24 +18,24 @@ class TestCheckFilename:
 
 class TestGetTypeFromUrl:
     def test_flac(self):
-        assert get_type_from_url("http://x.com/t.flac?p=1") == "flac"
+        assert get_type_from_url("http://test.vanadiry.com/t.flac?p=1") == "flac"
 
     def test_mp3(self):
-        assert get_type_from_url("http://x.com/t.mp3") == "mp3"
+        assert get_type_from_url("http://test.vanadiry.com/t.mp3") == "mp3"
 
     def test_default(self):
-        assert get_type_from_url("http://x.com/t.xyz") == "mp3"
+        assert get_type_from_url("http://test.vanadiry.com/t.xyz") == "mp3"
 
 
 class TestCoverExt:
     def test_jpg(self):
-        assert cover_ext("http://x.com/img.jpg") == "jpg"
+        assert cover_ext("http://test.vanadiry.com/img.jpg") == "jpg"
 
     def test_jpeg(self):
-        assert cover_ext("http://x.com/img.jpeg") == "jpeg"
+        assert cover_ext("http://test.vanadiry.com/img.jpeg") == "jpeg"
 
     def test_png(self):
-        assert cover_ext("http://x.com/img.png?x=1") == "png"
+        assert cover_ext("http://test.vanadiry.com/img.png?x=1") == "png"
 
     def test_default(self):
         assert cover_ext(None) == "jpg"
