@@ -7,6 +7,7 @@ from function.api import (
     get_playlist_details,
     get_album_details,
     get_lyrics,
+    get_lyrics_url,
     get_song_url,
 )
 from function.downloader import download_song, download_song_batch, make_session_dir
@@ -122,7 +123,7 @@ def cmd_song(args):
 
     output_dir = make_session_dir(_resolve_output_dir(args))
     info(f"Downloading: {song['title']} - {song['artist']}")
-    lyrics_api = f"http://music.163.com/api/song/lyric?os=pc&id={args.id}&lv=-1&tv=1"
+    lyrics_api = get_lyrics_url(args.id)
     ok, msg, path = download_song(
         song_url=song_url,
         song_title=song["title"],

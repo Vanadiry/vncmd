@@ -10,11 +10,11 @@ from function.cache import (
     put_lyrics as cache_put_lyrics,
 )
 
-BASE_URL = "http://music.163.com"
+BASE_URL = "https://music.163.com"
 HEADERS = {
     "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 "
     "(KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
-    "Referer": "http://music.163.com/",
+    "Referer": "https://music.163.com/",
 }
 
 _session = None
@@ -239,12 +239,16 @@ def search(q, limit=30, offset=0):
     }
 
 
+def get_lyrics_url(song_id):
+    return f"{BASE_URL}/api/song/lyric?os=pc&id={song_id}&lv=-1&tv=1"
+
+
 def get_lyrics(song_id):
     cached = cache_get_lyrics(song_id)
     if cached:
         return cached
 
-    url = f"{BASE_URL}/api/song/lyric?os=pc&id={song_id}&lv=-1&tv=1"
+    url = get_lyrics_url(song_id)
     try:
         resp = _get_session().get(url, timeout=15)
         data = resp.json()

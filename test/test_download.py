@@ -1,7 +1,7 @@
 from pathlib import Path
 import pytest
 from function.download import fetch_lyrics, fetch_cover
-from function.api import get_song_details, get_song_url
+from function.api import get_song_details, get_song_url, get_lyrics_url
 from function.downloader import download_song
 from test.conftest import SONG_ID
 
@@ -9,13 +9,13 @@ from test.conftest import SONG_ID
 @pytest.mark.network
 class TestFetchHelpers:
     def test_fetch_lyrics_returns_strings(self):
-        url = f"http://music.163.com/api/song/lyric?os=pc&id={SONG_ID}&lv=-1&tv=1"
+        url = get_lyrics_url(SONG_ID)
         lrc, tlyric = fetch_lyrics(url, "netease")
         assert isinstance(lrc, str)
         assert isinstance(tlyric, str)
 
     def test_fetch_lyrics_has_content(self):
-        url = f"http://music.163.com/api/song/lyric?os=pc&id={SONG_ID}&lv=-1&tv=1"
+        url = get_lyrics_url(SONG_ID)
         lrc, _ = fetch_lyrics(url, "netease")
         assert len(lrc) > 0
 
@@ -40,7 +40,7 @@ class TestFullDownload:
             song_title=song["title"], song_artist=song["artist"],
             song_album=song["album"], song_id=str(song["id"]),
             cover_url=song["cover"],
-            lyrics_api_url=f"http://music.163.com/api/song/lyric?os=pc&id={SONG_ID}&lv=-1&tv=1",
+            lyrics_api_url=get_lyrics_url(SONG_ID),
             publish_time=song["publish_time"], download_dir=str(dl_dir),
         )
         assert ok, msg

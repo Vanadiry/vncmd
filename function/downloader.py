@@ -3,7 +3,7 @@ import time
 from datetime import datetime
 from pathlib import Path
 
-from function.api import get_song_details, get_song_url
+from function.api import get_song_details, get_song_url, get_lyrics_url
 from function.config import (
     get_download_dir,
     get_download_content,
@@ -272,7 +272,7 @@ def download_song_batch(tracks, quality, output_dir, dry_run=False,
                 console.print("  [dim]Would download (audio disabled in config)[/]")
                 success_count += 1
             else:
-                lyrics_api = f"http://music.163.com/api/song/lyric?os=pc&id={sid}&lv=-1&tv=1"
+                lyrics_api = get_lyrics_url(sid)
                 ok, msg, _ = download_song(
                     song_url="",
                     song_title=details["title"],
@@ -312,7 +312,7 @@ def download_song_batch(tracks, quality, output_dir, dry_run=False,
             fail_ids.append(sid)
             continue
 
-        lyrics_api = f"http://music.163.com/api/song/lyric?os=pc&id={sid}&lv=-1&tv=1"
+        lyrics_api = get_lyrics_url(sid)
         ok, msg, _ = download_song(
             song_url=song_url,
             song_title=details["title"],
