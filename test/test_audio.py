@@ -1,16 +1,3 @@
-import sys
-import os
-
-sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-"""Audio utilities tests."""
-import os
-from test._runner import check, section, summary, reset
-
-reset()
-TMP = __import__("test._runner", fromlist=["tmp_dir"]).tmp_dir()
-
-section("Audio utilities")
-
 from function.audio import (
     check_filename,
     get_type_from_url,
@@ -19,38 +6,63 @@ from function.audio import (
     resolve_path,
 )
 
-# check_filename
-check("normal unchanged", check_filename("Hello World") == "Hello World")
-for ch in ("/", ":", "*", "?", '"', "<", ">", "|", "\\"):
-    check(f"strip '{ch}'", ch not in check_filename(f"a{ch}b"))
 
-# get_type_from_url
-check("flac", get_type_from_url("http://x.com/t.flac?p=1") == "flac")
-check("mp3", get_type_from_url("http://x.com/t.mp3") == "mp3")
-check("default", get_type_from_url("http://x.com/t.xyz") == "mp3")
+class TestCheckFilename:
+    def test_normal_unchanged(self):
+        assert check_filename("Hello World") == "Hello World"
 
-# cover_ext
-check("jpg", cover_ext("http://x.com/img.jpg") == "jpg")
-check("jpeg", cover_ext("http://x.com/img.jpeg") == "jpeg")
-check("png", cover_ext("http://x.com/img.png?x=1") == "png")
-check("default", cover_ext(None) == "jpg")
+    def test_strips_special_chars(self):
+        for ch in ("/", ":", "*", "?", '"', "<", ">", "|", "\\"):
+            assert ch not in check_filename(f"a{ch}b")
 
-# build_filename
-name = build_filename("Test/Title", "Artist:Name")
-check("no illegal chars", "/" not in name and ":" not in name)
-check("non-empty", len(name) > 0)
 
-# resolve_path
-p = resolve_path("__unique_test__", "tmp", TMP)
-check("absolute", os.path.isabs(p))
-check("ends with ext", p.endswith("__unique_test__.tmp"))
-open(p, "w").close()
-p2 = resolve_path("__unique_test__", "tmp", TMP)
-check("dedup different", p2 != p)
-os.remove(p)
+class TestGetTypeFromUrl:
+    def test_flac(self):
+        assert get_type_from_url("http://x.com/t.flac?p=1") == "flac"
 
-__import__("shutil").rmtree(TMP, ignore_errors=True)
+    def test_mp3(self):
+        assert get_type_from_url("http://x.com/t.mp3") == "mp3"
 
-failed = summary()
-if __name__ == "__main__":
-    raise SystemExit(failed)
+    def test_default(self):
+        assert get_type_from_url("http://x.com/t.xyz") == "mp3"
+
+
+class TestCoverExt:
+    def test_jpg(self):
+        assert cover_ext("http://x.com/img.jpg") == "jpg"
+
+    def test_jpeg(self):
+        assert cover_ext("http://x.com/img.jpeg") == "jpeg"
+
+    def test_png(self):
+        assert cover_ext("http://x.com/img.png?x=1") == "png"
+
+    def test_default(self):
+        assert cover_ext(None) == "jpg"
+
+
+class TestBuildFilename:
+    def test_no_illegal_chars(self):
+        name = build_filename("Test/Title", "Artist:Name")
+        assert "/" not in name
+        assert ":" not in name
+
+    def test_non_empty(self):
+        name = build_filename("Title", "Artist")
+        assert len(name) > 0
+
+
+class TestResolvePath:
+    def test_absolute(self, temp_dir):
+        p = resolve_path("__unique_test__", "tmp", temp_dir)
+        assert p.startswith(temp_dir)
+
+    def test_ends_with_ext(self, temp_dir):
+        p = resolve_path("__unique_test__", "tmp", temp_dir)
+        assert p.endswith("__unique_test__.tmp")
+
+    def test_dedup_different(self, temp_dir):
+        p1 = resolve_path("__unique_test__", "tmp", temp_dir)
+        open(p1, "w").close()
+        p2 = resolve_path("__unique_test__", "tmp", temp_dir)
+        assert p1 != p2

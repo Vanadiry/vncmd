@@ -15,5 +15,11 @@ tracker/
 .ruff_cache/
 /lint/
 
+# Test
+.pytest_cache/
+.coverage
+
 # Dev
 TODO.md
+.vscode/
+/clean.py

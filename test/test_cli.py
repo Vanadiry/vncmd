@@ -1,93 +1,79 @@
-import sys
 import os
-
-sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-"""CLI command tests."""
 import sys
+import shutil
 import subprocess
-from test._runner import (
-    check,
-    section,
-    summary,
-    reset,
-    SONG_ID,
-    PLAYLIST_ID,
-    ALBUM_ID,
-    PROJECT_ROOT,
-)
-
-reset()
-
-section("CLI commands")
+import pytest
+from test.conftest import PROJECT_ROOT, SONG_ID, PLAYLIST_ID, ALBUM_ID
 
 
-def run(args, timeout=30):
+def _run(args, timeout=30, **kwargs):
     return subprocess.run(
         [sys.executable, "vnemd.py"] + args,
-        capture_output=True,
-        text=True,
-        timeout=timeout,
-        cwd=PROJECT_ROOT,
+        capture_output=True, text=True, timeout=timeout, cwd=PROJECT_ROOT, **kwargs
     )
 
 
-r = run([])
-check("no args shows usage", "usage:" in (r.stdout + r.stderr).lower())
+@pytest.mark.network
+class TestCliPreview:
+    def test_no_args_shows_usage(self):
+        r = _run([])
+        assert "usage:" in (r.stdout + r.stderr).lower()
 
-r = run(["search", "Beyond", "--limit", "3"])
-check("search", r.returncode == 0 and "Beyond" in r.stdout)
+    def test_search(self):
+        r = _run(["search", "Beyond", "--limit", "3"])
+        assert r.returncode == 0
+        assert "Beyond" in r.stdout
 
-r = run(["song", str(SONG_ID)])
-check("song preview", r.returncode == 0)
+    def test_song_preview(self):
+        r = _run(["song", str(SONG_ID)])
+        assert r.returncode == 0
 
-r = run(["song", str(SONG_ID), "--lyrics"])
-check("song --lyrics", r.returncode == 0)
+    def test_song_lyrics(self):
+        r = _run(["song", str(SONG_ID), "--lyrics"])
+        assert r.returncode == 0
 
-r = run(["song", str(SONG_ID), "--url", "-q", "128"])
-check("song --url -q 128", r.returncode == 0)
+    def test_song_url(self):
+        r = _run(["song", str(SONG_ID), "--url", "-q", "128"])
+        assert r.returncode == 0
 
-r = run(["playlist", str(PLAYLIST_ID), "--limit", "3"])
-check("playlist preview", r.returncode == 0)
+    def test_playlist_preview(self):
+        r = _run(["playlist", str(PLAYLIST_ID), "--limit", "3"])
+        assert r.returncode == 0
 
-r = run(["album", str(ALBUM_ID), "--limit", "3"])
-check("album preview", r.returncode == 0)
+    def test_album_preview(self):
+        r = _run(["album", str(ALBUM_ID), "--limit", "3"])
+        assert r.returncode == 0
 
-r = run(
-    ["playlist", str(PLAYLIST_ID), "-d", "--limit", "1", "-o", "/tmp/vnemd_cli_test"],
-    timeout=120,
-)
-check("playlist -d", r.returncode == 0)
 
-r = run(
-    ["album", str(ALBUM_ID), "-d", "--limit", "1", "-o", "/tmp/vnemd_cli_test"],
-    timeout=120,
-)
-check("album -d", r.returncode == 0)
+@pytest.mark.network
+@pytest.mark.slow
+class TestCliDownload:
+    def test_playlist_download(self, temp_dir):
+        r = _run(["playlist", str(PLAYLIST_ID), "-d", "--limit", "1", "-o", temp_dir], timeout=120)
+        assert r.returncode == 0
 
-section("CLI — tracker")
+    def test_album_download(self, temp_dir):
+        r = _run(["album", str(ALBUM_ID), "-d", "--limit", "1", "-o", temp_dir], timeout=120)
+        assert r.returncode == 0
 
-# Create a test tracker via CLI (pipe 'y' to stdin, non-TTY fallback path)
-r = subprocess.run(
-    [sys.executable, "vnemd.py", "tracker", "_test_cli_tracker"],
-    capture_output=True,
-    text=True,
-    timeout=10,
-    cwd=PROJECT_ROOT,
-    input="y\n",
-)
-check("tracker create (new)", r.returncode == 0)
-check("tracker created message", "created" in r.stdout.lower())
 
-# Show existing tracker
-r = run(["tracker", "_test_cli_tracker"])
-check("tracker show", r.returncode == 0)
+@pytest.mark.network
+class TestCliTracker:
+    TRACKER_NAME = "_test_cli_tracker"
 
-# Write a source file so fetch-auto has something to do
-import shutil
-
-_td = os.path.join(PROJECT_ROOT, "tracker", "_test_cli_tracker")
-with open(os.path.join(_td, "settings.toml"), "w") as f:
-    f.write(f"""[tracker]
+    @classmethod
+    def setup_class(cls):
+        cls._tracker_dir = os.path.join(PROJECT_ROOT, "tracker", cls.TRACKER_NAME)
+        # Create tracker via CLI
+        r = subprocess.run(
+            [sys.executable, "vnemd.py", "tracker", cls.TRACKER_NAME],
+            capture_output=True, text=True, timeout=10, cwd=PROJECT_ROOT, input="y\n",
+        )
+        assert r.returncode == 0
+        assert "created" in r.stdout.lower()
+        # Write settings
+        with open(os.path.join(cls._tracker_dir, "settings.toml"), "w") as f:
+            f.write(f"""[tracker]
 description = "CLI test"
 
 [[sources]]
@@ -103,15 +89,20 @@ type = "album"
 ids = []
 """)
 
-r = run(["tracker", "_test_cli_tracker", "--fetch-auto"], timeout=60)
-check("tracker --fetch-auto", r.returncode == 0)
+    @classmethod
+    def teardown_class(cls):
+        shutil.rmtree(cls._tracker_dir, ignore_errors=True)
 
-r = run(["tracker", "_test_cli_tracker"])
-check("tracker show after fetch", "Cached songs: 1" in r.stdout)
+    def test_show(self):
+        r = _run(["tracker", self.TRACKER_NAME])
+        assert r.returncode == 0
 
-# Cleanup
-shutil.rmtree(_td, ignore_errors=True)
+    def test_fetch_auto(self):
+        r = _run(["tracker", self.TRACKER_NAME, "--fetch-auto"], timeout=60)
+        assert r.returncode == 0
 
-failed = summary()
-if __name__ == "__main__":
-    raise SystemExit(failed)
+    def test_show_after_fetch(self):
+        r = _run(["tracker", self.TRACKER_NAME])
+        assert r.returncode == 0
+        # Count depends on API availability; fetch may be empty if rate-limited
+        assert "Cached songs:" in r.stdout

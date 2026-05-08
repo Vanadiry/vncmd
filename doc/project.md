@@ -15,6 +15,5 @@ CLI (vnemd.py)：
 ## 测试
 
 ```bash
-python test.py
-python test/test_api.py
+pytest test/ [-v] [--cov] [-m "not network"]
 ```

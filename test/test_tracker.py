@@ -1,169 +1,175 @@
-"""Tracker module tests."""
-
 import os
-import sys
 import shutil
-
-sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-
-from test._runner import check, section, summary, reset, cleanup, SONG_ID
-
-reset()
-TMP = __import__("test._runner", fromlist=["tmp_dir"]).tmp_dir()
-
-# -- name validation ----------------------------------------------------
-
-section("Tracker — name validation")
-
-from function.tracker import validate_name
-
-
-def _try_validate(name, expect_ok):
-    try:
-        validate_name(name)
-        check(f"validate_name({name!r}) passes", expect_ok)
-    except SystemExit:
-        check(f"validate_name({name!r}) rejects", not expect_ok)
-
-
-_try_validate("abc", True)
-_try_validate("my-tracker", True)
-_try_validate("tracker_01", True)
-_try_validate("ABC_def-123", True)
-_try_validate("bad name", False)
-_try_validate("中文", False)
-_try_validate("a/b", False)
-
-# -- create / load settings --------------------------------------------
-
-section("Tracker — create & settings")
-
-test_name = "_test_tracker_unit"
-
-# Standalone path helpers for unit test
+import pytest
 from function.tracker import (
+    validate_name,
     create_tracker,
     load_settings,
     load_songs_db,
     save_songs_db,
     compare_songs,
+    fetch_all_songs,
+    auto_resolve,
+    download_tracker,
     _tracker_path,
     _settings_path,
     _songs_path,
 )
+from function.config import get_quality
+from test.conftest import SONG_ID
 
-tdir = _tracker_path(test_name)
-if os.path.exists(tdir):
-    shutil.rmtree(tdir)
 
-create_tracker(test_name)
-check("tracker dir exists", os.path.isdir(tdir))
-check("settings.toml exists", os.path.isfile(_settings_path(test_name)))
-check("songs.json exists", os.path.isfile(_songs_path(test_name)))
+NAME_CRUD = "_test_tracker_crud"
+NAME_DB = "_test_tracker_db"
+NET_NAME = "_test_tracker_net"
 
-settings = load_settings(test_name)
-check("settings has description", "description" in settings)
-check("settings has sources", isinstance(settings["sources"], list))
-check(
-    "default sources filtered (empty ids)",
-    len(settings["sources"]) == 0,
-)
 
-# -- songs DB round-trip ------------------------------------------------
+class TestNameValidation:
+    def test_valid_simple(self):
+        validate_name("abc")
 
-section("Tracker — songs DB round-trip")
+    def test_valid_with_dash(self):
+        validate_name("my-tracker")
 
-songs = [
-    {"id": 1, "title": "Song A"},
-    {
-        "id": 2,
-        "title": "Song B",
-        "at": [{"type": "song", "id": 2}, {"type": "playlist", "id": 99}],
-    },
-]
-save_songs_db(test_name, songs)
-loaded = load_songs_db(test_name)
-check("saved 2 songs", len(loaded) == 2)
-check("song A id", loaded[0]["id"] == 1)
-check("song A title", loaded[0]["title"] == "Song A")
-check("song B has at", loaded[1].get("at") is not None)
+    def test_valid_with_underscore(self):
+        validate_name("tracker_01")
 
-# -- backup -------------------------------------------------------------
+    def test_valid_mixed(self):
+        validate_name("ABC_def-123")
 
-section("Tracker — backup")
+    def test_invalid_space(self):
+        with pytest.raises(SystemExit):
+            validate_name("bad name")
 
-bak_path = _songs_path(test_name) + ".bak"
-check("bak exists after save", os.path.isfile(bak_path))
+    def test_invalid_chinese(self):
+        with pytest.raises(SystemExit):
+            validate_name("中文")
 
-save_songs_db(test_name, [{"id": 3, "title": "Song C"}])
-check("bak still exists after second save", os.path.isfile(bak_path))
+    def test_invalid_slash(self):
+        with pytest.raises(SystemExit):
+            validate_name("a/b")
 
-# -- compare songs ------------------------------------------------------
 
-section("Tracker — compare_songs")
+class TestCreateAndSettings:
+    @classmethod
+    def setup_class(cls):
+        tdir = _tracker_path(NAME_CRUD)
+        if os.path.exists(tdir):
+            shutil.rmtree(tdir)
+        create_tracker(NAME_CRUD)
 
-fresh = {
-    1: {"id": 1, "title": "Song A"},
-    3: {"id": 3, "title": "Song C (renamed)"},
-    4: {"id": 4, "title": "Song D"},
-}
-cached = [
-    {"id": 1, "title": "Song A"},
-    {"id": 2, "title": "Song B"},
-    {"id": 3, "title": "Song C"},
-]
+    @classmethod
+    def teardown_class(cls):
+        shutil.rmtree(_tracker_path(NAME_CRUD), ignore_errors=True)
 
-cmp = compare_songs(fresh, cached)
-check("added: song D", len(cmp["added"]) == 1 and cmp["added"][0]["id"] == 4)
-check("removed: song B", len(cmp["removed"]) == 1 and cmp["removed"][0]["id"] == 2)
-check(
-    "changed: song C renamed",
-    len(cmp["changed"]) == 1 and cmp["changed"][0][0]["id"] == 3,
-)
-check("unchanged: song A", len(cmp["changed"]) == 1)  # only song C changed
+    def test_tracker_dir_exists(self):
+        assert os.path.isdir(_tracker_path(NAME_CRUD))
 
-# empty comparison
-empty_cmp = compare_songs({}, [])
-check("empty compare", empty_cmp == {"added": [], "removed": [], "changed": []})
+    def test_settings_file_exists(self):
+        assert os.path.isfile(_settings_path(NAME_CRUD))
 
-# no changes
-same_cmp = compare_songs({1: {"id": 1, "title": "A"}}, [{"id": 1, "title": "A"}])
-check("no changes", same_cmp == {"added": [], "removed": [], "changed": []})
+    def test_songs_json_exists(self):
+        assert os.path.isfile(_songs_path(NAME_CRUD))
 
-# -- cleanup unit test tracker ------------------------------------------
+    def test_settings_has_description(self):
+        settings = load_settings(NAME_CRUD)
+        assert "description" in settings
 
-shutil.rmtree(tdir, ignore_errors=True)
-cleanup(TMP)
+    def test_settings_has_sources(self):
+        settings = load_settings(NAME_CRUD)
+        assert isinstance(settings["sources"], list)
 
-# -- network: fetch + auto-resolve + download ---------------------------
+    def test_default_sources_empty(self):
+        settings = load_settings(NAME_CRUD)
+        assert len(settings["sources"]) == 0
 
-section("Tracker — network: fetch & download")
 
-net_name = "_test_tracker_net"
-net_dir = _tracker_path(net_name)
-if os.path.exists(net_dir):
-    shutil.rmtree(net_dir)
+class TestSongsDb:
+    @classmethod
+    def setup_class(cls):
+        tdir = _tracker_path(NAME_DB)
+        if os.path.exists(tdir):
+            shutil.rmtree(tdir)
+        create_tracker(NAME_DB)
+        cls._songs = [
+            {"id": 1, "title": "Song A"},
+            {"id": 2, "title": "Song B",
+             "at": [{"type": "song", "id": 2}, {"type": "playlist", "id": 99}]},
+        ]
+        save_songs_db(NAME_DB, cls._songs)
 
-create_tracker(net_name)
+    @classmethod
+    def teardown_class(cls):
+        shutil.rmtree(_tracker_path(NAME_DB), ignore_errors=True)
 
-# Write a settings with a real song ID
-import tomllib
+    def test_saved_two_songs(self):
+        loaded = load_songs_db(NAME_DB)
+        assert len(loaded) == 2
 
-sp = _settings_path(net_name)
-with open(sp, "rb") as f:
-    data = tomllib.load(f)
+    def test_song_a_id(self):
+        loaded = load_songs_db(NAME_DB)
+        assert loaded[0]["id"] == 1
 
-# Add a song source
-data["sources"][0]["ids"] = [SONG_ID]
-with open(sp, "w", encoding="utf-8") as f:
-    import tomllib
+    def test_song_a_title(self):
+        loaded = load_songs_db(NAME_DB)
+        assert loaded[0]["title"] == "Song A"
 
-    # Write manually since we just need the updated file
-    pass
+    def test_song_b_has_at(self):
+        loaded = load_songs_db(NAME_DB)
+        assert loaded[1].get("at") is not None
 
-# Can't easily write TOML without a writer lib, so rebuild the file
-with open(sp, "w", encoding="utf-8") as f:
-    f.write(f"""[tracker]
+    def test_backup_exists(self):
+        assert os.path.isfile(_songs_path(NAME_DB) + ".bak")
+
+    def test_backup_persists_after_second_save(self):
+        save_songs_db(NAME_DB, [{"id": 3, "title": "Song C"}])
+        assert os.path.isfile(_songs_path(NAME_DB) + ".bak")
+
+
+class TestCompareSongs:
+    def test_added(self):
+        fresh = {4: {"id": 4, "title": "Song D"}}
+        cmp = compare_songs(fresh, [])
+        assert len(cmp["added"]) == 1
+        assert cmp["added"][0]["id"] == 4
+
+    def test_removed(self):
+        cmp = compare_songs({}, [{"id": 2, "title": "Song B"}])
+        assert len(cmp["removed"]) == 1
+        assert cmp["removed"][0]["id"] == 2
+
+    def test_changed(self):
+        fresh = {3: {"id": 3, "title": "Song C (renamed)"}}
+        cached = [{"id": 3, "title": "Song C"}]
+        cmp = compare_songs(fresh, cached)
+        assert len(cmp["changed"]) == 1
+        assert cmp["changed"][0][0]["id"] == 3
+
+    def test_unchanged(self):
+        fresh = {1: {"id": 1, "title": "Song A"}, 3: {"id": 3, "title": "Song C (renamed)"}}
+        cached = [{"id": 1, "title": "Song A"}, {"id": 3, "title": "Song C"}]
+        cmp = compare_songs(fresh, cached)
+        assert len(cmp["changed"]) == 1  # only 3 changed, 1 unchanged
+
+    def test_empty(self):
+        assert compare_songs({}, []) == {"added": [], "removed": [], "changed": []}
+
+    def test_no_changes(self):
+        fresh = {1: {"id": 1, "title": "A"}}
+        cached = [{"id": 1, "title": "A"}]
+        assert compare_songs(fresh, cached) == {"added": [], "removed": [], "changed": []}
+
+
+@pytest.mark.network
+class TestTrackerNetwork:
+    @classmethod
+    def setup_class(cls):
+        tdir = _tracker_path(NET_NAME)
+        if os.path.exists(tdir):
+            shutil.rmtree(tdir)
+        create_tracker(NET_NAME)
+        with open(_settings_path(NET_NAME), "w", encoding="utf-8") as f:
+            f.write(f"""[tracker]
 description = "Network test"
 
 [[sources]]
@@ -179,57 +185,53 @@ type = "album"
 ids = []
 """)
 
-settings = load_settings(net_name)
-check(
-    "network: settings loaded with song id", settings["sources"][0]["ids"] == [SONG_ID]
-)
+    @classmethod
+    def teardown_class(cls):
+        shutil.rmtree(_tracker_path(NET_NAME), ignore_errors=True)
 
-from function.tracker import fetch_all_songs, auto_resolve
+    def test_settings_loaded(self):
+        settings = load_settings(NET_NAME)
+        assert settings["sources"][0]["ids"] == [SONG_ID]
 
-fresh = fetch_all_songs(settings)
-check("network: fetched songs", len(fresh) > 0, f"got {len(fresh)}")
+    def test_fetch_songs(self):
+        settings = load_settings(NET_NAME)
+        fresh = fetch_all_songs(settings)
+        assert len(fresh) > 0
 
-cached = load_songs_db(net_name)
-check("network: no songs cached yet", len(cached) == 0)
+    def test_no_songs_cached_yet(self):
+        cached = load_songs_db(NET_NAME)
+        assert len(cached) == 0
 
-comparison = compare_songs(fresh, cached)
-check("network: all songs are added", len(comparison["added"]) > 0)
+    def test_all_songs_are_added(self):
+        settings = load_settings(NET_NAME)
+        fresh = fetch_all_songs(settings)
+        cached = load_songs_db(NET_NAME)
+        cmp = compare_songs(fresh, cached)
+        assert len(cmp["added"]) > 0
 
-resolved = auto_resolve(comparison, cached, fresh)
-check("network: auto-resolved", resolved is not None and len(resolved) > 0)
+    def test_auto_resolve_and_re_fetch(self):
+        settings = load_settings(NET_NAME)
+        fresh = fetch_all_songs(settings)
+        cached = load_songs_db(NET_NAME)
+        cmp = compare_songs(fresh, cached)
+        resolved = auto_resolve(cmp, cached, fresh)
+        assert resolved is not None
+        assert len(resolved) > 0
+        save_songs_db(NET_NAME, resolved)
+        # Re-fetch — should be up to date
+        fresh2 = fetch_all_songs(settings)
+        cached2 = load_songs_db(NET_NAME)
+        cmp2 = compare_songs(fresh2, cached2)
+        assert len(cmp2["added"]) == 0
+        assert len(cmp2["removed"]) == 0
+        assert len(cmp2["changed"]) == 0
 
-save_songs_db(net_name, resolved)
-check("network: saved resolved songs", len(load_songs_db(net_name)) > 0)
-
-# Re-fetch — should be up to date
-fresh2 = fetch_all_songs(settings)
-cached2 = load_songs_db(net_name)
-cmp2 = compare_songs(fresh2, cached2)
-check(
-    "network: re-fetch up to date",
-    len(cmp2["added"]) == 0 and len(cmp2["removed"]) == 0 and len(cmp2["changed"]) == 0,
-)
-
-# Download one song
-section("Tracker — network: download")
-from function.tracker import download_tracker
-from function.api import get_song_url
-from function.config import get_quality
-
-dl_dir = os.path.join(TMP, "tracker_dl")
-url = get_song_url(SONG_ID)
-if url:
-    download_tracker(net_name, get_quality(), dl_dir)
-    files = os.listdir(dl_dir) if os.path.isdir(dl_dir) else []
-    check("tracker download creates files", len(files) >= 1, f"got {len(files)}")
-else:
-    check("tracker download skipped (no URL)", True)
-
-# -- cleanup network test -----------------------------------------------
-
-shutil.rmtree(net_dir, ignore_errors=True)
-cleanup(TMP)
-
-failed = summary()
-if __name__ == "__main__":
-    raise SystemExit(failed)
+    def test_download(self, temp_dir):
+        dl_dir = os.path.join(temp_dir, "tracker_dl")
+        # Ensure songs are in the DB
+        settings = load_settings(NET_NAME)
+        fresh = fetch_all_songs(settings)
+        save_songs_db(NET_NAME, list(fresh.values()))
+        download_tracker(NET_NAME, get_quality(), dl_dir)
+        files = os.listdir(dl_dir) if os.path.isdir(dl_dir) else []
+        assert len(files) >= 1
