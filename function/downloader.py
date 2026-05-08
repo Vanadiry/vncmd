@@ -140,11 +140,13 @@ def download_song(
     return True, "\n".join(parts), music_path
 
 
-def download_song_batch(tracks, quality, output_dir):
+def download_song_batch(tracks, quality, output_dir, dry_run=False):
     """Download a batch of songs with progress display and summary.
 
     Each track dict must have at least 'id'.  If 'artist' is missing,
     ``get_song_details()`` is called to resolve full metadata from the API.
+
+    When ``dry_run=True``, only checks URL availability without downloading.
     Returns ``(success_count, fail_count)``.
     """
     want_song = "0" in get_download_content()
@@ -152,6 +154,9 @@ def download_song_batch(tracks, quality, output_dir):
     success_count = 0
     fail_count = 0
     fail_ids = []
+
+    if dry_run:
+        console.print(f"[bold cyan]Dry run[/] — previewing {total} track(s)")
 
     for i, track in enumerate(tracks, 1):
         sid = track["id"]
@@ -172,14 +177,49 @@ def download_song_batch(tracks, quality, output_dir):
 
         info(f"[{i}/{total}] {details['title']} - {details['artist']}")
 
-        song_url = ""
-        if want_song:
-            song_url = get_song_url(sid, quality=quality) or ""
-            if not song_url:
-                warning(f"  Skipping (no URL — VIP or unavailable): {sid}")
+        if not want_song:
+            if dry_run:
+                console.print("  [dim]Would download (audio disabled in config)[/]")
+                success_count += 1
+            else:
+                lyrics_api = f"http://music.163.com/api/song/lyric?os=pc&id={sid}&lv=-1&tv=1"
+                ok, msg, _ = download_song(
+                    song_url="",
+                    song_title=details["title"],
+                    song_artist=details["artist"],
+                    song_album=details["album"],
+                    song_id=str(sid),
+                    cover_url=details["cover"],
+                    lyrics_api_url=lyrics_api,
+                    publish_time=details["publish_time"],
+                    download_dir=output_dir,
+                )
+                if ok:
+                    success_count += 1
+                    console.print("  [green]✓[/] Downloaded")
+                else:
+                    fail_count += 1
+                    fail_ids.append(sid)
+                    console.print(f"  [red]✗[/] {msg}")
+            continue
+
+        song_url = get_song_url(sid, quality=quality) or ""
+
+        if dry_run:
+            if song_url:
+                console.print("  [green]✓[/] URL available — would download")
+                success_count += 1
+            else:
+                console.print("  [red]✗[/] URL unavailable (VIP or region) — would skip")
                 fail_count += 1
                 fail_ids.append(sid)
-                continue
+            continue
+
+        if not song_url:
+            warning(f"  Skipping (no URL — VIP or unavailable): {sid}")
+            fail_count += 1
+            fail_ids.append(sid)
+            continue
 
         lyrics_api = f"http://music.163.com/api/song/lyric?os=pc&id={sid}&lv=-1&tv=1"
         ok, msg, _ = download_song(
@@ -204,9 +244,15 @@ def download_song_batch(tracks, quality, output_dir):
         time.sleep(0.3)
 
     console.print()
-    console.print(
-        f"Done: [green]{success_count} success[/], [red]{fail_count} failed[/]"
-    )
+    if dry_run:
+        console.print(
+            f"Dry run: [green]{success_count} would download[/], "
+            f"[red]{fail_count} would skip[/]"
+        )
+    else:
+        console.print(
+            f"Done: [green]{success_count} success[/], [red]{fail_count} failed[/]"
+        )
     if fail_ids:
         console.print(f"Failed IDs: {', '.join(str(i) for i in fail_ids)}")
     return success_count, fail_count

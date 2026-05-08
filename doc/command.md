@@ -21,13 +21,15 @@ python vnemd.py search <关键词> [-n 数量] [--offset 偏移]
 
 ## 下载模式通用
 
-下面的参数控制下载时的行为，在 `song/playlist/album/tracker` 三个模式通用。
+下面的参数控制下载时的行为，在 `song/playlist/album/tracker` 三个模式通用。  
+`-q/-o/--dry-run` 都必须传入 `-d` 才有效。
 
 | 参数 | 简写 | 说明 |
 | --- | --- | --- |
 | `--download` | `-d` | 下载 |
 | `--quality` | `-q` | 临时覆盖音质（128/192/320/999） |
 | `--output` | `-o` | 临时覆盖输出目录 |
+| `--dry-run` | `/` | 仅预览要下载的内容，不下载 |
 
 ## song
 

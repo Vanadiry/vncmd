@@ -422,16 +422,16 @@ def _format_song_choice(s):
     return f"{s.get('title', '?')} (ID: {s['id']})"
 
 
-def download_tracker(name, quality, output_dir):
+def download_tracker(name, quality, output_dir, dry_run=False):
     songs = load_songs_db(name)
     if not songs:
         error(f"No songs cached for tracker '{name}'. Run --fetch first.")
         sys.exit(1)
 
-    download_song_batch(songs, quality, output_dir)
+    download_song_batch(songs, quality, output_dir, dry_run=dry_run)
 
 
-def download_diff(name, quality, output_dir):
+def download_diff(name, quality, output_dir, dry_run=False):
     diff = load_diff(name)
     added = diff.get("added", [])
     removed = diff.get("removed", [])
@@ -453,7 +453,7 @@ def download_diff(name, quality, output_dir):
         success("No new tracks to download.")
         return
 
-    download_song_batch(added, quality, output_dir)
+    download_song_batch(added, quality, output_dir, dry_run=dry_run)
 
 
 def cmd_tracker(args):
@@ -515,9 +515,9 @@ def cmd_tracker(args):
         quality = QUALITY_MAP[args.quality] if args.quality else get_quality()
         output_dir = args.output if args.output else get_download_dir()
         if args.diff:
-            download_diff(name, quality, output_dir)
+            download_diff(name, quality, output_dir, dry_run=args.dry_run)
         else:
-            download_tracker(name, quality, output_dir)
+            download_tracker(name, quality, output_dir, dry_run=args.dry_run)
 
     else:
         show_tracker(name)

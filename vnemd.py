@@ -44,9 +44,9 @@ def _resolve_output_dir(args):
     return get_download_dir()
 
 
-def _download_tracks(tracks, quality, output_dir):
+def _download_tracks(tracks, quality, output_dir, dry_run=False):
     """Shared download for playlists and albums."""
-    download_song_batch(tracks, quality, output_dir)
+    download_song_batch(tracks, quality, output_dir, dry_run=dry_run)
 
 
 def cmd_search(args):
@@ -92,6 +92,20 @@ def cmd_song(args):
             warning("Stream URL unavailable — may be VIP-only or require cookie")
 
     if not args.download:
+        return
+
+    if args.dry_run:
+        quality = _resolve_quality(args)
+        want_song = "0" in get_download_content()
+        console.print(f"[bold cyan]Dry run[/] — {song['title']} - {song['artist']}")
+        if not want_song:
+            console.print("  [dim]Would download (audio disabled in config)[/]")
+        else:
+            song_url = get_song_url(args.id, quality=quality)
+            if song_url:
+                console.print("  [green]✓[/] URL available — would download")
+            else:
+                console.print("  [red]✗[/] URL unavailable (VIP or region) — would skip")
         return
 
     want_song = "0" in get_download_content()
@@ -140,7 +154,7 @@ def cmd_album(args):
 
     quality = _resolve_quality(args)
     output_dir = _resolve_output_dir(args)
-    _download_tracks(al["tracks"], quality, output_dir)
+    _download_tracks(al["tracks"], quality, output_dir, dry_run=args.dry_run)
 
 
 def cmd_playlist(args):
@@ -160,13 +174,18 @@ def cmd_playlist(args):
 
     quality = _resolve_quality(args)
     output_dir = _resolve_output_dir(args)
-    _download_tracks(pl["tracks"], quality, output_dir)
+    _download_tracks(pl["tracks"], quality, output_dir, dry_run=args.dry_run)
 
 
 def _add_download_args(parser, batch=False):
     """Add download-related args to a parser."""
     parser.add_argument(
         "--download", "-d", action="store_true", help="Download instead of preview only"
+    )
+    parser.add_argument(
+        "--dry-run",
+        action="store_true",
+        help="Only valid with -d. Preview what would be downloaded without fetching audio.",
     )
     _add_quality_arg(parser)
     _add_output_arg(parser)
@@ -251,6 +270,11 @@ def main():
     )
     p_tracker.add_argument(
         "--download", "-d", action="store_true", help="Download all cached songs"
+    )
+    p_tracker.add_argument(
+        "--dry-run",
+        action="store_true",
+        help="Only valid with -d. Preview what would be downloaded without fetching audio.",
     )
     _add_quality_arg(p_tracker)
     _add_output_arg(p_tracker)
