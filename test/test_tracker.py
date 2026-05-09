@@ -202,7 +202,7 @@ ids = []
 
     def test_fetch_songs(self):
         settings = load_settings(NET_NAME)
-        fresh = fetch_all_songs(settings)
+        fresh, _ = fetch_all_songs(settings)
         assert len(fresh) > 0
 
     def test_no_songs_cached_yet(self):
@@ -211,14 +211,14 @@ ids = []
 
     def test_all_songs_are_added(self):
         settings = load_settings(NET_NAME)
-        fresh = fetch_all_songs(settings)
+        fresh, _ = fetch_all_songs(settings)
         cached = load_songs_db(NET_NAME)
         cmp = compare_songs(fresh, cached)
         assert len(cmp["added"]) > 0
 
     def test_auto_resolve_and_re_fetch(self):
         settings = load_settings(NET_NAME)
-        fresh = fetch_all_songs(settings)
+        fresh, _ = fetch_all_songs(settings)
         cached = load_songs_db(NET_NAME)
         cmp = compare_songs(fresh, cached)
         resolved = auto_resolve(cmp, cached, fresh)
@@ -226,7 +226,7 @@ ids = []
         assert len(resolved) > 0
         save_songs_db(NET_NAME, resolved)
         # Re-fetch — should be up to date
-        fresh2 = fetch_all_songs(settings)
+        fresh2, _ = fetch_all_songs(settings)
         cached2 = load_songs_db(NET_NAME)
         cmp2 = compare_songs(fresh2, cached2)
         assert len(cmp2["added"]) == 0
@@ -237,7 +237,7 @@ ids = []
         dl_dir = Path(temp_dir) / "tracker_dl"
         # Ensure songs are in the DB
         settings = load_settings(NET_NAME)
-        fresh = fetch_all_songs(settings)
+        fresh, _ = fetch_all_songs(settings)
         save_songs_db(NET_NAME, list(fresh.values()))
         download_tracker(NET_NAME, get_quality(), str(dl_dir))
         files = list(dl_dir.iterdir()) if dl_dir.is_dir() else []
