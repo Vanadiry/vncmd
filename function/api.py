@@ -69,6 +69,12 @@ def _fmt_duration(ms: int | None) -> str:
     return f"{m}:{s:02d}"
 
 
+def _get_v1_song_detail(song_id: int) -> dict:
+    url = f"{BASE_URL}/api/v1/song/detail/?id={song_id}&ids=%5B{song_id}%5D"
+    resp = _get_session().get(url, timeout=15)
+    return resp.json()
+
+
 def get_song_details(song_id: int) -> dict:
     cached = cache_get_song(song_id)
     if cached:
@@ -77,6 +83,15 @@ def get_song_details(song_id: int) -> dict:
     url = f"{BASE_URL}/api/song/detail/?id={song_id}&ids=%5B{song_id}%5D"
     resp = _get_session().get(url, timeout=15)
     data = resp.json()
+
+    if not data.get("songs"):
+        data = _get_v1_song_detail(song_id)
+        if data.get("songs"):
+            s = data["songs"][0]
+            if "ar" in s:
+                s["artists"] = s.pop("ar")
+            if "al" in s:
+                s["album"] = s.pop("al")
     if not data.get("songs"):
         raise ValueError(f"Song {song_id} not found")
 
@@ -157,9 +172,7 @@ def get_playlist_details(playlist_id: int, limit: int | None = None) -> dict:
 
 
 def _get_removed_song_info(song_id: int) -> dict | None:
-    url = f"{BASE_URL}/api/v1/song/detail/?id={song_id}&ids=%5B{song_id}%5D"
-    resp = _get_session().get(url, timeout=15)
-    data = resp.json()
+    data = _get_v1_song_detail(song_id)
     songs = data.get("songs", [])
     if not songs:
         return None
