@@ -5,7 +5,7 @@ from function.config import get_filename_format
 
 
 def check_filename(name: str) -> str:
-    return re.sub(r'[\\/:*?"<>|]', "-", name)
+    return re.sub(r'[\\/:*?"<>|]', "", name)
 
 
 def get_type_from_url(url: str) -> str:
