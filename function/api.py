@@ -84,7 +84,7 @@ def get_song_details(song_id: int) -> dict:
     result = {
         "id": song["id"],
         "title": song["name"],
-        "artist": ",".join(a["name"] for a in song.get("artists", [])),
+        "artist": ", ".join(a["name"] for a in song.get("artists", [])),
         "album": song.get("album", {}).get("name", ""),
         "album_id": song.get("album", {}).get("id"),
         "cover": song.get("album", {}).get("picUrl", ""),
@@ -221,7 +221,7 @@ def search(q: str, limit: int = 30, offset: int = 0) -> dict:
             {
                 "id": s["id"],
                 "title": s["name"],
-                "artist": ",".join(a["name"] for a in s.get("ar", [])),
+                "artist": ", ".join(a["name"] for a in s.get("ar", [])),
                 "album": s.get("al", {}).get("name", ""),
                 "cover": s.get("al", {}).get("picUrl", ""),
                 "publish_time": format_timestamp(s.get("publishTime")),
