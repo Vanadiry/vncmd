@@ -4,7 +4,8 @@
 [Search](search.md)  
 [Songs / Playlists / Albums](music.md)  
 [Tracker](tracker.md)  
-[Project](project.md)
+[Project](project.md)  
+[Other](other.md)
 
 ## Basic Commands
 

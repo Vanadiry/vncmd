@@ -4,7 +4,8 @@
 [搜索](search.md)  
 [单曲/歌单/专辑](music.md)  
 [Tracker](tracker.md)  
-[项目](project.md)
+[项目](project.md)  
+[其他](other.md)
 
 ## 基本命令
 

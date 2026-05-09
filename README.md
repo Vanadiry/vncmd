@@ -45,3 +45,5 @@ vncmd album 405493 -d       # 下载专辑
 vncmd tracker my-list       # 新建/查看追踪
 vncmd tracker my-list -f    # 交互式更新
 ```
+
+与其他软件配合使用等已知问题，请查看[其他](doc/other.md)。

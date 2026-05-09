@@ -47,3 +47,5 @@ vncmd album 405493 -d          # download
 vncmd tracker my-list          # create / view
 vncmd tracker my-list -f       # fetch & interactive merge
 ```
+
+For known issues including third-party software compatibility, see [Other](other.md).

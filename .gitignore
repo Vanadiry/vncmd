@@ -16,7 +16,8 @@ htmlcov/
 TODO.md
 NOTES.md
 .vscode/
-/clean.py
+/tools/clean.py
+/tools/known_artists_*.txt
 
 # macOS Shit
 .DS_Store
