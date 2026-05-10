@@ -9,6 +9,5 @@ It reads the artist list stored in `vncmd`'s cache and generates a file named `k
 
 Place this file in `/Applications/Petrichor.app/Contents/Resources` and the player will correctly recognize artists.
 
-Additionally, the Petrichor player has issues when processing artist lists with "multiple artists where the first artist is a 2+ character Chinese name". This is not a `vncmd` issue.  
-You can use [/tools/scan_artists.py](/tools/scan_artists.py) to scan your library.  
-However, since the exact conditions that trigger the problem are unknown, even using this tool may still miss some cases.
+~~Additionally, the Petrichor player has issues when processing artist lists with "multiple artists where the first artist is a 2+ character Chinese name". This is not a `vncmd` issue.~~  
+This [Issue](https://github.com/kushalpandya/Petrichor/issues/280) has been fixed.
