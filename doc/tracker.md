@@ -8,9 +8,9 @@ Tracker 功能类似 Git，本地储存一份追踪列表，拉取远端变更�
 使用 `vncmd tracker "名称"` 即可，这会创建一个该名称的 Tracker。  
 如果这个名字存在，则会显示这个 Tracker 的信息。
 
-Tracker 的名称为文件夹名（`.vncmd/tracker` 下的子目录名），仅允许大小写字母、数字、短横线和下划线。且禁止重复。
+Tracker 的名称为文件夹名（`.vSoft/vncmd/tracker` 下的子目录名），仅允许大小写字母、数字、短横线和下划线。且禁止重复。
 
-建立完成后，你可以在 `.vncmd/tracker/<名称>` 目录下找到 `settings.toml` 配置文件。默认为空的预设，需要手动编写。  
+建立完成后，你可以在 `.vSoft/vncmd/tracker/<名称>` 目录下找到 `settings.toml` 配置文件。默认为空的预设，需要手动编写。  
 
 ## 配置
 

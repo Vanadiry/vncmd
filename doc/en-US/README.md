@@ -28,8 +28,8 @@ pip install vncmd
 vncmd init
 ```
 
-Config and cache default to `~/.vncmd/`, customizable via `VNCMD_HOME` environment variable.
-Downloads default to `~/Downloads/vncmd/`, configurable in `config.toml`.
+Config and cache default to `~/.vSoft/vncmd/`, customizable via `VNCMD_HOME` environment variable.
+Downloads default to `~/Downloads/vncmd-dl/`, configurable in `config.toml`.
 
 ```bash
 # Search

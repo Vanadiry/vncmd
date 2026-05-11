@@ -4,7 +4,7 @@ Reads all cached song info.json files, extracts artist names,
 and writes one normalized artist per line to a dated txt file.
 
 Usage:
-    python3 gen.py              # uses VNCMD_HOME or default ~/.vncmd
+    python3 gen.py              # uses VNCMD_HOME or default ~/.vSoft/vncmd
     VNCMD_HOME=/path python3 gen.py
 """
 
@@ -20,7 +20,7 @@ def main():
     if vncmd_home:
         cache_root = Path(vncmd_home) / "cache" / "song"
     else:
-        cache_root = Path.home() / ".vncmd" / "cache" / "song"
+        cache_root = Path.home() / ".vSoft" / "vncmd" / "cache" / "song"
 
     if not cache_root.is_dir():
         print(f"Cache directory not found: {cache_root}", file=sys.stderr)

@@ -217,7 +217,7 @@ def cmd_playlist(args: object) -> None:
 
 
 def cmd_init(args: object) -> None:
-    """Initialize ~/.vncmd/ with default config and empty cookie."""
+    """Initialize ~/.vSoft/vncmd/ with default config and empty cookie."""
     console.print("[bold]vncmd init[/]\n")
 
     v = sys.version_info

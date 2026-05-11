@@ -6,9 +6,9 @@ Trackers work like Git — a local record of your music lists that you can sync 
 
 Run `vncmd tracker "name"` to create a new tracker. If the name already exists, it shows the current tracker info.
 
-Tracker names are folder names under `.vncmd/tracker/`. Only letters, digits, hyphens, and underscores are allowed. Duplicate names are rejected.
+Tracker names are folder names under `.vSoft/vncmd/tracker/`. Only letters, digits, hyphens, and underscores are allowed. Duplicate names are rejected.
 
-After creation, edit `.vncmd/tracker/<name>/settings.toml` to add source IDs.
+After creation, edit `.vSoft/vncmd/tracker/<name>/settings.toml` to add source IDs.
 
 ## Configuration
 

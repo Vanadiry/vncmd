@@ -1,7 +1,7 @@
 # 配置
 
-配置文件存放在 `~./vncmd/config.toml`。
-Cookie 存放在 `~./vncmd/cookie`，纯文本。
+配置文件存放在 `~/.vSoft/vncmd/config.toml`。
+Cookie 存放在 `~/.vSoft/vncmd/cookie`，纯文本。
 
 启动时会校验配置，缺少项会报错退出。
 
@@ -11,7 +11,7 @@ Cookie 存放在 `~./vncmd/cookie`，纯文本。
 
 | 键 | 默认 | 说明 |
 | --- | --- | --- |
-| `dir` | `空` | 下载目录。<br>支持绝对路径和基于 `~/.vncmd` 的相对路径 |
+| `dir` | `空` | 下载目录。<br>支持绝对路径和基于 `~/.vSoft/vncmd` 的相对路径 |
 | `filename_format` | `10` | 文件名格式化。<br>`10`: 歌名 - 歌手｜`01`: 歌手 - 歌名｜`1`: 仅歌名 |
 | `content` | `012` | 要下载的内容（可组合或单选，例如`01`）。<br>`0`: 歌曲｜`1`: 歌词｜`2`: 封面 |
 
@@ -62,4 +62,4 @@ Cookie 存放在 `~./vncmd/cookie`，纯文本。
 | 键 | 默认 | 说明 |
 | --- | --- | --- |
 | `enabled` | `true` | 是否启用缓存 |
-| `dir` | `cache` | 缓存目录。<br>支持绝对路径和基于 `~/.vncmd` 的相对路径 |
+| `dir` | `cache` | 缓存目录。<br>支持绝对路径和基于 `~/.vSoft/vncmd` 的相对路径 |

@@ -26,8 +26,8 @@ pip install vncmd
 vncmd init
 ```
 
-配置和缓存默认放在 `~/.vncmd/`，可通过环境变量 `VNCMD_HOME` 自定义。  
-下载目录默认 `~/Downloads/vncmd/`，在配置文件中可修改。
+配置和缓存默认放在 `~/.vSoft/vncmd/`，可通过环境变量 `VNCMD_HOME` 自定义。  
+下载目录默认 `~/Downloads/vncmd-dl/`，在配置文件中可修改。
 
 ```bash
 # 搜索

@@ -1,7 +1,7 @@
 # Configuration
 
-Config file: `~/.vncmd/config.toml`
-Cookie file: `~/.vncmd/cookie` (plain text)
+Config file: `~/.vSoft/vncmd/config.toml`
+Cookie file: `~/.vSoft/vncmd/cookie` (plain text)
 
 On startup, the config is validated. Missing or invalid keys will cause an error.
 
@@ -11,7 +11,7 @@ On startup, the config is validated. Missing or invalid keys will cause an error
 
 | Key | Default | Description |
 | --- | --- | --- |
-| `dir` | `""` | Download directory.<br>Supports absolute paths and paths relative to `~/.vncmd`. |
+| `dir` | `""` | Download directory.<br>Supports absolute paths and paths relative to `~/.vSoft/vncmd`. |
 | `filename_format` | `10` | Filename format.<br>`10`: Title - Artist \| `01`: Artist - Title \| `1`: Title only |
 | `content` | `012` | What to download (combinable, e.g. `01`).<br>`0`: audio \| `1`: lyrics \| `2`: cover art |
 
@@ -54,4 +54,4 @@ Don't touch this if you're not sure what it does.
 | Key | Default | Description |
 | --- | --- | --- |
 | `enabled` | `true` | Whether caching is enabled |
-| `dir` | `cache` | Cache directory. Supports absolute paths and paths relative to `~/.vncmd`. |
+| `dir` | `cache` | Cache directory. Supports absolute paths and paths relative to `~/.vSoft/vncmd`. |

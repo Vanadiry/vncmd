@@ -26,7 +26,7 @@ See [music](music.md) for full parameter details.
 
 ## Cookie
 
-Downloading VIP tracks or high-quality audio requires a Cookie. Obtain one yourself and paste it into `~/.vncmd/cookie`.
+Downloading VIP tracks or high-quality audio requires a Cookie. Obtain one yourself and paste it into `~/.vSoft/vncmd/cookie`.
 
 ### Getting IDs
 
@@ -38,4 +38,4 @@ Track, playlist, and album IDs are in the URL's `id` parameter:
 
 ## Other
 
-Preview and download operations write cache to `~/.vncmd/cache/`. You can delete this folder at any time.
+Preview and download operations write cache to `~/.vSoft/vncmd/cache/`. You can delete this folder at any time.

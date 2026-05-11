@@ -26,7 +26,7 @@
 
 ## Cookie
 
-下载 VIP 曲目或更高音质内容需要 Cookie。请自行搜索获取方式，将内容复制到 `~/.vncmd/cookie`。
+下载 VIP 曲目或更高音质内容需要 Cookie。请自行搜索获取方式，将内容复制到 `~/.vSoft/vncmd/cookie`。
 
 ### 获取 ID
 
@@ -38,4 +38,4 @@
 
 ## 其他
 
-预览和下载时会在 `~/.vncmd/cache/` 写入缓存，可随时删除。
+预览和下载时会在 `~/.vSoft/vncmd/cache/` 写入缓存，可随时删除。

@@ -51,7 +51,7 @@ def main() -> None:
     )
     sub = parser.add_subparsers(dest="command", help="Available commands")
 
-    sub.add_parser("init", help="Initialize ~/.vncmd/ with default config")
+    sub.add_parser("init", help="Initialize ~/.vSoft/vncmd/ with default config")
 
     p_search = sub.add_parser("search", help="Search songs")
     p_search.add_argument("query", help="Search keyword")

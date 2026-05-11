@@ -5,7 +5,7 @@ from pathlib import Path
 
 from function._defaults import CONFIG_TOML
 
-VNCMD_HOME = Path(os.environ.get("VNCMD_HOME", "~/.vncmd")).expanduser()
+VNCMD_HOME = Path(os.environ.get("VNCMD_HOME", "~/.vSoft/vncmd")).expanduser()
 CONFIG_FILE = VNCMD_HOME / "config.toml"
 COOKIE_FILE = VNCMD_HOME / "cookie"
 
@@ -115,7 +115,7 @@ def get_download_dir() -> str:
         if not os.path.isabs(path):
             path = str(VNCMD_HOME / path)
         return path
-    return str(Path.home() / "Downloads" / "vncmd")
+    return str(Path.home() / "Downloads" / "vncmd-dl")
 
 
 def get_quality() -> int:
