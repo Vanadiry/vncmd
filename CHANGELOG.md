@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.2.3] - 2026-05-11
+
+### Changed
+
+- **默认配置目录路径**：从 `~/.vncmd` 迁移至 `~/.vSoft/vncmd`。
+- **默认下载目录路径**：从 `~/Downloads/vncmd` 迁移至 `~/Downloads/vncmd-dl`。
+
 ## [0.2.2] - 2026-05-09
 
 ### Fixed
