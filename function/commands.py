@@ -128,7 +128,7 @@ def cmd_song(args: argparse.Namespace) -> None:
         song_url = get_song_url(args.id, quality=quality)
         if not song_url:
             error("No stream URL available. This song may be VIP-only.")
-            error("Add a cookie to config/cookie for VIP songs.")
+            info("Add a cookie to config/cookie for VIP songs.")
             sys.exit(1)
 
     output_dir = make_session_dir(_resolve_output_dir(args))
