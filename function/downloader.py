@@ -380,14 +380,27 @@ def download_song_batch(
 
     console.print()
     if dry_run:
-        console.print(
-            f"Dry run: [green]{success_count} would download[/], "
-            f"[red]{fail_count} would skip[/]"
-        )
+        parts = []
+        if success_count:
+            parts.append(f"[green]{success_count} would download[/]")
+        else:
+            parts.append(f"[dim]0 would download[/]")
+        if fail_count:
+            parts.append(f"[red]{fail_count} would skip[/]")
+        else:
+            parts.append(f"[dim]0 would skip[/]")
+        console.print(f"Dry run: {', '.join(parts)}")
     else:
-        console.print(
-            f"Done: [green]{success_count} success[/], [red]{fail_count} failed[/]"
-        )
+        parts = []
+        if success_count:
+            parts.append(f"[green]{success_count} success[/]")
+        else:
+            parts.append(f"[dim]0 success[/]")
+        if fail_count:
+            parts.append(f"[red]{fail_count} failed[/]")
+        else:
+            parts.append(f"[dim]0 failed[/]")
+        console.print(f"Done: {', '.join(parts)}")
     if fail_ids:
         console.print(f"Failed IDs: {', '.join(str(i) for i in fail_ids)}")
     return success_count, fail_count, session_dir
