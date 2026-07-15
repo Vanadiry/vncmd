@@ -32,7 +32,7 @@ def _get_dl_session():
 def fetch_audio(url: str, path: str, label: str) -> str | None:
     """Stream download audio with progress bar. Returns error message or None."""
     try:
-        resp = requests.get(url, stream=True, timeout=60)
+        resp = _get_dl_session().get(url, stream=True, timeout=60)
         total = int(resp.headers.get("content-length", 0))
 
         if resp.status_code != 200:
