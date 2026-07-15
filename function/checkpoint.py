@@ -31,7 +31,9 @@ def save_checkpoint(dl_type: str, dl_id: str, data: dict) -> None:
     path.write_text(json.dumps(data, ensure_ascii=False, indent=2), encoding="utf-8")
 
 
-def create_checkpoint(dl_type: str, dl_id: str, download_dir: str, track_ids: list[int]) -> dict:
+def create_checkpoint(
+    dl_type: str, dl_id: str, download_dir: str, track_ids: list[int]
+) -> dict:
     data = {
         "type": dl_type,
         "id": dl_id,
@@ -50,7 +52,9 @@ def mark_downloaded(dl_type: str, dl_id: str, song_id: int) -> None:
     save_checkpoint(dl_type, dl_id, cp)
 
 
-def sync_checkpoint_tracks(dl_type: str, dl_id: str, current_tracks: dict[str, str]) -> tuple[list[str], bool]:
+def sync_checkpoint_tracks(
+    dl_type: str, dl_id: str, current_tracks: dict[str, str]
+) -> tuple[list[str], bool]:
     """Sync checkpoint tracks with current API list.
 
     ``current_tracks`` is a dict of ``{id: title}``.

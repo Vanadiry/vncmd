@@ -200,10 +200,16 @@ def fetch_all_songs(settings: dict) -> tuple[dict[str, dict], list[dict]]:
                     for track in pl["tracks"]:
                         _add_to_raw(raw, track, src_type, src_id)
                     for rt in pl.get("removed_tracks", []):
-                        removed.append({"id": rt["id"], "title": rt["title"],
-                                        "artist": rt.get("artist", ""),
-                                        "album": rt.get("album", ""),
-                                        "source_type": src_type, "source_id": src_id})
+                        removed.append(
+                            {
+                                "id": rt["id"],
+                                "title": rt["title"],
+                                "artist": rt.get("artist", ""),
+                                "album": rt.get("album", ""),
+                                "source_type": src_type,
+                                "source_id": src_id,
+                            }
+                        )
                 elif src_type == "album":
                     al = get_album_details(src_id)
                     for track in al["tracks"]:
@@ -279,7 +285,9 @@ def _get_checkbox_style(color: str = "green") -> object | None:
     )
 
 
-def resolve_conflicts(comparison: dict, cached_list: list[dict], fresh_dict: dict[str, dict]) -> list[dict] | None:
+def resolve_conflicts(
+    comparison: dict, cached_list: list[dict], fresh_dict: dict[str, dict]
+) -> list[dict] | None:
     added = comparison["added"]
     removed = comparison["removed"]
     changed = comparison["changed"]
@@ -378,7 +386,9 @@ def resolve_conflicts(comparison: dict, cached_list: list[dict], fresh_dict: dic
     return sorted(result.values(), key=lambda x: x.get("title", ""))
 
 
-def auto_resolve(comparison: dict, cached_list: list[dict], fresh_dict: dict[str, dict]) -> list[dict] | None:
+def auto_resolve(
+    comparison: dict, cached_list: list[dict], fresh_dict: dict[str, dict]
+) -> list[dict] | None:
     added = comparison["added"]
     removed = comparison["removed"]
     changed = comparison["changed"]
@@ -412,7 +422,9 @@ def _format_song_choice(s: dict) -> str:
     return f"{s.get('title', '?')} (ID: {s['id']})"
 
 
-def download_tracker(name: str, quality: int, output_dir: str, dry_run: bool = False) -> None:
+def download_tracker(
+    name: str, quality: int, output_dir: str, dry_run: bool = False
+) -> None:
     songs = load_songs_db(name)
     if not songs:
         error(f"No songs cached for tracker '{name}'. Run --fetch first.")
@@ -423,7 +435,9 @@ def download_tracker(name: str, quality: int, output_dir: str, dry_run: bool = F
     )
 
 
-def download_diff(name: str, quality: int, output_dir: str, dry_run: bool = False) -> None:
+def download_diff(
+    name: str, quality: int, output_dir: str, dry_run: bool = False
+) -> None:
     diff = load_diff(name)
     added = diff.get("added", [])
     removed = diff.get("removed", [])
@@ -498,10 +512,7 @@ def cmd_tracker(args: argparse.Namespace) -> None:
 
         if removed:
             console.print()
-            warning(
-                f"{len(removed)} removed track(s) detected "
-                f"(not included in diff):"
-            )
+            warning(f"{len(removed)} removed track(s) detected (not included in diff):")
             for r in removed:
                 console.print(
                     f"    [dim]{r['id']}[/]  [red]{r['title']}[/]"

@@ -7,7 +7,9 @@ def _mime_from_url(url: str | None) -> str:
     return "image/jpeg" if ext in ("jpg", "jpeg") else "image/png"
 
 
-def process_cover(cover_data: bytes, cover_url: str | None, quality: str) -> tuple[bytes, str]:
+def process_cover(
+    cover_data: bytes, cover_url: str | None, quality: str
+) -> tuple[bytes, str]:
     """
     Process cover image.
 

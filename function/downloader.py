@@ -25,7 +25,15 @@ from function.lyrics import (
     output_files as output_lyrics_files,
 )
 from function.metadata import embed as embed_metadata
-from function.output import info, warning, success, console, ICON_OK, ICON_FAIL, ICON_INFO
+from function.output import (
+    info,
+    warning,
+    success,
+    console,
+    ICON_OK,
+    ICON_FAIL,
+    ICON_INFO,
+)
 from function.checkpoint import (
     load_checkpoint,
     create_checkpoint,
@@ -244,7 +252,9 @@ def download_song_batch(
             pending_set = set(pending_ids)
             tracks = [t for t in tracks if str(t["id"]) in pending_set]
         else:
-            create_checkpoint(dl_type, dl_id, session_dir, [int(tid) for tid in track_map])
+            create_checkpoint(
+                dl_type, dl_id, session_dir, [int(tid) for tid in track_map]
+            )
 
     want_song = "0" in get_download_content()
     total = len(tracks)

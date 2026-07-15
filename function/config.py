@@ -69,7 +69,9 @@ def validate_config() -> None:
     if not ds.get("quality"):
         errors.append("[download.song] quality is missing or empty")
     elif ds["quality"] not in QUALITY_MAP:
-        errors.append(f"[download.song] quality must be one of: {', '.join(QUALITY_MAP)}")
+        errors.append(
+            f"[download.song] quality must be one of: {', '.join(QUALITY_MAP)}"
+        )
 
     # [download.lyric]
     dly = dl.get("lyric", {})
