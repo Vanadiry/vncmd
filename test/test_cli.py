@@ -21,7 +21,7 @@ def _run(args, timeout=30, **kwargs):
 class TestCliPreview:
     def test_no_args_shows_usage(self):
         r = _run([])
-        assert "usage:" in (r.stdout + r.stderr).lower()
+        assert "用法：" in r.stdout
 
     def test_search(self):
         r = _run(["search", "Beyond", "--limit", "3"])
@@ -83,7 +83,7 @@ class TestCliTracker:
             input="y\n",
         )
         assert r.returncode == 0
-        assert "created" in r.stdout.lower()
+        assert "已创建" in r.stdout
         # Write settings
         with open(cls._tracker_dir / "settings.toml", "w") as f:
             f.write(f"""[tracker]
@@ -115,4 +115,4 @@ ids = []
         r = _run(["tracker", self.TRACKER_NAME])
         assert r.returncode == 0
         # Count depends on API availability; fetch may be empty if rate-limited
-        assert "Cached songs:" in r.stdout
+        assert "已缓存曲目" in r.stdout

@@ -1,0 +1,103 @@
+name: Build
+
+permissions:
+  contents: write
+
+on:
+  push:
+    tags: ["v*"]
+  workflow_dispatch:
+
+jobs:
+  build:
+    strategy:
+      matrix:
+        include:
+          - os: macos-latest
+            arch: arm64
+            label: macos
+          - os: ubuntu-latest
+            arch: amd64
+            label: linux
+          - os: windows-latest
+            arch: amd64
+            label: windows
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install dependencies
+        run: |
+          pip install -e . nuitka
+
+      - name: Build (Linux/macOS)
+        if: runner.os != 'Windows'
+        run: |
+          nuitka --standalone --onefile --output-dir=dist --output-filename=vncmd vncmd.py --assume-yes-for-downloads
+
+      - name: Build (Windows)
+        if: runner.os == 'Windows'
+        run: |
+          nuitka --standalone --onefile --output-dir=dist --output-filename=vncmd vncmd.py --msvc=latest --assume-yes-for-downloads
+
+      - name: Package binary
+        shell: bash
+        run: |
+          V="${GITHUB_REF_NAME#v}"
+          EXT=""
+          [ "${{ matrix.label }}" = "windows" ] && EXT=".exe"
+          mkdir -p release
+          cp "dist/vncmd${EXT}" "release/vncmd-${V}-${{ matrix.label }}-${{ matrix.arch }}${EXT}"
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: ${{ matrix.label }}-${{ matrix.arch }}
+          path: release/
+
+  sdist:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - run: pip install build
+      - run: python -m build
+      - uses: actions/upload-artifact@v4
+        with:
+          name: sdist
+          path: dist/
+
+  release:
+    needs: [build, sdist]
+    if: startsWith(github.ref, 'refs/tags/v')
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/download-artifact@v4
+        with:
+          path: artifacts
+
+      - name: Flatten artifacts
+        run: |
+          mkdir -p release
+          find artifacts -type f \( -name "vncmd-*" -o -name "*.whl" -o -name "*.tar.gz" \) | while read f; do
+            cp "$f" "release/$(basename "$f")"
+          done
+
+      - name: Extract changelog
+        run: |
+          V="${GITHUB_REF_NAME#v}"
+          awk "/^## \[$V\]/{p=1; next} /^## \[/{p=0} p" CHANGELOG.md > /tmp/body.md
+
+      - uses: softprops/action-gh-release@v2
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          body_path: /tmp/body.md
+          files: release/*
+          draft: true

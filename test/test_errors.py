@@ -6,11 +6,11 @@ from function.downloader import download_song
 @pytest.mark.network
 class TestNonexistentResources:
     def test_nonexistent_song_raises_valueerror(self):
-        with pytest.raises(ValueError, match="not found"):
+        with pytest.raises(ValueError, match="未找到"):
             get_song_details(99999999999)
 
     def test_nonexistent_playlist_raises_valueerror(self):
-        with pytest.raises(ValueError, match="not found"):
+        with pytest.raises(ValueError, match="未找到"):
             get_playlist_details(99999999999)
 
     def test_bad_url_download_fails(self, temp_dir):
@@ -19,7 +19,7 @@ class TestNonexistentResources:
             song_title="Test",
             song_artist="Test",
             song_album="Test",
-            song_id="0",
+            song_id=0,
             cover_url="",
             lyrics_api_url="",
             publish_time="",
