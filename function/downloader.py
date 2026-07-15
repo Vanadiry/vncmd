@@ -1,3 +1,4 @@
+import shutil
 import sys
 import time
 from concurrent.futures import ThreadPoolExecutor
@@ -295,6 +296,13 @@ def download_song_batch(
             success("所有曲目已下载完毕。")
         return success_count, fail_count, session_dir
 
+    def _desc(text):
+        width = shutil.get_terminal_size().columns
+        limit = max(width - 60, 30)
+        if len(text) > limit:
+            text = text[: limit - 1] + "…"
+        return text.ljust(limit)
+
     # --- Concurrent download with worker slots ---
     counter_lock = Lock()
     progress = Progress(
@@ -327,7 +335,7 @@ def download_song_batch(
             artist = track.get("artist", "")
 
             if not artist:
-                progress.update(task_id, description=f"解析中…（ID: {sid}）")
+                progress.update(task_id, description=_desc(f"解析中…（ID: {sid}）"))
                 try:
                     track = get_song_details(sid)
                     title = track["title"]
@@ -341,7 +349,7 @@ def download_song_batch(
                         fail_ids.append(sid)
                     continue
 
-            progress.update(task_id, description=f"⏳ {title} - {artist}")
+            progress.update(task_id, description=_desc(f"⏳ {title} - {artist}"))
 
             if not want_song:
                 lyrics_api = get_lyrics_url(sid)
