@@ -284,7 +284,8 @@ def download_song_batch(
         else:
             details = track
 
-        _print_status(ICON_INFO, i, total, details["title"], details["artist"])
+        if sys.stdout.isatty():
+            _print_status(ICON_INFO, i, total, details["title"], details["artist"])
 
         if not want_song:
             if dry_run:
