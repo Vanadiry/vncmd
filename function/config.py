@@ -99,12 +99,11 @@ def validate_config() -> None:
 
 
 def _die(errors: list[str]) -> None:
-    from rich.console import Console
+    from function.output import error, console
 
-    c = Console(stderr=True)
-    c.print("[red]Config validation failed:[/]")
+    console.print("[red]Config validation failed:[/]")
     for e in errors:
-        c.print(f"  [red]✗[/] {e}")
+        error(e)
     sys.exit(1)
 
 

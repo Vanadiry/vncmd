@@ -25,7 +25,7 @@ from function.lyrics import (
     output_files as output_lyrics_files,
 )
 from function.metadata import embed as embed_metadata
-from function.output import info, warning, console
+from function.output import info, warning, success, console, ICON_OK, ICON_FAIL, ICON_INFO
 from function.checkpoint import (
     load_checkpoint,
     create_checkpoint,
@@ -42,16 +42,18 @@ def make_session_dir(base_dir):
     return str(path)
 
 
-def _print_status(icon, color, i, total, title, artist, suffix=""):
+def _print_status(status_icon, i, total, title, artist, suffix=""):
     """Print a download status line.
 
     Call without *suffix* before download starts (prints a new line).
     Call with *suffix* after download completes to rewrite the pre-download
     status line in-place via ANSI cursor-up when stdout is a tty.
+
+    *status_icon* should be a Rich markup string (e.g. ``ICON_OK``).
     """
     title = title.replace("[", "\\[").replace("]", "\\]")
     artist = artist.replace("[", "\\[").replace("]", "\\]")
-    line = f"  [{color}]{icon}[/] [{i}/{total}] {title} - {artist}"
+    line = f"  {status_icon} [{i}/{total}] {title} - {artist}"
     if suffix:
         line += f" [dim]({suffix})[/]"
     if suffix and sys.stdout.isatty():
@@ -67,7 +69,7 @@ def download_song(
     song_title: str,
     song_artist: str,
     song_album: str,
-    song_id: str,
+    song_id: int,
     cover_url: str,
     lyrics_api_url: str,
     publish_time: str,
@@ -165,7 +167,7 @@ def download_song(
     # --- Result ---
     parts = []
     if music_path:
-        parts.append(f"{music_type.upper()} → {music_path}")
+        parts.append(f"{music_type.upper() if music_type else ''} → {music_path}")
     for p in lyric_paths:
         parts.append(f"LRC → {p}")
     if cover_path:
@@ -242,7 +244,7 @@ def download_song_batch(
             pending_set = set(pending_ids)
             tracks = [t for t in tracks if str(t["id"]) in pending_set]
         else:
-            create_checkpoint(dl_type, dl_id, session_dir, list(track_map.keys()))
+            create_checkpoint(dl_type, dl_id, session_dir, [int(tid) for tid in track_map])
 
     want_song = "0" in get_download_content()
     total = len(tracks)
@@ -251,9 +253,9 @@ def download_song_batch(
     fail_ids = []
 
     if dry_run:
-        console.print(f"[bold cyan]Dry run[/] — previewing {total} track(s)")
+        info(f"Dry run — previewing {total} track(s)")
     elif is_resuming and total == 0:
-        console.print("[bold green]All tracks already downloaded — nothing to do.[/]")
+        success("All tracks already downloaded — nothing to do.")
 
     for i, track in enumerate(tracks, 1):
         sid = track["id"]
@@ -272,7 +274,7 @@ def download_song_batch(
         else:
             details = track
 
-        _print_status("ℹ", "blue", i, total, details["title"], details["artist"])
+        _print_status(ICON_INFO, i, total, details["title"], details["artist"])
 
         if not want_song:
             if dry_run:
@@ -285,7 +287,7 @@ def download_song_batch(
                     song_title=details["title"],
                     song_artist=details["artist"],
                     song_album=details["album"],
-                    song_id=str(sid),
+                    song_id=sid,
                     cover_url=details["cover"],
                     lyrics_api_url=lyrics_api,
                     publish_time=details["publish_time"],
@@ -295,8 +297,7 @@ def download_song_batch(
                     success_count += 1
                     _mark_done(dl_type, dl_id, sid)
                     _print_status(
-                        "✓",
-                        "green",
+                        ICON_OK,
                         i,
                         total,
                         details["title"],
@@ -307,8 +308,7 @@ def download_song_batch(
                     fail_count += 1
                     fail_ids.append(sid)
                     _print_status(
-                        "✗",
-                        "red",
+                        ICON_FAIL,
                         i,
                         total,
                         details["title"],
@@ -321,12 +321,10 @@ def download_song_batch(
 
         if dry_run:
             if song_url:
-                console.print("  [green]✓[/] URL available — would download")
+                success("URL available — would download")
                 success_count += 1
             else:
-                console.print(
-                    "  [red]✗[/] URL unavailable (VIP or region) — would skip"
-                )
+                warning("URL unavailable (VIP or region) — would skip")
                 fail_count += 1
                 fail_ids.append(sid)
             continue
@@ -343,7 +341,7 @@ def download_song_batch(
             song_title=details["title"],
             song_artist=details["artist"],
             song_album=details["album"],
-            song_id=str(sid),
+            song_id=sid,
             cover_url=details["cover"],
             lyrics_api_url=lyrics_api,
             publish_time=details["publish_time"],
@@ -353,8 +351,7 @@ def download_song_batch(
             success_count += 1
             _mark_done(dl_type, dl_id, sid)
             _print_status(
-                "✓",
-                "green",
+                ICON_OK,
                 i,
                 total,
                 details["title"],
@@ -365,7 +362,7 @@ def download_song_batch(
             fail_count += 1
             fail_ids.append(sid)
             _print_status(
-                "✗", "red", i, total, details["title"], details["artist"], "failed"
+                ICON_FAIL, i, total, details["title"], details["artist"], "failed"
             )
 
         time.sleep(0.3)

@@ -1,3 +1,4 @@
+import argparse
 import sys
 
 from function.api import (
@@ -34,13 +35,13 @@ from function.config import (
 )
 
 
-def _resolve_quality(args: object) -> int:
+def _resolve_quality(args: argparse.Namespace) -> int:
     if args.quality:
         return QUALITY_MAP[args.quality]
     return get_quality()
 
 
-def _resolve_output_dir(args: object) -> str:
+def _resolve_output_dir(args: argparse.Namespace) -> str:
     if args.output:
         return args.output
     return get_download_dir()
@@ -60,7 +61,7 @@ def _download_tracks(
     )
 
 
-def cmd_search(args: object) -> None:
+def cmd_search(args: argparse.Namespace) -> None:
     info(f'Searching "{args.query}"...')
     try:
         result = search(args.query, limit=args.limit, offset=args.offset)
@@ -75,7 +76,7 @@ def cmd_search(args: object) -> None:
     display_search_results(args.query, result["songs"], result["total"])
 
 
-def cmd_song(args: object) -> None:
+def cmd_song(args: argparse.Namespace) -> None:
     """Preview or download a single song."""
     try:
         song = get_song_details(args.id)
@@ -108,17 +109,15 @@ def cmd_song(args: object) -> None:
     if args.dry_run:
         quality = _resolve_quality(args)
         want_song = "0" in get_download_content()
-        console.print(f"[bold cyan]Dry run[/] — {song['title']} - {song['artist']}")
+        info(f"Dry run — {song['title']} - {song['artist']}")
         if not want_song:
             console.print("  [dim]Would download (audio disabled in config)[/]")
         else:
             song_url = get_song_url(args.id, quality=quality)
             if song_url:
-                console.print("  [green]✓[/] URL available — would download")
+                success("URL available — would download")
             else:
-                console.print(
-                    "  [red]✗[/] URL unavailable (VIP or region) — would skip"
-                )
+                warning("URL unavailable (VIP or region) — would skip")
         return
 
     want_song = "0" in get_download_content()
@@ -136,11 +135,11 @@ def cmd_song(args: object) -> None:
     info(f"Downloading: {song['title']} - {song['artist']}")
     lyrics_api = get_lyrics_url(args.id)
     ok, msg, path = download_song(
-        song_url=song_url,
+        song_url=song_url or "",
         song_title=song["title"],
         song_artist=song["artist"],
         song_album=song["album"],
-        song_id=str(song["id"]),
+        song_id=song["id"],
         cover_url=song["cover"],
         lyrics_api_url=lyrics_api,
         publish_time=song["publish_time"],
@@ -152,7 +151,7 @@ def cmd_song(args: object) -> None:
         error(msg)
 
 
-def cmd_album(args: object) -> None:
+def cmd_album(args: argparse.Namespace) -> None:
     """Preview or download an album."""
     try:
         al = get_album_details(args.id)
@@ -177,7 +176,7 @@ def cmd_album(args: object) -> None:
     )
 
 
-def cmd_playlist(args: object) -> None:
+def cmd_playlist(args: argparse.Namespace) -> None:
     """Preview or download a playlist."""
     try:
         pl = get_playlist_details(
@@ -192,9 +191,7 @@ def cmd_playlist(args: object) -> None:
     removed = pl.get("removed_tracks", [])
     if removed:
         console.print()
-        console.print(
-            f"  [yellow]⚠ {len(removed)} removed track(s) in this playlist:[/]"
-        )
+        warning(f"{len(removed)} removed track(s) in this playlist:")
         for r in removed:
             console.print(
                 f"    [dim]{r['id']}[/]  [red]{r['title']}[/]"
@@ -216,7 +213,7 @@ def cmd_playlist(args: object) -> None:
     )
 
 
-def cmd_init(args: object) -> None:
+def cmd_init(args: argparse.Namespace) -> None:
     """Initialize ~/.vSoft/vncmd/ with default config and empty cookie."""
     console.print("[bold]vncmd init[/]\n")
 
@@ -230,15 +227,16 @@ def cmd_init(args: object) -> None:
         console.print("  [dim]config.toml already exists[/]")
     else:
         validate_config()
-        console.print("  [green]✓[/] Created config.toml")
+        success("Created config.toml")
 
     if COOKIE_FILE.exists():
         console.print("  [dim]cookie already exists[/]")
     else:
         COOKIE_FILE.write_text("", encoding="utf-8")
-        console.print("  [green]✓[/] Created empty cookie file")
+        success("Created empty cookie file")
         console.print(
             f"  [dim]Paste your cookie into {COOKIE_FILE} for VIP/high-quality mode.[/]"
         )
 
-    console.print("\n[bold green]Setup complete.[/]")
+    console.print()
+    success("Setup complete.")

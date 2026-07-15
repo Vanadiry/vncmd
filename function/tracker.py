@@ -1,3 +1,4 @@
+import argparse
 import json
 import re
 import shutil
@@ -458,7 +459,7 @@ def download_diff(name: str, quality: int, output_dir: str, dry_run: bool = Fals
         info(f"{len(removed)} track(s) removed — see {removed_path}")
 
 
-def cmd_tracker(args: object) -> None:
+def cmd_tracker(args: argparse.Namespace) -> None:
     name = args.name
     validate_name(name)
 
@@ -497,9 +498,9 @@ def cmd_tracker(args: object) -> None:
 
         if removed:
             console.print()
-            console.print(
-                f"  [yellow]⚠ {len(removed)} removed track(s) detected "
-                f"(not included in diff):[/]"
+            warning(
+                f"{len(removed)} removed track(s) detected "
+                f"(not included in diff):"
             )
             for r in removed:
                 console.print(

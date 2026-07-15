@@ -126,17 +126,23 @@ def display_lyrics(lyrics_text: str) -> None:
     console.print(panel)
 
 
+ICON_OK = "[green]✓[/]"
+ICON_FAIL = "[red]✗[/]"
+ICON_INFO = "[blue]ℹ[/]"
+ICON_WARN = "[yellow]⚠[/]"
+
+
 def success(msg: str) -> None:
-    console.print(f"[green]✓[/] {msg}")
+    console.print(f"{ICON_OK} {msg}")
 
 
 def error(msg: str) -> None:
-    console.print(f"[red]✗[/] {msg}")
+    console.print(f"{ICON_FAIL} {msg}")
 
 
 def info(msg: str) -> None:
-    console.print(f"[blue]ℹ[/] {msg}")
+    console.print(f"{ICON_INFO} {msg}")
 
 
 def warning(msg: str) -> None:
-    console.print(f"[yellow]⚠[/] {msg}")
+    console.print(f"{ICON_WARN} {msg}")
