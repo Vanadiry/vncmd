@@ -99,7 +99,8 @@ def cmd_song(args: argparse.Namespace) -> None:
         quality = _resolve_quality(args)
         url = get_song_url(args.id, quality=quality)
         if url:
-            success(f"Stream URL available: {url[:80]}...")
+            url_display = url if len(url) <= 80 else f"{url[:77]}..."
+            success(f"Stream URL available: {url_display}")
         else:
             warning("Stream URL unavailable — may be VIP-only or require cookie")
 
