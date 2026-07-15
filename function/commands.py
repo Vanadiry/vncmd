@@ -216,7 +216,7 @@ def cmd_playlist(args: argparse.Namespace) -> None:
 
 def cmd_init(args: argparse.Namespace) -> None:
     """Initialize ~/.vSoft/vncmd/ with default config and empty cookie."""
-    console.print("[bold]vncmd init[/]\n")
+    console.print()
 
     v = sys.version_info
     console.print(f"  Python {v.major}.{v.minor}.{v.micro}")
@@ -239,3 +239,8 @@ def cmd_init(args: argparse.Namespace) -> None:
 
     console.print()
     success("初始化完成。")
+    console.print(
+        "  [dim]建议阅读详细指南：[/]"
+        "https://github.com/Vanadiry/vncmd/blob/main/doc/guide.md"
+    )
+    console.print()
