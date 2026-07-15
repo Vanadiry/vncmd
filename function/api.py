@@ -222,8 +222,10 @@ def get_album_details(album_id: int) -> dict:
 
 
 def search(q: str, limit: int = 30, offset: int = 0) -> dict:
-    url = f"{BASE_URL}/api/cloudsearch/pc?type=1&s={q}&limit={limit}&offset={offset}"
-    resp = _get_session().get(url, timeout=15)
+    url = f"{BASE_URL}/api/cloudsearch/pc"
+    resp = _get_session().get(
+        url, params={"type": 1, "s": q, "limit": limit, "offset": offset}, timeout=15
+    )
     data = resp.json()
     if data.get("code") != 200:
         raise ValueError(f"Search failed: {data}")
