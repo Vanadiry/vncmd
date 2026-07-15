@@ -7,8 +7,15 @@ from rich import box
 console = Console()
 
 
-def _display_track_table(tracks: list[dict], total_count: int) -> None:
-    table = Table(box=box.ROUNDED, show_header=True, header_style="bold cyan")
+def _display_track_table(
+    tracks: list[dict], total_count: int, title: str | None = None
+) -> None:
+    table = Table(
+        title=title,
+        box=box.ROUNDED,
+        show_header=True,
+        header_style="bold cyan",
+    )
     table.add_column("#", style="dim", width=4)
     table.add_column("ID", style="dim", width=12)
     table.add_column("Title", style="bright_white", max_width=40)
@@ -35,30 +42,7 @@ def _display_track_table(tracks: list[dict], total_count: int) -> None:
 
 def display_search_results(query: str, songs: list[dict], total: int) -> None:
     """Display search results as a table."""
-    table = Table(
-        title=f'Search: "{query}"  —  {total} results',
-        box=box.ROUNDED,
-        show_header=True,
-        header_style="bold cyan",
-    )
-    table.add_column("#", style="dim", width=4)
-    table.add_column("ID", style="dim", width=12)
-    table.add_column("Title", style="bright_white", max_width=40)
-    table.add_column("Artist", style="yellow", max_width=30)
-    table.add_column("Album", style="green", max_width=30)
-    table.add_column("Duration", style="blue", width=8, justify="right")
-
-    for i, s in enumerate(songs, 1):
-        table.add_row(
-            str(i),
-            str(s["id"]),
-            s["title"],
-            s["artist"],
-            s["album"],
-            s["duration"],
-        )
-
-    console.print(table)
+    _display_track_table(songs, total, title=f'Search: "{query}"  —  {total} results')
 
 
 def display_song_detail(song: dict) -> None:
