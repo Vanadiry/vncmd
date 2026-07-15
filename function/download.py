@@ -38,7 +38,7 @@ def fetch_audio(
     Rich Progress instance.  Otherwise a per-file progress bar is created.
     """
     try:
-        resp = _get_dl_session().get(url, stream=True, timeout=60)
+        resp = _get_dl_session().get(url, stream=True, timeout=(15, 10))
         total = int(resp.headers.get("content-length", 0))
 
         if resp.status_code != 200:

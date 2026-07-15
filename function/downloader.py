@@ -376,19 +376,30 @@ def download_song_batch(
                     continue
 
                 lyrics_api = get_lyrics_url(sid)
-                ok, msg, _ = download_song(
-                    song_url=song_url,
-                    song_title=title,
-                    song_artist=artist,
-                    song_album=track.get("album", ""),
-                    song_id=sid,
-                    cover_url=track.get("cover", ""),
-                    lyrics_api_url=lyrics_api,
-                    publish_time=track.get("publish_time", ""),
-                    download_dir=session_dir,
-                    progress=progress,
-                    task_id=task_id,
-                )
+                for attempt in range(1, 4):
+                    ok, msg, _ = download_song(
+                        song_url=song_url,
+                        song_title=title,
+                        song_artist=artist,
+                        song_album=track.get("album", ""),
+                        song_id=sid,
+                        cover_url=track.get("cover", ""),
+                        lyrics_api_url=lyrics_api,
+                        publish_time=track.get("publish_time", ""),
+                        download_dir=session_dir,
+                        progress=progress,
+                        task_id=task_id,
+                    )
+                    if ok:
+                        break
+                    progress.reset(task_id, total=None)
+                    if attempt < 3:
+                        progress.update(
+                            task_id,
+                            description=_desc(
+                                f"⏳ {title} - {artist}（重试 {attempt}/3）"
+                            ),
+                        )
 
             progress.update(task_id, description="")
             progress.reset(task_id, total=None)
