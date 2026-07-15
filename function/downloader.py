@@ -167,11 +167,11 @@ def download_song(
     # --- Result ---
     parts = []
     if music_path:
-        parts.append(f"{music_type.upper() if music_type else ''} → {music_path}")
+        parts.append(f'{music_type.upper() if music_type else ""} → "{music_path}"')
     for p in lyric_paths:
-        parts.append(f"LRC → {p}")
+        parts.append(f'LRC → "{p}"')
     if cover_path:
-        parts.append(f"封面 → {cover_path}")
+        parts.append(f'封面 → "{cover_path}"')
 
     if not parts:
         return False, "未下载任何内容，请检查 download_content 配置", None

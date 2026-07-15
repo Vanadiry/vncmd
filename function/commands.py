@@ -23,6 +23,7 @@ from function.output import (
     warning,
     console,
 )
+from rich.markup import escape
 from function.config import (
     validate_config,
     get_quality,
@@ -195,8 +196,8 @@ def cmd_playlist(args: argparse.Namespace) -> None:
         warning(f"此歌单中有 {len(removed)} 首已下架曲目：")
         for r in removed:
             console.print(
-                f"    [dim]{r['id']}[/]  [red]{r['title']}[/]"
-                f"  [dim]— {r['artist']}  ·  {r['album']}[/]"
+                f"    [dim]{r['id']}[/]  [red]{escape(r['title'])}[/]"
+                f"  [dim]— {escape(r['artist'])}  ·  {escape(r['album'])}[/]"
             )
 
     if not args.download:

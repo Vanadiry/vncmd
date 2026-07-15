@@ -1,4 +1,5 @@
 from rich.console import Console
+from rich.markup import escape
 from rich.table import Table
 from rich.panel import Panel
 from rich.text import Text
@@ -27,9 +28,9 @@ def _display_track_table(
         table.add_row(
             str(i),
             str(t["id"]),
-            t["title"],
-            t["artist"],
-            t["album"],
+            escape(t["title"]),
+            escape(t["artist"]),
+            escape(t["album"]),
             t["duration"],
         )
 
@@ -42,7 +43,9 @@ def _display_track_table(
 
 def display_search_results(query: str, songs: list[dict], total: int) -> None:
     """Display search results as a table."""
-    _display_track_table(songs, total, title=f"搜索：「{query}」  —  共 {total} 首")
+    _display_track_table(
+        songs, total, title=f"搜索：「{escape(query)}」  —  共 {total} 首"
+    )
 
 
 def display_song_detail(song: dict) -> None:
@@ -99,7 +102,7 @@ def display_lyrics(lyrics_text: str) -> None:
         console.print("[dim]无歌词[/]")
         return
     panel = Panel(
-        lyrics_text.strip(),
+        Text(lyrics_text.strip()),
         title="[bold]歌词[/]",
         border_style="cyan",
         box=box.ROUNDED,
@@ -113,17 +116,22 @@ ICON_INFO = "[blue]ℹ[/]"
 ICON_WARN = "[yellow]⚠[/]"
 
 
+def _print_status(icon, msg):
+    for line in msg.splitlines():
+        console.print(f"{icon} {escape(line)}")
+
+
 def success(msg: str) -> None:
-    console.print(f"{ICON_OK} {msg}")
+    _print_status(ICON_OK, msg)
 
 
 def error(msg: str) -> None:
-    console.print(f"{ICON_FAIL} {msg}")
+    _print_status(ICON_FAIL, msg)
 
 
 def info(msg: str) -> None:
-    console.print(f"{ICON_INFO} {msg}")
+    _print_status(ICON_INFO, msg)
 
 
 def warning(msg: str) -> None:
-    console.print(f"{ICON_WARN} {msg}")
+    _print_status(ICON_WARN, msg)

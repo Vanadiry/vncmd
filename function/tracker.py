@@ -22,6 +22,7 @@ from function.output import (
     warning,
     console,
 )
+from rich.markup import escape
 from function._defaults import TRACKER_SETTINGS_TOML
 from function.config import (
     get_quality,
@@ -487,8 +488,8 @@ def cmd_tracker(args: argparse.Namespace) -> None:
             warning(f"检测到 {len(removed)} 首已下架曲目（不包含在 diff 中）：")
             for r in removed:
                 console.print(
-                    f"    [dim]{r['id']}[/]  [red]{r['title']}[/]"
-                    f"  [dim]— {r['artist']}  ·  {r['album']}[/]"
+                    f"    [dim]{r['id']}[/]  [red]{escape(r['title'])}[/]"
+                    f"  [dim]— {escape(r['artist'])}  ·  {escape(r['album'])}[/]"
                 )
 
         if not fresh:
