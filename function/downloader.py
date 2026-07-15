@@ -1,7 +1,17 @@
 import sys
 import time
+from concurrent.futures import ThreadPoolExecutor
 from datetime import datetime
 from pathlib import Path
+from queue import Queue
+from threading import Lock
+
+from rich.progress import (
+    Progress,
+    BarColumn,
+    TextColumn,
+    TimeRemainingColumn,
+)
 
 from function.api import get_song_details, get_song_url, get_lyrics_url
 from function.config import (
@@ -11,6 +21,7 @@ from function.config import (
     get_save_lyrics_mode,
     get_embed_cover_quality,
     get_save_cover_quality,
+    get_concurrency,
 )
 from function.audio import (
     get_type_from_url,
@@ -29,10 +40,8 @@ from function.output import (
     info,
     warning,
     success,
+    error,
     console,
-    ICON_OK,
-    ICON_FAIL,
-    ICON_INFO,
 )
 from function.checkpoint import (
     load_checkpoint,
@@ -50,28 +59,6 @@ def make_session_dir(base_dir):
     return str(path)
 
 
-def _print_status(status_icon, i, total, title, artist, suffix=""):
-    """Print a download status line.
-
-    Call without *suffix* before download starts (prints a new line).
-    Call with *suffix* after download completes to rewrite the pre-download
-    status line in-place via ANSI cursor-up when stdout is a tty.
-
-    *status_icon* should be a Rich markup string (e.g. ``ICON_OK``).
-    """
-    title = title.replace("[", "\\[").replace("]", "\\]")
-    artist = artist.replace("[", "\\[").replace("]", "\\]")
-    line = f"  {status_icon} [{i}/{total}] {title} - {artist}"
-    if suffix:
-        line += f" [dim]({suffix})[/]"
-    if suffix and sys.stdout.isatty():
-        sys.stdout.write("\033[F")
-        sys.stdout.flush()
-        console.print(line)
-    else:
-        console.print(line)
-
-
 def download_song(
     song_url: str,
     song_title: str,
@@ -83,6 +70,8 @@ def download_song(
     publish_time: str,
     source: str = "netease",
     download_dir: str | None = None,
+    progress=None,
+    task_id=None,
 ) -> tuple[bool, str, str | None]:
     """
     Download a song with metadata, lyrics, and cover.
@@ -131,7 +120,9 @@ def download_song(
         music_type = get_type_from_url(song_url)
         music_path = resolve_path(filename_base, music_type, download_dir)
         label = f"{song_title} - {song_artist}"
-        err = fetch_audio(song_url, music_path, label)
+        err = fetch_audio(
+            song_url, music_path, label, progress=progress, task_id=task_id
+        )
         if err:
             return False, f"下载失败：{err}", None
         if Path(music_path).stat().st_size == 0:
@@ -255,146 +246,173 @@ def download_song_batch(
     success_count = 0
     fail_count = 0
     fail_ids = []
+    concurrency = get_concurrency()
 
-    if dry_run:
-        info(f"预览模式 — 共 {total} 首曲目")
-    elif is_resuming and total == 0:
-        success("所有曲目已下载完毕。")
+    if dry_run or total == 0:
+        for i, track in enumerate(tracks, 1):
+            sid = track["id"]
+            if "artist" not in track:
+                try:
+                    track = get_song_details(sid)
+                except Exception as e:
+                    warning(
+                        f"[{i}/{total}] 跳过 {track.get('title', '?')}"
+                        f"（ID: {sid}）— 获取详情失败：{e}"
+                    )
+                    fail_count += 1
+                    fail_ids.append(sid)
+                    continue
 
-    for i, track in enumerate(tracks, 1):
-        sid = track["id"]
-
-        if "artist" not in track:
-            try:
-                details = get_song_details(sid)
-            except Exception as e:
-                warning(
-                    f"[{i}/{total}] 跳过 {track.get('title', '?')}"
-                    f"（ID: {sid}）— 获取详情失败：{e}"
-                )
-                fail_count += 1
-                fail_ids.append(sid)
-                continue
-        else:
-            details = track
-
-        if sys.stdout.isatty():
-            _print_status(ICON_INFO, i, total, details["title"], details["artist"])
-
-        if not want_song:
             if dry_run:
-                console.print("  [dim]将下载（配置中音频已禁用）[/]")
-                success_count += 1
+                if not want_song:
+                    console.print("  [dim]将下载（配置中音频已禁用）[/]")
+                    success_count += 1
+                else:
+                    song_url = get_song_url(sid, quality=quality) or ""
+                    if song_url:
+                        success("URL 可用，将下载")
+                        success_count += 1
+                    else:
+                        warning("URL 不可用（VIP 或地区限制），将跳过")
+                        fail_count += 1
+                        fail_ids.append(sid)
+            elif total == 0:
+                pass
+
+        console.print()
+        if dry_run:
+            parts = []
+            if success_count:
+                parts.append(f"[green]{success_count} 将下载[/]")
             else:
+                parts.append(f"[dim]0 将下载[/]")
+            if fail_count:
+                parts.append(f"[red]{fail_count} 将跳过[/]")
+            else:
+                parts.append(f"[dim]0 将跳过[/]")
+            console.print(f"预览模式：{', '.join(parts)}")
+        elif total == 0:
+            success("所有曲目已下载完毕。")
+        return success_count, fail_count, session_dir
+
+    # --- Concurrent download with worker slots ---
+    counter_lock = Lock()
+    progress = Progress(
+        TextColumn("  [progress.description]{task.description}"),
+        BarColumn(),
+        TextColumn("[progress.percentage]{task.percentage:>3.0f}%"),
+        TimeRemainingColumn(),
+        console=console,
+    )
+    slots = []
+    for _ in range(concurrency):
+        tid = progress.add_task("", total=None)
+        slots.append(tid)
+
+    queue = Queue()
+    for track in tracks:
+        queue.put(track)
+
+    def _download_one(slot_id):
+        nonlocal success_count, fail_count, fail_ids
+        while True:
+            try:
+                track = queue.get_nowait()
+            except Exception:
+                return
+
+            sid = track["id"]
+            task_id = slots[slot_id]
+            title = track.get("title", "?")
+            artist = track.get("artist", "")
+
+            if not artist:
+                progress.update(task_id, description=f"解析中…（ID: {sid}）")
+                try:
+                    track = get_song_details(sid)
+                    title = track["title"]
+                    artist = track["artist"]
+                except Exception as e:
+                    progress.update(task_id, description="")
+                    progress.reset(task_id, total=None)
+                    warning(f"跳过「{title}」（ID: {sid}）— 获取详情失败：{e}")
+                    with counter_lock:
+                        fail_count += 1
+                        fail_ids.append(sid)
+                    continue
+
+            progress.update(task_id, description=f"⏳ {title} - {artist}")
+
+            if not want_song:
                 lyrics_api = get_lyrics_url(sid)
                 ok, msg, _ = download_song(
                     song_url="",
-                    song_title=details["title"],
-                    song_artist=details["artist"],
-                    song_album=details["album"],
+                    song_title=title,
+                    song_artist=artist,
+                    song_album=track.get("album", ""),
                     song_id=sid,
-                    cover_url=details["cover"],
+                    cover_url=track.get("cover", ""),
                     lyrics_api_url=lyrics_api,
-                    publish_time=details["publish_time"],
+                    publish_time=track.get("publish_time", ""),
                     download_dir=session_dir,
                 )
-                if ok:
+            else:
+                song_url = get_song_url(sid, quality=quality) or ""
+                if not song_url:
+                    progress.update(task_id, description="")
+                    progress.reset(task_id, total=None)
+                    warning(f"跳过「{title} - {artist}」— 需要 VIP 或添加 Cookie")
+                    with counter_lock:
+                        fail_count += 1
+                        fail_ids.append(sid)
+                    continue
+
+                lyrics_api = get_lyrics_url(sid)
+                ok, msg, _ = download_song(
+                    song_url=song_url,
+                    song_title=title,
+                    song_artist=artist,
+                    song_album=track.get("album", ""),
+                    song_id=sid,
+                    cover_url=track.get("cover", ""),
+                    lyrics_api_url=lyrics_api,
+                    publish_time=track.get("publish_time", ""),
+                    download_dir=session_dir,
+                    progress=progress,
+                    task_id=task_id,
+                )
+
+            progress.update(task_id, description="")
+            progress.reset(task_id, total=None)
+            if ok:
+                with counter_lock:
+                    success(f"「{title} - {artist}」下载完成")
                     success_count += 1
                     _mark_done(dl_type, dl_id, sid)
-                    _print_status(
-                        ICON_OK,
-                        i,
-                        total,
-                        details["title"],
-                        details["artist"],
-                        "完成",
-                    )
-                else:
+            else:
+                with counter_lock:
+                    error(f"「{title} - {artist}」下载失败")
                     fail_count += 1
                     fail_ids.append(sid)
-                    _print_status(
-                        ICON_FAIL,
-                        i,
-                        total,
-                        details["title"],
-                        details["artist"],
-                        "失败",
-                    )
-            continue
 
-        song_url = get_song_url(sid, quality=quality) or ""
+            time.sleep(0.3)
 
-        if dry_run:
-            if song_url:
-                success("URL 可用，将下载")
-                success_count += 1
-            else:
-                warning("URL 不可用（VIP 或地区限制），将跳过")
-                fail_count += 1
-                fail_ids.append(sid)
-            continue
-
-        if not song_url:
-            warning(f"  跳过（无 URL，需要 VIP 或添加 Cookie）：{sid}")
-            fail_count += 1
-            fail_ids.append(sid)
-            continue
-
-        lyrics_api = get_lyrics_url(sid)
-        ok, msg, _ = download_song(
-            song_url=song_url,
-            song_title=details["title"],
-            song_artist=details["artist"],
-            song_album=details["album"],
-            song_id=sid,
-            cover_url=details["cover"],
-            lyrics_api_url=lyrics_api,
-            publish_time=details["publish_time"],
-            download_dir=session_dir,
-        )
-        if ok:
-            success_count += 1
-            _mark_done(dl_type, dl_id, sid)
-            _print_status(
-                ICON_OK,
-                i,
-                total,
-                details["title"],
-                details["artist"],
-                "完成",
-            )
-        else:
-            fail_count += 1
-            fail_ids.append(sid)
-            _print_status(
-                ICON_FAIL, i, total, details["title"], details["artist"], "失败"
-            )
-
-        time.sleep(0.3)
+    with progress:
+        with ThreadPoolExecutor(max_workers=concurrency) as executor:
+            for i in range(concurrency):
+                executor.submit(_download_one, i)
 
     console.print()
-    if dry_run:
-        parts = []
-        if success_count:
-            parts.append(f"[green]{success_count} 将下载[/]")
-        else:
-            parts.append(f"[dim]0 将下载[/]")
-        if fail_count:
-            parts.append(f"[red]{fail_count} 将跳过[/]")
-        else:
-            parts.append(f"[dim]0 将跳过[/]")
-        console.print(f"预览模式：{', '.join(parts)}")
+    parts = []
+    if success_count:
+        parts.append(f"[green]{success_count} 成功[/]")
     else:
-        parts = []
-        if success_count:
-            parts.append(f"[green]{success_count} 成功[/]")
-        else:
-            parts.append(f"[dim]0 成功[/]")
-        if fail_count:
-            parts.append(f"[red]{fail_count} 失败[/]")
-        else:
-            parts.append(f"[dim]0 失败[/]")
-        console.print(f"完成：{', '.join(parts)}")
+        parts.append(f"[dim]0 成功[/]")
+    if fail_count:
+        parts.append(f"[red]{fail_count} 失败[/]")
+    else:
+        parts.append(f"[dim]0 失败[/]")
+    console.print(f"完成：{', '.join(parts)}")
     if fail_ids:
         console.print(f"失败 ID：{', '.join(str(i) for i in fail_ids)}")
     return success_count, fail_count, session_dir

@@ -80,6 +80,10 @@ def validate_config() -> None:
                 errors.append("[download] content 只能包含 0、1、2")
                 break
 
+    ccy = dl.get("concurrency", 4)
+    if not isinstance(ccy, int) or ccy < 1 or ccy > 16:
+        errors.append("[download] concurrency 必须为 1-16 的整数")
+
     # [download.song]
     ds = dl.get("song", {})
     if not ds.get("quality"):
@@ -133,6 +137,10 @@ def get_download_dir() -> str:
             path = str(VNCMD_HOME / path)
         return path
     return str(Path.home() / "Downloads" / "vncmd-dl")
+
+
+def get_concurrency() -> int:
+    return _get_cfg()["download"].get("concurrency", 4)
 
 
 def get_quality() -> int:

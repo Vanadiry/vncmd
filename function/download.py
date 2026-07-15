@@ -29,8 +29,14 @@ def _get_dl_session():
     return _dl_session
 
 
-def fetch_audio(url: str, path: str, label: str) -> str | None:
-    """Stream download audio with progress bar. Returns error message or None."""
+def fetch_audio(
+    url: str, path: str, label: str, progress=None, task_id=None
+) -> str | None:
+    """Stream download audio with progress bar. Returns error message or None.
+
+    If *progress* and *task_id* are provided, they are used to update a shared
+    Rich Progress instance.  Otherwise a per-file progress bar is created.
+    """
     try:
         resp = _get_dl_session().get(url, stream=True, timeout=60)
         total = int(resp.headers.get("content-length", 0))
@@ -38,8 +44,14 @@ def fetch_audio(url: str, path: str, label: str) -> str | None:
         if resp.status_code != 200:
             return "请求失败"
 
-        if sys.stdout.isatty():
-            # Terminal mode: show animated progress bar
+        if progress is not None and task_id is not None:
+            progress.update(task_id, total=total or None)
+            progress.start_task(task_id)
+            with open(path, "wb") as f:
+                for chunk in resp.iter_content(chunk_size=8192):
+                    f.write(chunk)
+                    progress.update(task_id, advance=len(chunk))
+        elif sys.stdout.isatty():
             with Progress(
                 "[progress.description]{task.description}",
                 BarColumn(),
@@ -47,14 +59,13 @@ def fetch_audio(url: str, path: str, label: str) -> str | None:
                 TransferSpeedColumn(),
                 TimeRemainingColumn(),
                 transient=True,
-            ) as progress:
-                task = progress.add_task(label[:40], total=total or None)
+            ) as p:
+                task = p.add_task(label[:40], total=total or None)
                 with open(path, "wb") as f:
                     for chunk in resp.iter_content(chunk_size=8192):
                         f.write(chunk)
-                        progress.update(task, advance=len(chunk))
+                        p.update(task, advance=len(chunk))
         else:
-            # Pipe mode (test): download silently
             with open(path, "wb") as f:
                 for chunk in resp.iter_content(chunk_size=8192):
                     f.write(chunk)
