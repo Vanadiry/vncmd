@@ -1,5 +1,6 @@
 import argparse
 import json
+import os
 import re
 import shutil
 import sys
@@ -106,11 +107,12 @@ def load_songs_db(name: str) -> list[dict]:
 
 def backup_db(name: str) -> None:
     songs_path = _songs_path(name)
+    if not songs_path.exists():
+        return
     bak_path = songs_path.parent / (songs_path.name + ".bak")
-    if bak_path.exists():
-        bak_path.unlink()
-    if songs_path.exists():
-        shutil.copy2(songs_path, bak_path)
+    bak_tmp = songs_path.parent / (songs_path.name + ".bak.tmp")
+    shutil.copy2(songs_path, bak_tmp)
+    os.replace(bak_tmp, bak_path)
 
 
 def save_songs_db(name: str, songs: list[dict]) -> None:
