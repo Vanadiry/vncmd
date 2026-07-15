@@ -1,6 +1,7 @@
 import argparse
 import json
 import os
+import questionary
 import re
 import shutil
 import sys
@@ -267,11 +268,9 @@ def compare_songs(fresh: dict[str, dict], cached_list: list[dict]) -> dict:
     return {"added": added, "removed": removed, "changed": changed}
 
 
-def _get_checkbox_style(color: str = "green") -> object | None:
-    try:
-        from questionary import Style
-    except ImportError:
-        return None
+def _get_checkbox_style(color: str = "green") -> object:
+    from questionary import Style
+
     return Style(
         [
             ("highlighted", "fg:ansicyan bold"),
@@ -294,12 +293,6 @@ def resolve_conflicts(
     if not added and not removed and not changed:
         success("已是最新，未检测到变更。")
         return None
-
-    try:
-        import questionary
-    except ImportError:
-        error("交互模式需要 questionary。请执行：pip install questionary")
-        sys.exit(1)
 
     result = {s["id"]: s for s in cached_list}
 
@@ -471,26 +464,13 @@ def cmd_tracker(args: argparse.Namespace) -> None:
 
     tdir = _tracker_path(name)
     if not tdir.is_dir():
-        try:
-            import questionary
-
-            if questionary.confirm(
-                f"Tracker「{name}」不存在，是否创建？",
-                default=False,
-            ).ask():
-                create_tracker(name)
-            else:
-                info("已取消。")
-        except ImportError:
-            answer = (
-                console.input(f"Tracker「{name}」不存在，是否创建？[y/N]: ")
-                .strip()
-                .lower()
-            )
-            if answer in ("y", "yes"):
-                create_tracker(name)
-            else:
-                info("已取消。")
+        if questionary.confirm(
+            f"Tracker「{name}」不存在，是否创建？",
+            default=False,
+        ).ask():
+            create_tracker(name)
+        else:
+            info("已取消。")
         return
 
     if args.fetch or args.fetch_auto:
