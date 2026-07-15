@@ -62,15 +62,15 @@ def _download_tracks(
 
 
 def cmd_search(args: argparse.Namespace) -> None:
-    info(f'Searching "{args.query}"...')
+    info(f"正在搜索「{args.query}」...")
     try:
         result = search(args.query, limit=args.limit, offset=args.offset)
     except Exception as e:
-        error(f"Search failed: {e}")
+        error(f"搜索失败：{e}")
         sys.exit(1)
 
     if not result["songs"]:
-        warning("No results found.")
+        warning("未找到结果。")
         return
 
     display_search_results(args.query, result["songs"], result["total"])
@@ -81,7 +81,7 @@ def cmd_song(args: argparse.Namespace) -> None:
     try:
         song = get_song_details(args.id)
     except Exception as e:
-        error(f"Failed to get song details: {e}")
+        error(f"获取曲目详情失败：{e}")
         sys.exit(1)
 
     display_song_detail(song)
@@ -100,9 +100,9 @@ def cmd_song(args: argparse.Namespace) -> None:
         url = get_song_url(args.id, quality=quality)
         if url:
             url_display = url if len(url) <= 80 else f"{url[:77]}..."
-            success(f"Stream URL available: {url_display}")
+            success(f"流 URL 可用：{url_display}")
         else:
-            warning("Stream URL unavailable — may be VIP-only or require cookie")
+            warning("流 URL 不可用，需要 VIP 或添加 Cookie")
 
     if not args.download:
         return
@@ -110,30 +110,30 @@ def cmd_song(args: argparse.Namespace) -> None:
     if args.dry_run:
         quality = _resolve_quality(args)
         want_song = "0" in get_download_content()
-        info(f"Dry run — {song['title']} - {song['artist']}")
+        info(f"预览模式 — 「{song['title']} - {song['artist']}」")
         if not want_song:
-            console.print("  [dim]Would download (audio disabled in config)[/]")
+            console.print("  [dim]将下载（配置中音频已禁用）[/]")
         else:
             song_url = get_song_url(args.id, quality=quality)
             if song_url:
-                success("URL available — would download")
+                success("URL 可用，将下载")
             else:
-                warning("URL unavailable (VIP or region) — would skip")
+                warning("URL 不可用（VIP 或地区限制），将跳过")
         return
 
     want_song = "0" in get_download_content()
     quality = _resolve_quality(args)
     song_url = None
     if want_song:
-        info(f"Getting stream URL (quality={args.quality or 'config'})...")
+        info(f"正在获取流 URL（音质={args.quality or '配置'}）...")
         song_url = get_song_url(args.id, quality=quality)
         if not song_url:
-            error("No stream URL available. This song may be VIP-only.")
-            info("Add a cookie to config/cookie for VIP songs.")
+            error("无法获取流 URL，需要 VIP 或添加 Cookie。")
+            info("请在 config/cookie 中添加 Cookie。")
             sys.exit(1)
 
     output_dir = make_session_dir(_resolve_output_dir(args))
-    info(f"Downloading: {song['title']} - {song['artist']}")
+    info(f"正在下载「{song['title']} - {song['artist']}」")
     lyrics_api = get_lyrics_url(args.id)
     ok, msg, path = download_song(
         song_url=song_url or "",
@@ -157,7 +157,7 @@ def cmd_album(args: argparse.Namespace) -> None:
     try:
         al = get_album_details(args.id)
     except Exception as e:
-        error(f"Failed to get album: {e}")
+        error(f"获取专辑失败：{e}")
         sys.exit(1)
 
     display_album(al, max_tracks=args.limit or 10)
@@ -184,7 +184,7 @@ def cmd_playlist(args: argparse.Namespace) -> None:
             args.id, limit=args.limit if args.download else (args.limit or 10)
         )
     except Exception as e:
-        error(f"Failed to get playlist: {e}")
+        error(f"获取歌单失败：{e}")
         sys.exit(1)
 
     display_playlist(pl, max_tracks=args.limit or 10)
@@ -192,7 +192,7 @@ def cmd_playlist(args: argparse.Namespace) -> None:
     removed = pl.get("removed_tracks", [])
     if removed:
         console.print()
-        warning(f"{len(removed)} removed track(s) in this playlist:")
+        warning(f"此歌单中有 {len(removed)} 首已下架曲目：")
         for r in removed:
             console.print(
                 f"    [dim]{r['id']}[/]  [red]{r['title']}[/]"
@@ -225,19 +225,17 @@ def cmd_init(args: argparse.Namespace) -> None:
     VNCMD_HOME.mkdir(parents=True, exist_ok=True)
 
     if CONFIG_FILE.exists():
-        console.print("  [dim]config.toml already exists[/]")
+        console.print("  [dim]config.toml 已存在[/]")
     else:
         validate_config()
-        success("Created config.toml")
+        success("已创建 config.toml")
 
     if COOKIE_FILE.exists():
-        console.print("  [dim]cookie already exists[/]")
+        console.print("  [dim]cookie 已存在[/]")
     else:
         COOKIE_FILE.write_text("", encoding="utf-8")
-        success("Created empty cookie file")
-        console.print(
-            f"  [dim]Paste your cookie into {COOKIE_FILE} for VIP/high-quality mode.[/]"
-        )
+        success("已创建空 cookie 文件")
+        console.print(f"  [dim]将 Cookie 粘贴到 {COOKIE_FILE} 以使用 VIP/高音质模式[/]")
 
     console.print()
-    success("Setup complete.")
+    success("初始化完成。")

@@ -133,10 +133,10 @@ def download_song(
         label = f"{song_title} - {song_artist}"
         err = fetch_audio(song_url, music_path, label)
         if err:
-            return False, f"Download failed: {err}", None
+            return False, f"下载失败：{err}", None
         if Path(music_path).stat().st_size == 0:
             Path(music_path).unlink()
-            return False, "Downloaded file is empty — likely VIP-only", None
+            return False, "下载文件为空，需要 VIP 或添加 Cookie", None
         # Process lyrics for embedding
         embed_mode = get_embed_lyrics_mode()
         if embed_mode == "2" or not tlyric_text:
@@ -179,10 +179,10 @@ def download_song(
     for p in lyric_paths:
         parts.append(f"LRC → {p}")
     if cover_path:
-        parts.append(f"Cover → {cover_path}")
+        parts.append(f"封面 → {cover_path}")
 
     if not parts:
-        return False, "Nothing was downloaded — check download_content config", None
+        return False, "未下载任何内容，请检查 download_content 配置", None
     return True, "\n".join(parts), music_path
 
 
@@ -213,14 +213,11 @@ def download_song_batch(
             session_dir = cp["download_dir"]
             is_resuming = True
         elif cp:
-            info(
-                "Found unfinished download, but the previous directory is missing."
-                " Starting a new full download."
-            )
+            info("发现未完成的下载，但原目录已丢失，将重新开始下载。")
             session_dir = make_session_dir(output_dir)
             is_resuming = False
         else:
-            info("Starting a new full download.")
+            info("开始全新下载。")
             session_dir = make_session_dir(output_dir)
             is_resuming = False
     else:
@@ -242,12 +239,9 @@ def download_song_batch(
         elif is_resuming:
             pending_ids, has_changes = sync_checkpoint_tracks(dl_type, dl_id, track_map)
             if has_changes:
-                info(
-                    "Found unfinished download, but the track list has changed."
-                    " Continuing with updated list."
-                )
+                info("发现未完成的下载，但曲目列表已变更，将以更新后的列表继续。")
             else:
-                info("Found unfinished download. Resuming.")
+                info("发现未完成的下载，将从中断处继续。")
             console.print()
             pending_set = set(pending_ids)
             tracks = [t for t in tracks if str(t["id"]) in pending_set]
@@ -263,9 +257,9 @@ def download_song_batch(
     fail_ids = []
 
     if dry_run:
-        info(f"Dry run — previewing {total} track(s)")
+        info(f"预览模式 — 共 {total} 首曲目")
     elif is_resuming and total == 0:
-        success("All tracks already downloaded — nothing to do.")
+        success("所有曲目已下载完毕。")
 
     for i, track in enumerate(tracks, 1):
         sid = track["id"]
@@ -275,8 +269,8 @@ def download_song_batch(
                 details = get_song_details(sid)
             except Exception as e:
                 warning(
-                    f"[{i}/{total}] Skipping {track.get('title', '?')} "
-                    f"(ID: {sid}) — failed to get details: {e}"
+                    f"[{i}/{total}] 跳过 {track.get('title', '?')}"
+                    f"（ID: {sid}）— 获取详情失败：{e}"
                 )
                 fail_count += 1
                 fail_ids.append(sid)
@@ -289,7 +283,7 @@ def download_song_batch(
 
         if not want_song:
             if dry_run:
-                console.print("  [dim]Would download (audio disabled in config)[/]")
+                console.print("  [dim]将下载（配置中音频已禁用）[/]")
                 success_count += 1
             else:
                 lyrics_api = get_lyrics_url(sid)
@@ -313,7 +307,7 @@ def download_song_batch(
                         total,
                         details["title"],
                         details["artist"],
-                        "downloaded",
+                        "完成",
                     )
                 else:
                     fail_count += 1
@@ -324,7 +318,7 @@ def download_song_batch(
                         total,
                         details["title"],
                         details["artist"],
-                        "failed",
+                        "失败",
                     )
             continue
 
@@ -332,16 +326,16 @@ def download_song_batch(
 
         if dry_run:
             if song_url:
-                success("URL available — would download")
+                success("URL 可用，将下载")
                 success_count += 1
             else:
-                warning("URL unavailable (VIP or region) — would skip")
+                warning("URL 不可用（VIP 或地区限制），将跳过")
                 fail_count += 1
                 fail_ids.append(sid)
             continue
 
         if not song_url:
-            warning(f"  Skipping (no URL — VIP or unavailable): {sid}")
+            warning(f"  跳过（无 URL，需要 VIP 或添加 Cookie）：{sid}")
             fail_count += 1
             fail_ids.append(sid)
             continue
@@ -367,13 +361,13 @@ def download_song_batch(
                 total,
                 details["title"],
                 details["artist"],
-                "downloaded",
+                "完成",
             )
         else:
             fail_count += 1
             fail_ids.append(sid)
             _print_status(
-                ICON_FAIL, i, total, details["title"], details["artist"], "failed"
+                ICON_FAIL, i, total, details["title"], details["artist"], "失败"
             )
 
         time.sleep(0.3)
@@ -382,27 +376,27 @@ def download_song_batch(
     if dry_run:
         parts = []
         if success_count:
-            parts.append(f"[green]{success_count} would download[/]")
+            parts.append(f"[green]{success_count} 将下载[/]")
         else:
-            parts.append(f"[dim]0 would download[/]")
+            parts.append(f"[dim]0 将下载[/]")
         if fail_count:
-            parts.append(f"[red]{fail_count} would skip[/]")
+            parts.append(f"[red]{fail_count} 将跳过[/]")
         else:
-            parts.append(f"[dim]0 would skip[/]")
-        console.print(f"Dry run: {', '.join(parts)}")
+            parts.append(f"[dim]0 将跳过[/]")
+        console.print(f"预览模式：{', '.join(parts)}")
     else:
         parts = []
         if success_count:
-            parts.append(f"[green]{success_count} success[/]")
+            parts.append(f"[green]{success_count} 成功[/]")
         else:
-            parts.append(f"[dim]0 success[/]")
+            parts.append(f"[dim]0 成功[/]")
         if fail_count:
-            parts.append(f"[red]{fail_count} failed[/]")
+            parts.append(f"[red]{fail_count} 失败[/]")
         else:
-            parts.append(f"[dim]0 failed[/]")
-        console.print(f"Done: {', '.join(parts)}")
+            parts.append(f"[dim]0 失败[/]")
+        console.print(f"完成：{', '.join(parts)}")
     if fail_ids:
-        console.print(f"Failed IDs: {', '.join(str(i) for i in fail_ids)}")
+        console.print(f"失败 ID：{', '.join(str(i) for i in fail_ids)}")
     return success_count, fail_count, session_dir
 
 

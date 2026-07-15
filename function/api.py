@@ -93,7 +93,7 @@ def get_song_details(song_id: int) -> dict:
             if "al" in s:
                 s["album"] = s.pop("al")
     if not data.get("songs"):
-        raise ValueError(f"Song {song_id} not found")
+        raise ValueError(f"曲目 {song_id} 未找到")
 
     song = data["songs"][0]
     result = {
@@ -118,7 +118,7 @@ def get_playlist_details(playlist_id: int, limit: int | None = None) -> dict:
 
     pl = data.get("playlist")
     if not pl:
-        raise ValueError(f"Playlist {playlist_id} not found")
+        raise ValueError(f"歌单 {playlist_id} 未找到")
 
     full_tracks = pl.get("tracks", [])
     track_ids = pl.get("trackIds", [])
@@ -193,7 +193,7 @@ def get_album_details(album_id: int) -> dict:
     data = resp.json()
     album = data.get("album")
     if not album:
-        raise ValueError(f"Album {album_id} not found")
+        raise ValueError(f"专辑 {album_id} 未找到")
 
     tracks = []
     for s in data.get("songs", []):
@@ -228,7 +228,7 @@ def search(q: str, limit: int = 30, offset: int = 0) -> dict:
     )
     data = resp.json()
     if data.get("code") != 200:
-        raise ValueError(f"Search failed: {data}")
+        raise ValueError(f"搜索失败：{data}")
 
     songs = []
     for s in data.get("result", {}).get("songs", []):

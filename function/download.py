@@ -36,7 +36,7 @@ def fetch_audio(url: str, path: str, label: str) -> str | None:
         total = int(resp.headers.get("content-length", 0))
 
         if resp.status_code != 200:
-            return "Request failed"
+            return "请求失败"
 
         if sys.stdout.isatty():
             # Terminal mode: show animated progress bar

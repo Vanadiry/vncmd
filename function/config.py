@@ -21,7 +21,7 @@ def acquire_lock() -> None:
     try:
         fcntl.flock(_lock_fd, fcntl.LOCK_EX | fcntl.LOCK_NB)
     except BlockingIOError:
-        print("Another vncmd instance is already running.", file=sys.stderr)
+        print("已有其他 vncmd 实例在运行。", file=sys.stderr)
         sys.exit(1)
 
 
@@ -56,7 +56,7 @@ def validate_config() -> None:
     try:
         cfg = load_config()
     except Exception as e:
-        _die([f"Failed to parse {CONFIG_FILE}: {e}"])
+        _die([f"解析 {CONFIG_FILE} 失败：{e}"])
         return
 
     global _cfg
@@ -68,49 +68,49 @@ def validate_config() -> None:
     dl = cfg.get("download", {})
 
     if not dl.get("filename_format"):
-        errors.append("[download] filename_format is missing or empty")
+        errors.append("[download] filename_format 缺失或为空")
     elif dl["filename_format"] not in ("10", "01", "1"):
-        errors.append('[download] filename_format must be "10", "01", or "1"')
+        errors.append('[download] filename_format 必须为 "10"、"01" 或 "1"')
 
     if not dl.get("content"):
-        errors.append("[download] content is missing or empty")
+        errors.append("[download] content 缺失或为空")
     else:
         for c in dl["content"]:
             if c not in "012":
-                errors.append("[download] content may only contain 0, 1, 2")
+                errors.append("[download] content 只能包含 0、1、2")
                 break
 
     # [download.song]
     ds = dl.get("song", {})
     if not ds.get("quality"):
-        errors.append("[download.song] quality is missing or empty")
+        errors.append("[download.song] quality 缺失或为空")
     elif ds["quality"] not in QUALITY_MAP:
         errors.append(
-            f"[download.song] quality must be one of: {', '.join(QUALITY_MAP)}"
+            f"[download.song] quality 必须为以下之一：{', '.join(QUALITY_MAP)}"
         )
 
     # [download.lyric]
     dly = dl.get("lyric", {})
     for key in ("embed_mode", "save_mode"):
         if not dly.get(key):
-            errors.append(f"[download.lyric] {key} is missing or empty")
+            errors.append(f"[download.lyric] {key} 缺失或为空")
         elif dly[key] not in ("0", "1", "2"):
-            errors.append(f'[download.lyric] {key} must be "0", "1", or "2"')
+            errors.append(f'[download.lyric] {key} 必须为 "0"、"1" 或 "2"')
 
     # [download.cover]
     dc = dl.get("cover", {})
     for key in ("embed_quality", "save_quality"):
         if not dc.get(key):
-            errors.append(f"[download.cover] {key} is missing or empty")
+            errors.append(f"[download.cover] {key} 缺失或为空")
         elif dc[key] not in ("0", "1"):
-            errors.append(f'[download.cover] {key} must be "0" or "1"')
+            errors.append(f'[download.cover] {key} 必须为 "0" 或 "1"')
 
     # [cache]
     cc = cfg.get("cache", {})
     if "enabled" not in cc:
-        errors.append("[cache] enabled is missing")
+        errors.append("[cache] enabled 缺失")
     if not cc.get("dir"):
-        errors.append("[cache] dir is missing or empty")
+        errors.append("[cache] dir 缺失或为空")
 
     if errors:
         _die(errors)
@@ -119,7 +119,7 @@ def validate_config() -> None:
 def _die(errors: list[str]) -> None:
     from function.output import error, console
 
-    console.print("[red]Config validation failed:[/]")
+    console.print("[red]配置验证失败：[/]")
     for e in errors:
         error(e)
     sys.exit(1)
@@ -186,7 +186,7 @@ def show_config() -> str:
     lines.append("--- Cookie ---")
     cookie = get_cookie()
     if cookie:
-        lines.append(f"Set ({len(cookie)} chars)  —  {COOKIE_FILE}")
+        lines.append(f"已设置（{len(cookie)} 字符） —  {COOKIE_FILE}")
     else:
-        lines.append("Not set")
+        lines.append("未设置")
     return "\n".join(lines)

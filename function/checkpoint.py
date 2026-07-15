@@ -80,13 +80,10 @@ def sync_checkpoint_tracks(
     if dl_type in ("album", "playlist") and has_changes:
         for tid in sorted(new_ids):
             title = current_tracks.get(tid, current_tracks.get(int(tid), "?"))
-            info(f"  New track in {dl_type}: {title} (ID {tid})")
+            info(f"  {dl_type} 新增曲目：{title}（ID {tid}）")
         for tid in sorted(removed_ids):
-            info(f"  Track removed from {dl_type}: ID {tid}")
-        info(
-            "  Tip: if this list changes often, consider using the tracker feature"
-            " (vncmd tracker --help)"
-        )
+            info(f"  {dl_type} 曲目已移除：ID {tid}")
+        info("  提示：如果列表经常变动，建议使用 Tracker 功能（vncmd tracker --help）")
 
     for tid in removed_ids:
         del cp["tracks"][tid]
