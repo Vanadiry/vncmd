@@ -2,7 +2,7 @@ import argparse
 import sys
 
 from function.commands import cmd_search, cmd_song, cmd_album, cmd_playlist, cmd_init
-from function.config import validate_config, QUALITY_MAP
+from function.config import validate_config, QUALITY_MAP, acquire_lock
 from function.tracker import cmd_tracker
 
 
@@ -45,6 +45,7 @@ def _add_download_args(parser: object, batch: bool = False) -> None:
 
 
 def main() -> None:
+    acquire_lock()
     parser = argparse.ArgumentParser(
         prog="vncmd",
         description="Netease Cloud Music CLI — search, preview, and download",

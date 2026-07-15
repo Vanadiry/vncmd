@@ -1,3 +1,4 @@
+import fcntl
 import os
 import sys
 import tomllib
@@ -8,6 +9,21 @@ from function._defaults import CONFIG_TOML
 VNCMD_HOME = Path(os.environ.get("VNCMD_HOME", "~/.vSoft/vncmd")).expanduser()
 CONFIG_FILE = VNCMD_HOME / "config.toml"
 COOKIE_FILE = VNCMD_HOME / "cookie"
+LOCK_FILE = VNCMD_HOME / ".lock"
+
+_lock_fd = None
+
+
+def acquire_lock() -> None:
+    global _lock_fd
+    VNCMD_HOME.mkdir(parents=True, exist_ok=True)
+    _lock_fd = open(LOCK_FILE, "w")
+    try:
+        fcntl.flock(_lock_fd, fcntl.LOCK_EX | fcntl.LOCK_NB)
+    except BlockingIOError:
+        print("Another vncmd instance is already running.", file=sys.stderr)
+        sys.exit(1)
+
 
 QUALITY_MAP = {
     "128": 128000,
