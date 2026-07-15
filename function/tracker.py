@@ -484,18 +484,18 @@ def cmd_tracker(args: argparse.Namespace) -> None:
 
             if questionary.confirm(
                 f"Tracker '{name}' does not exist. Create it?",
-                default=True,
+                default=False,
             ).ask():
                 create_tracker(name)
             else:
                 info("Cancelled.")
         except ImportError:
             answer = (
-                input(f"Tracker '{name}' does not exist. Create it? [Y/n]: ")
+                console.input(f"Tracker '{name}' does not exist. Create it? [y/N]: ")
                 .strip()
                 .lower()
             )
-            if answer in ("", "y", "yes"):
+            if answer in ("y", "yes"):
                 create_tracker(name)
             else:
                 info("Cancelled.")
