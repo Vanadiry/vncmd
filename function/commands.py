@@ -104,7 +104,7 @@ def cmd_song(args: argparse.Namespace) -> None:
             url_display = url if len(url) <= 80 else f"{url[:77]}..."
             success(f"流 URL 可用：{url_display}")
         else:
-            warning("流 URL 不可用，需要 VIP 或添加 Cookie")
+            warning("流 URL 不可用")
 
     if not args.download:
         return
@@ -120,7 +120,7 @@ def cmd_song(args: argparse.Namespace) -> None:
             if song_url:
                 success("URL 可用，将下载")
             else:
-                warning("URL 不可用（VIP 或地区限制），将跳过")
+                warning("URL 不可用，将跳过")
         return
 
     want_song = "0" in get_download_content()
@@ -128,10 +128,14 @@ def cmd_song(args: argparse.Namespace) -> None:
     song_url = None
     if want_song:
         info(f"正在获取流 URL（音质={args.quality or '配置'}）...")
-        song_url = get_song_url(args.id, quality=quality)
+        for attempt in range(1, 4):
+            song_url = get_song_url(args.id, quality=quality)
+            if song_url:
+                break
+            if attempt < 3:
+                info(f"  重试 {attempt}/3 …")
         if not song_url:
-            error("无法获取流 URL，需要 VIP 或添加 Cookie。")
-            info("请在 config/cookie 中添加 Cookie。")
+            error("无法获取下载链接，若其他曲目能够正常下载，则可能是这个曲目有问题。")
             sys.exit(1)
 
     output_dir = make_session_dir(_resolve_output_dir(args))
