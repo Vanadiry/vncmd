@@ -50,6 +50,7 @@ from function.checkpoint import (
     mark_downloaded,
     sync_checkpoint_tracks,
 )
+from function.checker import has_ffmpeg, check_audio
 
 
 def make_session_dir(base_dir):
@@ -134,6 +135,13 @@ def download_song(
         if Path(temp_music_path).stat().st_size == 0:
             Path(temp_music_path).unlink()
             return False, "下载文件为空", None
+
+        if has_ffmpeg():
+            ok, msg = check_audio(temp_music_path)
+            if not ok:
+                Path(temp_music_path).unlink()
+                return False, f"完整性校验失败：{msg}", None
+
         # Process lyrics for embedding
         embed_mode = get_embed_lyrics_mode()
         if embed_mode == "2" or not tlyric_text:
