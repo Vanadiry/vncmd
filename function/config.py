@@ -133,7 +133,7 @@ def _die(errors: list[str]) -> None:
 
 
 def get_download_dir() -> str:
-    path = _get_cfg()["download"].get("dir", "") or ""
+    path = _get_cfg()["download"]["dir"] or ""
     if path:
         path = os.path.expanduser(path)
         if not os.path.isabs(path):
@@ -143,7 +143,7 @@ def get_download_dir() -> str:
 
 
 def get_concurrency() -> int:
-    return _get_cfg()["download"].get("concurrency", 4)
+    return _get_cfg()["download"]["concurrency"]
 
 
 def get_quality() -> int:
@@ -181,21 +181,19 @@ def get_save_cover_quality() -> str:
 
 
 def get_parse_credits() -> bool:
-    return _get_cfg()["download"]["song"].get("parse_credits", False)
+    return _get_cfg()["download"]["song"]["parse_credits"]
 
 
 def get_auto_trim() -> bool:
-    return _get_cfg()["download"]["lyric"].get("auto_trim", False)
+    return _get_cfg()["download"]["lyric"]["auto_trim"]
 
 
 def get_credit_scan_lines() -> int:
-    return int(_get_cfg()["download"]["lyric"].get("credit_scan_lines", 10))
+    return _get_cfg()["download"]["lyric"]["credit_scan_lines"]
 
 
 def get_credit_prefixes() -> list[str]:
-    return _get_cfg()["download"]["lyric"].get(
-        "credit_prefixes", ["作曲", "作词", "编曲", "制作人"]
-    )
+    return _get_cfg()["download"]["lyric"]["credit_prefixes"]
 
 
 def get_cache_dir() -> str:
