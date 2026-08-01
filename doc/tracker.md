@@ -45,7 +45,7 @@ vncmd tracker "名称" -d --diff  # 下载自上次拉取以来新增的曲目
 ## 完整命令
 
 ```bash
-vncmd tracker <名称> [-f | --fetch-auto] [-d] [--diff] [--dry-run] [-q 音质] [-o 目录]
+vncmd tracker <名称> [-f | --fetch-auto] [-d] [--diff] [-q 音质] [-o 目录]
 ```
 
 | 参数 | 简写 | 说明 |
@@ -54,6 +54,5 @@ vncmd tracker <名称> [-f | --fetch-auto] [-d] [--diff] [--dry-run] [-q 音质]
 | `--fetch-auto` | `/` | 自动同步，镜像上游 |
 | `--diff` | `/` | 下载自上次拉取以来新增的曲目，需配合 `-d` |
 | `--download` | `-d` | 下载 Tracker 中的全部曲目 |
-| `--dry-run` | `/` | 仅预览，不实际下载 |
 
 不带参数时，展示 Tracker 简介。

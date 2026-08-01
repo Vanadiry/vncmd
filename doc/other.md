@@ -10,4 +10,4 @@ Petrichor 目前使用“已知艺术家列表”模式匹配艺术家，这导�
 将这个文件放在 `/Applications/Petrichor.app/Contents/Resources` 目录中，程序就能正确识别艺术家了。
 
 ~~另外，Petrichor 播放器在处理“多个艺术家，且首位为 2 字以上汉字”的艺术家列表时会出问题，这不是 `vncmd` 的问题。~~  
-这个 [Issue](https://github.com/kushalpandya/Petrichor/issues/280) 已经被修复了。  
+这个 [Issue](https://github.com/kushalpandya/Petrichor/issues/280) 已经被修复了。
