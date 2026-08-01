@@ -8,6 +8,7 @@ from function.commands import (
     cmd_playlist,
     cmd_init,
     cmd_cookie,
+    cmd_check,
 )
 from function.config import validate_config, QUALITY_MAP, acquire_lock
 from function.tracker import cmd_tracker
@@ -82,6 +83,9 @@ def main() -> None:
     p_cookie = sub.add_parser("cookie", help="设置 Cookie")
     p_cookie.add_argument("value", help="Cookie 值")
 
+    p_check = sub.add_parser("check", help="检查音频文件完整性")
+    p_check.add_argument("path", help="文件或目录路径")
+
     p_search = sub.add_parser("search", help="搜索曲目")
     p_search.add_argument("query", help="搜索关键词")
     p_search.add_argument(
@@ -140,6 +144,7 @@ def main() -> None:
     dispatch = {
         "init": cmd_init,
         "cookie": cmd_cookie,
+        "check": cmd_check,
         "search": cmd_search,
         "song": cmd_song,
         "album": cmd_album,

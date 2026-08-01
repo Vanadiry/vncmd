@@ -263,3 +263,58 @@ def cmd_cookie(args: argparse.Namespace) -> None:
             success("Cookie 有效")
             return
     warning("Cookie 可能无 VIP 权限")
+
+
+def cmd_check(args: argparse.Namespace) -> None:
+    """Check audio file integrity."""
+    import concurrent.futures
+    from pathlib import Path
+    from concurrent.futures import ThreadPoolExecutor
+    from function.checker import has_ffmpeg, check_audio
+
+    if not has_ffmpeg():
+        error("需要 ffmpeg 和 ffprobe，请先安装。")
+        sys.exit(1)
+
+    path = Path(args.path)
+    if not path.exists():
+        error(f"路径不存在：{args.path}")
+        sys.exit(1)
+
+    SUPPORTED = {".mp3", ".flac", ".m4a", ".wav", ".ogg", ".opus", ".wma", ".ape"}
+    files = []
+    if path.is_file():
+        if path.suffix.lower() in SUPPORTED:
+            files.append(path)
+    else:
+        for f in path.rglob("*"):
+            if f.is_file() and f.suffix.lower() in SUPPORTED:
+                files.append(f)
+    files.sort()
+
+    if not files:
+        info("未找到支持的音频文件。")
+        return
+
+    console.print(f"共 [bold]{len(files)}[/] 个文件，开始检查\n")
+    ok_count = bad_count = 0
+    bad_files = []
+
+    with ThreadPoolExecutor(max_workers=4) as pool:
+        futures = {pool.submit(check_audio, str(f)): f for f in files}
+        for future in concurrent.futures.as_completed(futures):
+            f = futures[future]
+            ok, msg = future.result()
+            if ok:
+                ok_count += 1
+                console.print(f"  [green]OK[/]  {f}")
+            else:
+                bad_count += 1
+                bad_files.append((f, msg))
+                console.print(f"  [red]BAD[/] {f}  {msg}")
+
+    console.print(f"\n完成：[green]{ok_count} 通过[/]，[red]{bad_count} 损坏[/]")
+    if bad_files:
+        console.print("损坏文件：")
+        for f, msg in bad_files:
+            console.print(f"  [red]{f}[/]  {msg}")
