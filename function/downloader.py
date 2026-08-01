@@ -182,7 +182,6 @@ def download_song_batch(
     tracks: list[dict],
     quality: int,
     output_dir: str,
-    dry_run: bool = False,
     dl_type: str | None = None,
     dl_id: str | None = None,
 ) -> tuple[int, int, str]:
@@ -195,7 +194,6 @@ def download_song_batch(
     progress is persisted to ``cache/download/<type>_<id>.json`` and
     already-downloaded tracks are skipped on re-run.
 
-    When ``dry_run=True``, only checks URL availability without downloading.
     Returns ``(success_count, fail_count, session_dir)``.
     """
     # --- Resolve session directory (checkpoint or new) ---
@@ -219,16 +217,7 @@ def download_song_batch(
     # --- Sync checkpoint tracks & filter to pending ---
     if dl_type is not None and dl_id is not None:
         track_map = {str(t["id"]): t.get("title", "?") for t in tracks}
-        if dry_run:
-            # Read-only: check pending from checkpoint without modifying it
-            if is_resuming:
-                cp = load_checkpoint(dl_type, dl_id)
-                done_set = (
-                    {tid for tid, v in cp["tracks"].items() if v} if cp else set()
-                )
-                pending_set = set(track_map.keys()) - done_set
-                tracks = [t for t in tracks if str(t["id"]) in pending_set]
-        elif is_resuming:
+        if is_resuming:
             pending_ids, has_changes = sync_checkpoint_tracks(dl_type, dl_id, track_map)
             if has_changes:
                 info("发现未完成的下载，但曲目列表已变更，将以更新后的列表继续。")
@@ -249,51 +238,8 @@ def download_song_batch(
     fail_ids = []
     concurrency = get_concurrency()
 
-    if dry_run or total == 0:
-        for i, track in enumerate(tracks, 1):
-            sid = track["id"]
-            if "artist" not in track:
-                try:
-                    track = get_song_details(sid)
-                except Exception as e:
-                    warning(
-                        f"[{i}/{total}] 跳过 {track.get('title', '?')}"
-                        f"（ID: {sid}）— 获取详情失败：{e}"
-                    )
-                    fail_count += 1
-                    fail_ids.append(sid)
-                    continue
-
-            if dry_run:
-                if not want_song:
-                    console.print("  [dim]将下载（配置中音频已禁用）[/]")
-                    success_count += 1
-                else:
-                    song_url = get_song_url(sid, quality=quality) or ""
-                    if song_url:
-                        success("URL 可用，将下载")
-                        success_count += 1
-                    else:
-                        warning("URL 不可用，将跳过")
-                        fail_count += 1
-                        fail_ids.append(sid)
-            elif total == 0:
-                pass
-
-        console.print()
-        if dry_run:
-            parts = []
-            if success_count:
-                parts.append(f"[green]{success_count} 将下载[/]")
-            else:
-                parts.append(f"[dim]0 将下载[/]")
-            if fail_count:
-                parts.append(f"[red]{fail_count} 将跳过[/]")
-            else:
-                parts.append(f"[dim]0 将跳过[/]")
-            console.print(f"预览模式：{', '.join(parts)}")
-        elif total == 0:
-            success("所有曲目已下载完毕。")
+    if total == 0:
+        success("所有曲目已下载完毕。")
         return success_count, fail_count, session_dir
 
     def _desc(text):

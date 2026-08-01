@@ -48,11 +48,6 @@ def _add_output_arg(parser: object) -> None:
 def _add_download_args(parser: object, batch: bool = False) -> None:
     """Add download-related args to a parser."""
     parser.add_argument("--download", "-d", action="store_true", help="下载而非仅预览")
-    parser.add_argument(
-        "--dry-run",
-        action="store_true",
-        help="仅与 -d 配合。预览将要下载的内容，不实际获取音频。",
-    )
     _add_quality_arg(parser)
     _add_output_arg(parser)
     if batch:
@@ -119,11 +114,6 @@ def main() -> None:
     )
     p_tracker.add_argument(
         "--download", "-d", action="store_true", help="下载所有已缓存曲目"
-    )
-    p_tracker.add_argument(
-        "--dry-run",
-        action="store_true",
-        help="仅与 -d 配合。预览将要下载的内容，不实际获取音频。",
     )
     _add_quality_arg(p_tracker)
     _add_output_arg(p_tracker)

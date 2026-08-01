@@ -53,13 +53,12 @@ def _download_tracks(
     tracks: list[dict],
     quality: int,
     output_dir: str,
-    dry_run: bool = False,
     dl_type: str | None = None,
     dl_id: str | None = None,
 ) -> None:
     """Shared download for playlists and albums."""
     download_song_batch(
-        tracks, quality, output_dir, dry_run=dry_run, dl_type=dl_type, dl_id=dl_id
+        tracks, quality, output_dir, dl_type=dl_type, dl_id=dl_id
     )
 
 
@@ -107,20 +106,6 @@ def cmd_song(args: argparse.Namespace) -> None:
             warning("流 URL 不可用")
 
     if not args.download:
-        return
-
-    if args.dry_run:
-        quality = _resolve_quality(args)
-        want_song = "0" in get_download_content()
-        info(f"预览模式 — 「{song['title']} - {song['artist']}」")
-        if not want_song:
-            console.print("  [dim]将下载（配置中音频已禁用）[/]")
-        else:
-            song_url = get_song_url(args.id, quality=quality)
-            if song_url:
-                success("URL 可用，将下载")
-            else:
-                warning("URL 不可用，将跳过")
         return
 
     want_song = "0" in get_download_content()
@@ -177,7 +162,6 @@ def cmd_album(args: argparse.Namespace) -> None:
         al["tracks"],
         quality,
         output_dir,
-        dry_run=args.dry_run,
         dl_type="album",
         dl_id=str(args.id),
     )
@@ -214,7 +198,6 @@ def cmd_playlist(args: argparse.Namespace) -> None:
         pl["tracks"],
         quality,
         output_dir,
-        dry_run=args.dry_run,
         dl_type="playlist",
         dl_id=str(args.id),
     )

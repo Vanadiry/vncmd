@@ -411,7 +411,7 @@ def _format_song_choice(s: dict) -> str:
 
 
 def download_tracker(
-    name: str, quality: int, output_dir: str, dry_run: bool = False
+    name: str, quality: int, output_dir: str
 ) -> None:
     songs = load_songs_db(name)
     if not songs:
@@ -419,12 +419,12 @@ def download_tracker(
         sys.exit(1)
 
     download_song_batch(
-        songs, quality, output_dir, dry_run=dry_run, dl_type="tracker", dl_id=name
+        songs, quality, output_dir, dl_type="tracker", dl_id=name
     )
 
 
 def download_diff(
-    name: str, quality: int, output_dir: str, dry_run: bool = False
+    name: str, quality: int, output_dir: str
 ) -> None:
     diff = load_diff(name)
     added = diff.get("added", [])
@@ -444,7 +444,6 @@ def download_diff(
         added,
         quality,
         output_dir,
-        dry_run=dry_run,
         dl_type="tracker",
         dl_id=name,
     )
@@ -514,9 +513,9 @@ def cmd_tracker(args: argparse.Namespace) -> None:
         quality = QUALITY_MAP[args.quality] if args.quality else get_quality()
         output_dir = args.output if args.output else get_download_dir()
         if args.diff:
-            download_diff(name, quality, output_dir, dry_run=args.dry_run)
+            download_diff(name, quality, output_dir)
         else:
-            download_tracker(name, quality, output_dir, dry_run=args.dry_run)
+            download_tracker(name, quality, output_dir)
 
     else:
         show_tracker(name)
