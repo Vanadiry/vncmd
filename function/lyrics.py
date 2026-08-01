@@ -4,7 +4,7 @@ from pathlib import Path
 from function.cache import get_song_cache_dir
 
 
-_TIMESTAMP_RE = re.compile(r"^\[(\d{2}):(\d{2})\.(\d{2,3})\](.*)")
+_TIMESTAMP_RE = re.compile(r"^\[(\d{2}):(\d{2})[:.](\d{2,3})\](.*)")
 
 
 def clean(text: str) -> str:
