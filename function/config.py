@@ -177,6 +177,24 @@ def get_save_cover_quality() -> str:
     return _get_cfg()["download"]["cover"]["save_quality"]
 
 
+def get_parse_credits() -> bool:
+    return _get_cfg()["download"]["song"].get("parse_credits", False)
+
+
+def get_auto_trim() -> bool:
+    return _get_cfg()["download"]["lyric"].get("auto_trim", False)
+
+
+def get_credit_scan_lines() -> int:
+    return int(_get_cfg()["download"]["lyric"].get("credit_scan_lines", 10))
+
+
+def get_credit_prefixes() -> list[str]:
+    return _get_cfg()["download"]["lyric"].get(
+        "credit_prefixes", ["作曲", "作词", "编曲", "制作人"]
+    )
+
+
 def get_cache_dir() -> str:
     return str(VNCMD_HOME / _get_cfg()["cache"]["dir"])
 

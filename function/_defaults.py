@@ -12,12 +12,20 @@ concurrency = 4
 [download.song]
 # 音质：128、192、320、999（最高）
 quality = "999"
+# 从歌词头解析“作曲人”并嵌入元数据
+parse_credits = false
 
 [download.lyric]
 # 嵌入歌词模式：0=交错，1=合并，2=仅原文
 embed_mode = "2"
 # 独立歌词文件模式：0=交错，1=合并，2=分离文件
 save_mode = "0"
+# 自动裁剪无用歌词数据，如作曲人、“纯音乐，请欣赏”行等
+auto_trim = false
+# credit 检测时要扫描的歌词行数
+credit_scan_lines = 10
+# credit 角色关键词白名单
+credit_prefixes = ["作曲", "作词", "编曲", "制作人"]
 
 [download.cover]
 # 嵌入封面质量：0=原图，1=缩放至最大 500x500 JPEG

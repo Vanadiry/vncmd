@@ -17,6 +17,7 @@ def embed(
     publish_time: str | None,
     track_no: int | None = None,
     cd_no: int | None = None,
+    composer: str | None = None,
 ) -> None:
     if music_type == "mp3":
         audio = eyed3.load(music_path)
@@ -47,6 +48,9 @@ def embed(
             audio.tag.track_num = (track_no, 0)
         if cd_no is not None:
             audio.tag.disc_num = (cd_no, 0)
+
+        if composer is not None:
+            audio.tag.composer = composer
 
         audio.tag.save(encoding="utf-8")
 
@@ -80,5 +84,8 @@ def embed(
             audio["tracknumber"] = str(track_no)
         if cd_no is not None:
             audio["discnumber"] = str(cd_no)
+
+        if composer is not None:
+            audio["composer"] = composer
 
         audio.save()

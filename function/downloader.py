@@ -23,6 +23,10 @@ from function.config import (
     get_embed_cover_quality,
     get_save_cover_quality,
     get_concurrency,
+    get_parse_credits,
+    get_auto_trim,
+    get_credit_scan_lines,
+    get_credit_prefixes,
 )
 from function.audio import (
     get_type_from_url,
@@ -35,6 +39,9 @@ from function.image import process_cover as process_cover_image, detect_format
 from function.lyrics import (
     process as process_lyrics,
     output_files as output_lyrics_files,
+    extract_credits,
+    trim_lyrics,
+    is_pure_credits,
 )
 from function.metadata import embed as embed_metadata
 from function.output import (
@@ -103,6 +110,30 @@ def download_song(
         if lyrics_api_url and source:
             lyric_text, tlyric_text = fetch_lyrics(lyrics_api_url, source)
 
+    # --- Parse credits / auto trim ---
+    parse_credits = get_parse_credits()
+    auto_trim = get_auto_trim()
+    scan_lines = get_credit_scan_lines()
+    prefixes = get_credit_prefixes()
+    composer = None
+    skip_lrc = False
+
+    if parse_credits:
+        composer, _ = extract_credits(lyric_text, scan_lines, prefixes)
+
+    if parse_credits and auto_trim:
+        lyric_text, _ = trim_lyrics(lyric_text, scan_lines, prefixes=["作曲"])
+        if tlyric_text:
+            tlyric_text, _ = trim_lyrics(tlyric_text, scan_lines, prefixes=["作曲"])
+        skip_lrc = is_pure_credits(lyric_text, prefixes)
+    elif auto_trim:
+        lyric_text, is_empty = trim_lyrics(lyric_text, scan_lines, [])
+        if tlyric_text:
+            tlyric_text, _ = trim_lyrics(tlyric_text, scan_lines, [])
+        if is_empty:
+            lyric_text = ""
+            tlyric_text = ""
+
     # --- Fetch and process cover ---
     cover_data = None
     if want_cover or want_song:
@@ -163,10 +194,11 @@ def download_song(
             publish_time,
             track_no,
             cd_no,
+            composer,
         )
 
     # --- Save lyrics to temp ---
-    if want_lyrics and lyric_text:
+    if want_lyrics and lyric_text and not skip_lrc:
         save_mode = get_save_lyrics_mode()
         base_path = str(temp_dir / str(song_id))
         result = process_lyrics(lyric_text, tlyric_text, save_mode, song_id)
