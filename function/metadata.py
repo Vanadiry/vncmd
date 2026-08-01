@@ -27,8 +27,6 @@ def embed(
         if lyric_text:
             audio.tag.lyrics.set(lyric_text)
 
-        if song_id is not None:
-            audio.tag.copyright = str(song_id)
         if song_title is not None:
             audio.tag.title = song_title
         if song_artist is not None:
@@ -58,8 +56,6 @@ def embed(
         if lyric_text:
             audio["lyrics"] = lyric_text
 
-        if song_id is not None:
-            audio["copyright"] = str(song_id)
         if song_title is not None:
             audio["title"] = song_title
         if song_artist is not None:
