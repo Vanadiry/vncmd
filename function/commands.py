@@ -1,4 +1,5 @@
 import argparse
+import shutil
 import sys
 
 from function.api import (
@@ -226,17 +227,31 @@ def cmd_init(args: argparse.Namespace) -> None:
     VNCMD_HOME.mkdir(parents=True, exist_ok=True)
 
     if CONFIG_FILE.exists():
-        console.print("  [dim]config.toml 已存在[/]")
+        console.print("  [dim]存在 config.toml[/]")
     else:
         validate_config()
         success("已创建 config.toml")
 
     if COOKIE_FILE.exists():
-        console.print("  [dim]cookie 已存在[/]")
+        console.print("  [dim]存在 cookie[/]")
     else:
         COOKIE_FILE.write_text("", encoding="utf-8")
         success("已创建空 cookie 文件")
         console.print(f"  [dim]将 Cookie 粘贴到 {COOKIE_FILE} 以使用 VIP/高音质模式[/]")
+
+    # Check system dependencies
+    missing = []
+    found = []
+    for dep, name in [("ffmpeg", "ffmpeg"), ("flac", "flac")]:
+        if shutil.which(dep):
+            found.append(name)
+        else:
+            missing.append(name)
+    if found:
+        console.print(f"  [dim]存在 {' / '.join(found)}[/]")
+    if missing:
+        warning(f"未检测到 {' / '.join(missing)}")
+        info("若安装了这些系统库，就可以使用 Check 功能，详细请阅读文档")
 
     console.print()
     success("初始化完成。")
