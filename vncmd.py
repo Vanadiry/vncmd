@@ -1,7 +1,14 @@
 import argparse
 import sys
 
-from function.commands import cmd_search, cmd_song, cmd_album, cmd_playlist, cmd_init
+from function.commands import (
+    cmd_search,
+    cmd_song,
+    cmd_album,
+    cmd_playlist,
+    cmd_init,
+    cmd_cookie,
+)
 from function.config import validate_config, QUALITY_MAP, acquire_lock
 from function.tracker import cmd_tracker
 
@@ -72,6 +79,9 @@ def main() -> None:
 
     sub.add_parser("init", help="初始化 vncmd 并写入默认配置", parents=[])
 
+    p_cookie = sub.add_parser("cookie", help="设置 Cookie")
+    p_cookie.add_argument("value", help="Cookie 值")
+
     p_search = sub.add_parser("search", help="搜索曲目")
     p_search.add_argument("query", help="搜索关键词")
     p_search.add_argument(
@@ -129,6 +139,7 @@ def main() -> None:
 
     dispatch = {
         "init": cmd_init,
+        "cookie": cmd_cookie,
         "search": cmd_search,
         "song": cmd_song,
         "album": cmd_album,

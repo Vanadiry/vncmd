@@ -57,9 +57,7 @@ def _download_tracks(
     dl_id: str | None = None,
 ) -> None:
     """Shared download for playlists and albums."""
-    download_song_batch(
-        tracks, quality, output_dir, dl_type=dl_type, dl_id=dl_id
-    )
+    download_song_batch(tracks, quality, output_dir, dl_type=dl_type, dl_id=dl_id)
 
 
 def cmd_search(args: argparse.Namespace) -> None:
@@ -247,3 +245,19 @@ def cmd_init(args: argparse.Namespace) -> None:
         "https://github.com/Vanadiry/vncmd/blob/main/doc/guide.md"
     )
     console.print()
+
+
+def cmd_cookie(args: argparse.Namespace) -> None:
+    """Set the Cookie."""
+    VNCMD_HOME.mkdir(parents=True, exist_ok=True)
+    COOKIE_FILE.write_text(args.value.strip(), encoding="utf-8")
+    success("Cookie 已保存")
+
+    from function.api import get_song_url
+
+    info("正在检查 Cookie 权限，请稍候...")
+    for _ in range(2):
+        if get_song_url(2056952623):
+            success("Cookie 有效")
+            return
+    warning("Cookie 可能无 VIP 权限")
