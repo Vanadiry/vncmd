@@ -45,9 +45,9 @@ def embed(
                 pass
 
         if track_no is not None:
-            audio.tag.track_num = (track_no, 0)
+            audio.tag.track_num = (track_no, None)
         if cd_no is not None:
-            audio.tag.disc_num = (cd_no, 0)
+            audio.tag.disc_num = (cd_no, None)
 
         if composer is not None:
             audio.tag.composer = composer

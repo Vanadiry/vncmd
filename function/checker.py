@@ -60,24 +60,28 @@ def ffprobe_info(path: str) -> dict | None:
 
 
 def ffmpeg_decode(path: str) -> tuple[list[str], float | None]:
-    proc = subprocess.run(
-        [
-            "ffmpeg",
-            "-nostdin",
-            "-v",
-            "error",
-            "-stats",
-            "-i",
-            str(path),
-            "-map",
-            "0:a:0",
-            "-f",
-            "null",
-            "-",
-        ],
-        capture_output=True,
-        text=True,
-    )
+    try:
+        proc = subprocess.run(
+            [
+                "ffmpeg",
+                "-nostdin",
+                "-v",
+                "error",
+                "-stats",
+                "-i",
+                str(path),
+                "-map",
+                "0:a:0",
+                "-f",
+                "null",
+                "-",
+            ],
+            capture_output=True,
+            text=True,
+            timeout=30,
+        )
+    except subprocess.TimeoutExpired:
+        return [], None
     errors: list[str] = []
     max_time: float | None = None
     for line in proc.stderr.splitlines():

@@ -69,6 +69,18 @@ def _fmt_duration(ms: int | None) -> str:
     return f"{m}:{s:02d}"
 
 
+def _first_number(value) -> int | None:
+    """Extract the first integer from a value (int, str like '05 [RAY]', or None)."""
+    if value is None:
+        return None
+    if isinstance(value, int):
+        return value
+    import re
+
+    m = re.search(r"\d+", str(value))
+    return int(m.group()) if m else None
+
+
 def _get_v1_song_detail(song_id: int) -> dict:
     url = f"{BASE_URL}/api/v1/song/detail/?id={song_id}&ids=%5B{song_id}%5D"
     resp = _get_session().get(url, timeout=15)
@@ -119,8 +131,8 @@ def get_song_details(song_id: int) -> dict:
         "cover": song.get("album", {}).get("picUrl", ""),
         "publish_time": format_timestamp(song.get("album", {}).get("publishTime")),
         "duration": _fmt_duration(song.get("duration")),
-        "track_no": song.get("no"),
-        "cd_no": song.get("cd"),
+        "track_no": _first_number(song.get("no")),
+        "cd_no": _first_number(song.get("cd")),
     }
     cache_put_song(song_id, result)
     return result

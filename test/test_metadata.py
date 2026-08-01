@@ -42,8 +42,8 @@ class TestMp3Embed:
         assert audio.tag.title == "T"
         assert audio.tag.artist == "A"
         assert audio.tag.album == "AL"
-        assert audio.tag.track_num == (3, 0)
-        assert audio.tag.disc_num == (2, 0)
+        assert audio.tag.track_num == (3, None)
+        assert audio.tag.disc_num == (2, None)
         assert len(audio.tag.images) > 0
         assert any("Test" in (lyric.text or "") for lyric in audio.tag.lyrics)
 

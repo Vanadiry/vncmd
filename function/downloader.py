@@ -432,6 +432,7 @@ def download_song_batch(
                     )
                     if ok:
                         break
+                    progress.reset(task_id, total=None)
                     if attempt < 3:
                         progress.update(
                             task_id,
