@@ -410,22 +410,16 @@ def _format_song_choice(s: dict) -> str:
     return f"{s.get('title', '?')}（ID: {s['id']}）"
 
 
-def download_tracker(
-    name: str, quality: int, output_dir: str
-) -> None:
+def download_tracker(name: str, quality: int, output_dir: str) -> None:
     songs = load_songs_db(name)
     if not songs:
         error(f"Tracker「{name}」未缓存曲目，请先执行 --fetch。")
         sys.exit(1)
 
-    download_song_batch(
-        songs, quality, output_dir, dl_type="tracker", dl_id=name
-    )
+    download_song_batch(songs, quality, output_dir, dl_type="tracker", dl_id=name)
 
 
-def download_diff(
-    name: str, quality: int, output_dir: str
-) -> None:
+def download_diff(name: str, quality: int, output_dir: str) -> None:
     diff = load_diff(name)
     added = diff.get("added", [])
     removed = diff.get("removed", [])

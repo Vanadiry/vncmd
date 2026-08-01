@@ -31,7 +31,7 @@ from function.audio import (
     resolve_path,
 )
 from function.download import fetch_audio, fetch_cover, fetch_lyrics
-from function.image import process_cover as process_cover_image
+from function.image import process_cover as process_cover_image, detect_format
 from function.lyrics import (
     process as process_lyrics,
     output_files as output_lyrics_files,
@@ -174,9 +174,11 @@ def download_song(
 
     # --- Save cover to temp ---
     if want_cover and save_cover_data:
-        cover_ext_val = (
-            "jpg" if get_save_cover_quality() == "1" else cover_ext(cover_url)
-        )
+        if get_save_cover_quality() == "1":
+            cover_ext_val = "jpg"
+        else:
+            fmt = detect_format(save_cover_data)
+            cover_ext_val = fmt[0] if fmt else cover_ext(cover_url)
         temp_cover_path = str(temp_dir / f"{song_id}.{cover_ext_val}")
         with open(temp_cover_path, "wb") as f:
             f.write(save_cover_data)
