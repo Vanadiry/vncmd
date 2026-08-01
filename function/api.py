@@ -80,27 +80,36 @@ def get_song_details(song_id: int) -> dict:
     if cached:
         return cached
 
-    url = f"{BASE_URL}/api/song/detail/?id={song_id}&ids=%5B{song_id}%5D"
-    resp = _get_session().get(url, timeout=15)
-    data = resp.json()
+    v0_data = {}
+    v1_data = {}
+    try:
+        v0_url = f"{BASE_URL}/api/song/detail/?id={song_id}&ids=%5B{song_id}%5D"
+        v0_data = _get_session().get(v0_url, timeout=15).json()
+    except Exception:
+        pass
+    try:
+        v1_data = _get_v1_song_detail(song_id)
+    except Exception:
+        pass
 
-    if not data.get("songs"):
-        data = _get_v1_song_detail(song_id)
-        if data.get("songs"):
-            s = data["songs"][0]
-            if "ar" in s:
-                s["artists"] = s.pop("ar")
-            if "al" in s:
-                s["album"] = s.pop("al")
-    if not data.get("songs"):
+    song = None
+    if v0_data.get("songs"):
+        song = v0_data["songs"][0]
+    elif v1_data.get("songs"):
+        song = v1_data["songs"][0]
+        if "ar" in song:
+            song["artists"] = song.pop("ar")
+        if "al" in song:
+            song["album"] = song.pop("al")
+
+    if not song:
         raise ValueError(f"曲目 {song_id} 未找到")
 
-    song = data["songs"][0]
-    cd_no = song.get("cd")
-    if cd_no is None:
-        v1 = _get_v1_song_detail(song_id)
-        if v1.get("songs"):
-            cd_no = v1["songs"][0].get("cd")
+    # Merge v1 fields not present in v0
+    if v1_data.get("songs"):
+        v1_song = v1_data["songs"][0]
+        if "cd" not in song and "cd" in v1_song:
+            song["cd"] = v1_song["cd"]
     result = {
         "id": song["id"],
         "title": song["name"],
@@ -111,7 +120,7 @@ def get_song_details(song_id: int) -> dict:
         "publish_time": format_timestamp(song.get("album", {}).get("publishTime")),
         "duration": _fmt_duration(song.get("duration")),
         "track_no": song.get("no"),
-        "cd_no": cd_no,
+        "cd_no": song.get("cd"),
     }
     cache_put_song(song_id, result)
     return result
