@@ -25,7 +25,7 @@ auto_trim = false
 # credit 检测时要扫描的歌词行数
 credit_scan_lines = 10
 # credit 角色关键词白名单
-credit_prefixes = ["作曲", "作词", "编曲", "制作人"]
+credit_prefixes = ["作词", "编曲", "制作人"]
 
 [download.cover]
 # 嵌入封面质量：0=原图，1=缩放至最大 500x500 JPEG

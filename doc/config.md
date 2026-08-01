@@ -79,21 +79,23 @@ Cookie 存放在 `~/.vSoft/vncmd/cookie`，纯文本。
 裁剪无用歌词数据。默认 `false`。
 
 若启用此项，但没有启用 `parse_credits`，则 vncmd 会删除仅有“纯音乐，请欣赏”一行的歌词数据。  
-若同时启用 `parse_credits`，还会额外删除“作曲”行。
+若删完之后歌词为空（即歌词里只有“纯音乐，请欣赏”这句话），则会直接丢弃歌词。  
+若有任何其他数据，歌词会保留。
 
-对于删除了“作曲”、“纯音乐，请欣赏”行之后，仅剩下 credit 行的歌词，将不会保留单独 lrc 文件，而是将剩余的 credit 嵌入音频的歌词元数据。  
-你可以自定义 credit 行中，包含那些角色。配置参考 `credit_prefixes` 项。
+若同时启用 `parse_credits`，还会额外删除“作曲”行。  
+对于删除了“作曲”、“纯音乐，请欣赏”行之后，仅剩下“编曲”、“作词”等 credit 数据的，将不会保留单独的 lrc 文件，而是将剩余的 credit 嵌入音频的歌词元数据。  
+你可以自定义 credit 数据中包含什么角色，配置参考 `credit_prefixes` 项。
 
 ### credit_scan_lines
 
-检查 credit 数据的行数。默认 `10`。仅在启用 `auto_trim` 或/和 `parse_credits` 时生效。
+检查 credit 数据的行数。默认 `10`。在启用 `auto_trim` 或/和 `parse_credits` 时生效。
 
 检测 credit 角色时，只扫描歌词前 N 行。  
 这能避免将正文中出现的角色关键词误判为 credit。
 
 ### credit_prefixes
 
-credit 白名单。默认 `["作词", "编曲", "制作人"]`。在启用 `auto_trim` 时生效。
+credit 角色白名单。默认 `["作词", "编曲", "制作人"]`。在启用 `auto_trim` 或/和 `parse_credits` 时生效。
 
 用于决定 `auto_trim` 如何判断 credit 数据。可追加 `"混音"`、`"母带制作"` 等。
 

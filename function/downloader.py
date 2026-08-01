@@ -119,7 +119,7 @@ def download_song(
     skip_lrc = False
 
     if parse_credits:
-        composer, _ = extract_credits(lyric_text, scan_lines, prefixes)
+        composer, _ = extract_credits(lyric_text, scan_lines, prefixes + ["作曲"])
 
     if parse_credits and auto_trim:
         lyric_text, _ = trim_lyrics(lyric_text, scan_lines, prefixes=["作曲"])
