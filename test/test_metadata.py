@@ -34,13 +34,16 @@ class TestMp3Embed:
             song_artist="A",
             song_album="AL",
             publish_time="2023-01-01 00:00:00",
+            track_no=3,
+            cd_no=2,
         )
 
         audio = eyed3.load(mp3_path)
         assert audio.tag.title == "T"
         assert audio.tag.artist == "A"
         assert audio.tag.album == "AL"
-        assert audio.tag.copyright == "12345"
+        assert audio.tag.track_num == (3, 0)
+        assert audio.tag.disc_num == (2, 0)
         assert len(audio.tag.images) > 0
         assert any("Test" in (lyric.text or "") for lyric in audio.tag.lyrics)
 
@@ -75,12 +78,15 @@ class TestFlacEmbed:
             song_artist="AF",
             song_album="ALF",
             publish_time="2024-06-15 00:00:00",
+            track_no=5,
+            cd_no=1,
         )
 
         flac = FLAC(flac_path)
         assert flac.get("title", [""])[0] == "TF"
         assert flac.get("artist", [""])[0] == "AF"
         assert flac.get("album", [""])[0] == "ALF"
-        assert flac.get("copyright", [""])[0] == "67890"
+        assert flac.get("tracknumber", [""])[0] == "5"
+        assert flac.get("discnumber", [""])[0] == "1"
         assert len(flac.pictures) > 0
         assert "FLACtest" in flac.get("lyrics", [""])[0]

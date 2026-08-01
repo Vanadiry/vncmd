@@ -134,6 +134,8 @@ def cmd_song(args: argparse.Namespace) -> None:
         lyrics_api_url=lyrics_api,
         publish_time=song["publish_time"],
         download_dir=output_dir,
+        track_no=song.get("track_no"),
+        cd_no=song.get("cd_no"),
     )
     if ok:
         success(msg)

@@ -15,6 +15,8 @@ def embed(
     song_artist: str | None,
     song_album: str | None,
     publish_time: str | None,
+    track_no: int | None = None,
+    cd_no: int | None = None,
 ) -> None:
     if music_type == "mp3":
         audio = eyed3.load(music_path)
@@ -40,6 +42,11 @@ def embed(
                 audio.tag.recording_date = pt.strftime("%Y")
             except ValueError:
                 pass
+
+        if track_no is not None:
+            audio.tag.track_num = (track_no, 0)
+        if cd_no is not None:
+            audio.tag.disc_num = (cd_no, 0)
 
         audio.tag.save(encoding="utf-8")
 
@@ -68,5 +75,10 @@ def embed(
                 audio["date"] = pt.strftime("%Y-%m-%d")
             except ValueError:
                 pass
+
+        if track_no is not None:
+            audio["tracknumber"] = str(track_no)
+        if cd_no is not None:
+            audio["discnumber"] = str(cd_no)
 
         audio.save()

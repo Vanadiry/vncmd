@@ -96,6 +96,11 @@ def get_song_details(song_id: int) -> dict:
         raise ValueError(f"曲目 {song_id} 未找到")
 
     song = data["songs"][0]
+    cd_no = song.get("cd")
+    if cd_no is None:
+        v1 = _get_v1_song_detail(song_id)
+        if v1.get("songs"):
+            cd_no = v1["songs"][0].get("cd")
     result = {
         "id": song["id"],
         "title": song["name"],
@@ -105,6 +110,8 @@ def get_song_details(song_id: int) -> dict:
         "cover": song.get("album", {}).get("picUrl", ""),
         "publish_time": format_timestamp(song.get("album", {}).get("publishTime")),
         "duration": _fmt_duration(song.get("duration")),
+        "track_no": song.get("no"),
+        "cd_no": cd_no,
     }
     cache_put_song(song_id, result)
     return result

@@ -73,6 +73,8 @@ def download_song(
     download_dir: str | None = None,
     progress=None,
     task_id=None,
+    track_no: int | None = None,
+    cd_no: int | None = None,
 ) -> tuple[bool, str, str | None]:
     """
     Download a song with metadata, lyrics, and cover.
@@ -128,7 +130,7 @@ def download_song(
             return False, f"下载失败：{err}", None
         if Path(music_path).stat().st_size == 0:
             Path(music_path).unlink()
-            return False, "下载文件为空，需要 VIP 或添加 Cookie", None
+            return False, "下载文件为空", None
         # Process lyrics for embedding
         embed_mode = get_embed_lyrics_mode()
         if embed_mode == "2" or not tlyric_text:
@@ -148,6 +150,8 @@ def download_song(
             song_artist,
             song_album,
             publish_time,
+            track_no,
+            cd_no,
         )
 
     # --- Save lyrics ---
@@ -311,6 +315,8 @@ def download_song_batch(
                     lyrics_api_url=lyrics_api,
                     publish_time=track.get("publish_time", ""),
                     download_dir=session_dir,
+                    track_no=track.get("track_no"),
+                    cd_no=track.get("cd_no"),
                 )
             else:
                 song_url = None
@@ -319,7 +325,12 @@ def download_song_batch(
                     if song_url:
                         break
                     if attempt < 3:
-                        progress.update(task_id, description=_desc(f"⏳ {title} - {artist}（获取链接重试 {attempt}/3）"))
+                        progress.update(
+                            task_id,
+                            description=_desc(
+                                f"⏳ {title} - {artist}（获取链接重试 {attempt}/3）"
+                            ),
+                        )
                 if not song_url:
                     progress.update(task_id, description="")
                     progress.reset(task_id, total=None)
@@ -345,11 +356,18 @@ def download_song_batch(
                         download_dir=session_dir,
                         progress=progress,
                         task_id=task_id,
+                        track_no=track.get("track_no"),
+                        cd_no=track.get("cd_no"),
                     )
                     if ok:
                         break
                     if attempt < 3:
-                        progress.update(task_id, description=_desc(f"⏳ {title} - {artist}（重试 {attempt}/3）"))
+                        progress.update(
+                            task_id,
+                            description=_desc(
+                                f"⏳ {title} - {artist}（重试 {attempt}/3）"
+                            ),
+                        )
 
             progress.update(task_id, description="")
             progress.reset(task_id, total=None)
