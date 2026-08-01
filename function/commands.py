@@ -216,7 +216,7 @@ def cmd_init(args: argparse.Namespace) -> None:
     if CONFIG_FILE.exists():
         console.print("  [dim]存在 config.toml[/]")
     else:
-        validate_config()
+        validate_config(quiet=True)
         success("已创建 config.toml")
 
     if COOKIE_FILE.exists():

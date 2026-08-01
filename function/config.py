@@ -47,11 +47,14 @@ def _get_cfg() -> dict:
     return _cfg
 
 
-def validate_config() -> None:
+def validate_config(quiet: bool = False) -> None:
     """Check config file has all required keys.  Auto-creates on first run."""
     if not CONFIG_FILE.exists():
         VNCMD_HOME.mkdir(parents=True, exist_ok=True)
         CONFIG_FILE.write_text(CONFIG_TOML, encoding="utf-8")
+        if not quiet:
+            print(f"未能找到配置文件，已创建：{CONFIG_FILE}", file=sys.stderr)
+            print("首次运行？请执行 vncmd init 以获取更多信息", file=sys.stderr)
 
     try:
         cfg = load_config()
