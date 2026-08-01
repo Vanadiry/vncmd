@@ -1,5 +1,4 @@
 import shutil
-import sys
 import time
 from concurrent.futures import ThreadPoolExecutor
 from datetime import datetime
@@ -467,11 +466,11 @@ def download_song_batch(
     if success_count:
         parts.append(f"[green]{success_count} 成功[/]")
     else:
-        parts.append(f"[dim]0 成功[/]")
+        parts.append("[dim]0 成功[/]")
     if fail_count:
         parts.append(f"[red]{fail_count} 失败[/]")
     else:
-        parts.append(f"[dim]0 失败[/]")
+        parts.append("[dim]0 失败[/]")
     console.print(f"完成：{', '.join(parts)}")
     if fail_ids:
         console.print(f"失败 ID：{', '.join(str(i) for i in fail_ids)}")

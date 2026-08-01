@@ -1,5 +1,3 @@
-import os
-import struct
 from pathlib import Path
 import pytest
 from function.checker import has_ffmpeg, has_flac, check_audio, ffprobe_info
