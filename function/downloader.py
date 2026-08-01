@@ -86,6 +86,9 @@ def download_song(
         download_dir = get_download_dir()
     Path(download_dir).mkdir(parents=True, exist_ok=True)
 
+    temp_dir = Path(download_dir) / "_temp"
+    temp_dir.mkdir(parents=True, exist_ok=True)
+
     content = get_download_content()
     want_song = "0" in content
     want_lyrics = "1" in content
@@ -114,22 +117,22 @@ def download_song(
             cover_data, cover_url, get_save_cover_quality()
         )
 
-    music_path, music_type = None, None
-    lyric_paths = []
-    cover_path = None
+    music_type, temp_music_path = None, None
+    temp_lyric_paths = []
+    temp_cover_path = None
 
-    # --- Download audio ---
+    # --- Download audio to temp ---
     if want_song:
         music_type = get_type_from_url(song_url)
-        music_path = resolve_path(filename_base, music_type, download_dir)
+        temp_music_path = str(temp_dir / f"{song_id}.{music_type}")
         label = f"{song_title} - {song_artist}"
         err = fetch_audio(
-            song_url, music_path, label, progress=progress, task_id=task_id
+            song_url, temp_music_path, label, progress=progress, task_id=task_id
         )
         if err:
             return False, f"下载失败：{err}", None
-        if Path(music_path).stat().st_size == 0:
-            Path(music_path).unlink()
+        if Path(temp_music_path).stat().st_size == 0:
+            Path(temp_music_path).unlink()
             return False, "下载文件为空", None
         # Process lyrics for embedding
         embed_mode = get_embed_lyrics_mode()
@@ -140,7 +143,7 @@ def download_song(
             embed_lyric = "\n".join(embed_result.values())
 
         embed_metadata(
-            music_path,
+            temp_music_path,
             music_type,
             embed_cover_data,
             embed_cover_mime,
@@ -154,19 +157,38 @@ def download_song(
             cd_no,
         )
 
-    # --- Save lyrics ---
+    # --- Save lyrics to temp ---
     if want_lyrics and lyric_text:
         save_mode = get_save_lyrics_mode()
-        base_path = str(Path(download_dir) / filename_base)
+        base_path = str(temp_dir / str(song_id))
         result = process_lyrics(lyric_text, tlyric_text, save_mode, song_id)
-        lyric_paths = output_lyrics_files(result, base_path)
+        temp_lyric_paths = output_lyrics_files(result, base_path)
 
-    # --- Save cover ---
+    # --- Save cover to temp ---
     if want_cover and save_cover_data:
-        ext = "jpg" if get_save_cover_quality() == "1" else cover_ext(cover_url)
-        cover_path = resolve_path(filename_base, ext, download_dir)
-        with open(cover_path, "wb") as f:
+        cover_ext_val = (
+            "jpg" if get_save_cover_quality() == "1" else cover_ext(cover_url)
+        )
+        temp_cover_path = str(temp_dir / f"{song_id}.{cover_ext_val}")
+        with open(temp_cover_path, "wb") as f:
             f.write(save_cover_data)
+
+    # --- Move from temp to final ---
+    music_path = None
+    lyric_paths = []
+    cover_path = None
+    if temp_music_path:
+        music_path = resolve_path(filename_base, music_type, download_dir)
+        shutil.move(temp_music_path, music_path)
+    for tp in temp_lyric_paths:
+        suffix = Path(tp).suffix
+        lp = resolve_path(filename_base, suffix.lstrip("."), download_dir)
+        shutil.move(tp, lp)
+        lyric_paths.append(lp)
+    if temp_cover_path:
+        ext = Path(temp_cover_path).suffix.lstrip(".")
+        cover_path = resolve_path(filename_base, ext, download_dir)
+        shutil.move(temp_cover_path, cover_path)
 
     # --- Result ---
     parts = []
@@ -217,6 +239,13 @@ def download_song_batch(
     else:
         session_dir = make_session_dir(output_dir)
         is_resuming = False
+
+    # Clean temp dir when resuming
+    if is_resuming:
+        temp = Path(session_dir) / "_temp"
+        if temp.exists():
+            shutil.rmtree(temp)
+            temp.mkdir()
 
     # --- Sync checkpoint tracks & filter to pending ---
     if dl_type is not None and dl_id is not None:
