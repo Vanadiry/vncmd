@@ -14,8 +14,25 @@ CLI (vncmd.py)：
 - `checkpoint.py`：下载断点续传
 - `tracker.py`：歌单/专辑变更追踪与同步
 
+## 环境
+
+`python >= 3.11`，建议使用 `uv`。
+
+```bash
+uv sync --extra dev
+```
+
 ## 测试
 
 ```bash
 pytest test/ [-v] [--cov] [-m "not network"]
+```
+
+## 发版
+
+```bash
+uv run clean.py
+# 更新 pyproject.toml version
+uv run build
+uv run twine upload dist/*
 ```
