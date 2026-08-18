@@ -31,8 +31,8 @@ pytest test/ [-v] [--cov] [-m "not network"]
 ## 发版
 
 ```bash
-uv run clean.py
+uv run tools/clean.py
 # 更新 pyproject.toml version
-uv run build
+uv build
 uv run twine upload dist/*
 ```
