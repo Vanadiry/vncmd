@@ -15,7 +15,7 @@
 | `song <ID>` | 预览单曲 |
 | `playlist <ID>` | 预览歌单 |
 | `album <ID>` | 预览专辑 |
-| `tracker <名称>` | 新建/查看追踪 |
+| `tracker <名称>` | 新建/查看 Teacker |
 | `cookie "..."` | 写入 Cookie |
 | `check "目录/文件"` | 检查音频数据完整性 |
 

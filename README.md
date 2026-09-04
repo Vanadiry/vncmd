@@ -49,8 +49,8 @@ vncmd album 405493 -d       # 下载专辑
 # 设置 Cookie
 vncmd cookie "..."
 
-# 追踪
-vncmd tracker my-list          # 新建/查看追踪
+# Teacker
+vncmd tracker my-list          # 新建/查看Teacker
 vncmd tracker my-list -f       # 交互式更新
 
 # 音频完整性检查
