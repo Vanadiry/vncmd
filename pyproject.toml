@@ -16,6 +16,7 @@ keywords = ["netease", "music", "download", "cli", "lyrics", "metadata"]
 urls = {Repository = "https://github.com/Vanadiry/vncmd", Documentation = "https://magic.vanadiry.com/wiki/vncmd"}
 dependencies = [
     "eyed3>=0.9.9",
+    "filelock>=3.32.5",
     "mutagen>=1.48.1",
     "pillow>=12.3.0",
     "prompt-toolkit>=3.0.53",
