@@ -24,13 +24,8 @@ def check_filename(name: str) -> str:
 
 
 def get_type_from_url(url: str) -> str:
-    pattern = r"((?!.*\.))([^?]+)"
-    matches = re.search(pattern, url)
-    if matches:
-        ext = matches.group(0)
-        if ext in ("mp3", "flac", "m4a", "wav", "ogg"):
-            return ext
-    return "mp3"
+    ext = url.rsplit("?", 1)[0].rsplit(".", 1)[-1].lower()
+    return ext if ext in ("mp3", "flac", "m4a", "wav", "ogg") else "mp3"
 
 
 def cover_ext(cover_url: str | None) -> str:
