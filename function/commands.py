@@ -29,12 +29,12 @@ from rich.markup import escape
 from function.config import (
     validate_config,
     get_quality,
-    get_download_dir,
     get_download_content,
     QUALITY_MAP,
     VNCMD_HOME,
     CONFIG_FILE,
     COOKIE_FILE,
+    resolve_output_dir,
 )
 
 
@@ -42,13 +42,6 @@ def _resolve_quality(args: argparse.Namespace) -> int:
     if args.quality:
         return QUALITY_MAP[args.quality]
     return get_quality()
-
-
-def _resolve_output_dir(args: argparse.Namespace) -> str:
-    if args.output:
-        # 不展开 ~ 会在当前目录下建出名为 ~ 的目录
-        return os.path.expanduser(args.output)
-    return get_download_dir()
 
 
 def _download_tracks(
@@ -123,7 +116,7 @@ def cmd_song(args: argparse.Namespace) -> None:
             error("无法获取下载链接，若其他曲目能够正常下载，则可能是这个曲目有问题。")
             sys.exit(1)
 
-    output_dir = make_session_dir(_resolve_output_dir(args))
+    output_dir = make_session_dir(resolve_output_dir(args.output))
     info(f"正在下载「{song['title']} - {song['artist']}」")
     lyrics_api = get_lyrics_url(args.id)
     ok, msg, path = download_song(
@@ -159,7 +152,7 @@ def cmd_album(args: argparse.Namespace) -> None:
         return
 
     quality = _resolve_quality(args)
-    output_dir = _resolve_output_dir(args)
+    output_dir = resolve_output_dir(args.output)
     _download_tracks(
         al["tracks"],
         quality,
@@ -195,7 +188,7 @@ def cmd_playlist(args: argparse.Namespace) -> None:
         return
 
     quality = _resolve_quality(args)
-    output_dir = _resolve_output_dir(args)
+    output_dir = resolve_output_dir(args.output)
     _download_tracks(
         pl["tracks"],
         quality,
@@ -278,7 +271,7 @@ def cmd_check(args: argparse.Namespace) -> None:
         error("需要 ffmpeg 和 ffprobe，请先安装。")
         sys.exit(1)
 
-    path = Path(args.path)
+    path = Path(os.path.expanduser(args.path))
     if not path.exists():
         error(f"路径不存在：{args.path}")
         sys.exit(1)

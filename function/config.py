@@ -147,6 +147,13 @@ def get_concurrency() -> int:
     return _get_cfg()["download"]["concurrency"]
 
 
+def resolve_output_dir(value: str | None) -> str:
+    if value:
+        # 不展开 ~ 会在当前目录下建出名为 ~ 的目录
+        return os.path.expanduser(value)
+    return get_download_dir()
+
+
 def get_quality() -> int:
     return QUALITY_MAP[_get_cfg()["download"]["song"]["quality"]]
 
@@ -198,7 +205,8 @@ def get_credit_prefixes() -> list[str]:
 
 
 def get_cache_dir() -> str:
-    return str(VNCMD_HOME / _get_cfg()["cache"]["dir"])
+    # 不展开 ~ 会在 VNCMD_HOME 下建出名为 ~ 的目录
+    return str(VNCMD_HOME / os.path.expanduser(_get_cfg()["cache"]["dir"]))
 
 
 def is_cache_enabled() -> bool:

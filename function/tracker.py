@@ -26,9 +26,9 @@ from rich.markup import escape
 from function._defaults import TRACKER_SETTINGS_TOML
 from function.config import (
     get_quality,
-    get_download_dir,
     QUALITY_MAP,
     VNCMD_HOME,
+    resolve_output_dir,
 )
 
 TRACKER_DIR = VNCMD_HOME / "tracker"
@@ -505,7 +505,7 @@ def cmd_tracker(args: argparse.Namespace) -> None:
 
     elif args.download:
         quality = QUALITY_MAP[args.quality] if args.quality else get_quality()
-        output_dir = args.output if args.output else get_download_dir()
+        output_dir = resolve_output_dir(args.output)
         if args.diff:
             download_diff(name, quality, output_dir)
         else:
