@@ -1,4 +1,5 @@
 from rich import box
+from rich.cells import cell_len
 from rich.console import Console
 from rich.markup import escape
 from rich.panel import Panel
@@ -60,10 +61,12 @@ def display_song_detail(song: dict) -> None:
         ("时长", song["duration"]),
     ]
 
-    max_key_len = max(len(k) for k, _ in lines)
+    # 键多为中文，len 按字符数算会短一格，补齐要用 cell_len
+    max_key_len = max(cell_len(k) for k, _ in lines)
     text = Text()
     for key, value in lines:
-        text.append(f"{key:<{max_key_len}}  ", style="bold cyan")
+        pad = " " * (max_key_len - cell_len(key))
+        text.append(f"{key}{pad}  ", style="bold cyan")
         text.append(f"{value}\n", style="bright_white")
 
     panel = Panel(text, title="[bold]曲目详情[/]", border_style="cyan", box=box.ROUNDED)
