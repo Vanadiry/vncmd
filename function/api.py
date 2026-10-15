@@ -1,5 +1,7 @@
+import json
 import time
 from contextlib import suppress
+from urllib.parse import quote
 
 import requests
 from requests.adapters import HTTPAdapter
@@ -16,6 +18,8 @@ from function.cache import put_song as cache_put_song
 from function.config import get_cookie
 
 BASE_URL = "https://music.163.com"
+# 批量查详情的分片大小，一次 100 个 id 实测约 1300 字符的 URL
+_DETAIL_BATCH_SIZE = 100
 HEADERS = {
     "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 "
     "(KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
@@ -92,6 +96,26 @@ def _get_v1_song_detail(song_id: int) -> dict:
     return resp.json()
 
 
+def _normalize_song(song: dict) -> dict:
+    """把 v0 或 v1 返回的 song 对象转成统一结构"""
+    if "ar" in song:
+        song["artists"] = song.pop("ar")
+    if "al" in song:
+        song["album"] = song.pop("al")
+    return {
+        "id": song["id"],
+        "title": song["name"],
+        "artist": ", ".join(a["name"] for a in song.get("artists", [])),
+        "album": song.get("album", {}).get("name", ""),
+        "album_id": song.get("album", {}).get("id"),
+        "cover": song.get("album", {}).get("picUrl", ""),
+        "publish_time": format_timestamp(song.get("album", {}).get("publishTime")),
+        "duration": _fmt_duration(song.get("duration")),
+        "track_no": _first_number(song.get("no")),
+        "cd_no": _first_number(song.get("cd")),
+    }
+
+
 def get_song_details(song_id: int) -> dict:
     cached = cache_get_song(song_id)
     if cached:
@@ -111,10 +135,6 @@ def get_song_details(song_id: int) -> dict:
         song = v0_data["songs"][0]
     elif v1_data.get("songs"):
         song = v1_data["songs"][0]
-        if "ar" in song:
-            song["artists"] = song.pop("ar")
-        if "al" in song:
-            song["album"] = song.pop("al")
 
     if not song:
         raise ValueError(f"曲目 {song_id} 未找到")
@@ -124,19 +144,40 @@ def get_song_details(song_id: int) -> dict:
         v1_song = v1_data["songs"][0]
         if "cd" not in song and "cd" in v1_song:
             song["cd"] = v1_song["cd"]
-    result = {
-        "id": song["id"],
-        "title": song["name"],
-        "artist": ", ".join(a["name"] for a in song.get("artists", [])),
-        "album": song.get("album", {}).get("name", ""),
-        "album_id": song.get("album", {}).get("id"),
-        "cover": song.get("album", {}).get("picUrl", ""),
-        "publish_time": format_timestamp(song.get("album", {}).get("publishTime")),
-        "duration": _fmt_duration(song.get("duration")),
-        "track_no": _first_number(song.get("no")),
-        "cd_no": _first_number(song.get("cd")),
-    }
+    result = _normalize_song(song)
     cache_put_song(song_id, result)
+    return result
+
+
+def get_song_details_many(song_ids: list[int]) -> dict[int, dict]:
+    """批量取曲目详情，命中缓存的部分不再请求
+
+    逐个查询在歌单有大量下架曲目时不可用，几百次串行请求要按分钟计
+    """
+    result: dict[int, dict] = {}
+    missing: list[int] = []
+    for song_id in song_ids:
+        cached = cache_get_song(song_id)
+        if cached:
+            result[song_id] = cached
+        else:
+            missing.append(song_id)
+
+    for start in range(0, len(missing), _DETAIL_BATCH_SIZE):
+        chunk = missing[start : start + _DETAIL_BATCH_SIZE]
+        query = quote(json.dumps(chunk, separators=(",", ":")))
+        with suppress(Exception):
+            resp = (
+                _get_session()
+                .get(f"{BASE_URL}/api/v1/song/detail/?ids={query}", timeout=20)
+                .json()
+            )
+            for raw in resp.get("songs") or []:
+                if not raw.get("id"):
+                    continue
+                detail = _normalize_song(dict(raw))
+                result[detail["id"]] = detail
+                cache_put_song(detail["id"], detail)
     return result
 
 
@@ -163,13 +204,18 @@ def get_playlist_details(playlist_id: int) -> dict:
             removed_ids.append(sid)
 
     removed_tracks = []
-    for sid in removed_ids:
-        try:
-            info = _get_removed_song_info(sid)
-            if info:
-                removed_tracks.append(info)
-        except Exception:
-            pass
+    if removed_ids:
+        details = get_song_details_many(removed_ids)
+        removed_tracks = [
+            {
+                "id": sid,
+                "title": details[sid]["title"],
+                "artist": details[sid]["artist"],
+                "album": details[sid]["album"],
+            }
+            for sid in removed_ids
+            if sid in details
+        ]
 
     # Map tracks to standard format
     tracks = []
@@ -197,22 +243,6 @@ def get_playlist_details(playlist_id: int) -> dict:
         "track_count": total,
         "tracks": tracks,
         "removed_tracks": removed_tracks,
-    }
-
-
-def _get_removed_song_info(song_id: int) -> dict | None:
-    data = _get_v1_song_detail(song_id)
-    songs = data.get("songs", [])
-    if not songs:
-        return None
-    s = songs[0]
-    ar = s.get("ar", [])
-    al = s.get("al", {})
-    return {
-        "id": s["id"],
-        "title": s["name"],
-        "artist": ", ".join(a["name"] for a in ar),
-        "album": al.get("name", ""),
     }
 
 
