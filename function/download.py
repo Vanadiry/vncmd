@@ -13,6 +13,7 @@ from rich.progress import (
 from urllib3.util.retry import Retry
 
 from function.audio import looks_like_audio
+from function.image import detect_format
 
 _dl_session = None
 
@@ -90,11 +91,13 @@ def fetch_audio(
 
 
 def fetch_cover(cover_url: str) -> bytes | None:
-    """Download cover image. Returns bytes or None."""
+    """下载封面图片，非图片内容返回 None"""
     try:
-        return _get_dl_session().get(cover_url, timeout=15).content
+        data = _get_dl_session().get(cover_url, timeout=15).content
     except Exception:
         return None
+    # CDN 失效时以 200 返回错误页，落盘前先验魔数
+    return data if detect_format(data) else None
 
 
 def fetch_lyrics(lyrics_api_url: str, source: str) -> tuple[str, str]:

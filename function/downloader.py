@@ -171,12 +171,17 @@ def download_song(
     embed_cover_data, embed_cover_mime = None, None
     save_cover_data = None
     if cover_data:
-        embed_cover_data, embed_cover_mime = process_cover_image(
-            cover_data, cover_url, get_embed_cover_quality()
-        )
-        save_cover_data, _ = process_cover_image(
-            cover_data, cover_url, get_save_cover_quality()
-        )
+        # 封面坏了不该连累音频，降级为不嵌封面
+        try:
+            embed_cover_data, embed_cover_mime = process_cover_image(
+                cover_data, cover_url, get_embed_cover_quality()
+            )
+            save_cover_data, _ = process_cover_image(
+                cover_data, cover_url, get_save_cover_quality()
+            )
+        except Exception as e:
+            warning(f"封面处理失败，本次不嵌入封面：{e}")
+            embed_cover_data = embed_cover_mime = save_cover_data = None
 
     music_type, temp_music_path = None, None
     temp_lyric_paths = []
