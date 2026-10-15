@@ -63,6 +63,20 @@ from function.output import (
     warning,
 )
 
+_move_lock = Lock()
+
+
+def _move_unique(temp_path: str, base: str, ext: str, directory: str) -> str:
+    """把临时文件移到最终文件名
+
+    查可用名与落盘必须原子，否则同名曲目的并发线程会挑中同一个路径，
+    后落盘的那个直接把先落盘的覆盖掉
+    """
+    with _move_lock:
+        target = resolve_path(base, ext, directory)
+        shutil.move(temp_path, target)
+    return target
+
 
 def make_session_dir(base_dir):
     """Create a timestamped subdirectory and return its path."""
@@ -235,17 +249,16 @@ def download_song(
     lyric_paths = []
     cover_path = None
     if temp_music_path:
-        music_path = resolve_path(filename_base, music_type, download_dir)
-        shutil.move(temp_music_path, music_path)
+        music_path = _move_unique(
+            temp_music_path, filename_base, music_type, download_dir
+        )
     for tp in temp_lyric_paths:
         suffix = Path(tp).suffix
-        lp = resolve_path(filename_base, suffix.lstrip("."), download_dir)
-        shutil.move(tp, lp)
+        lp = _move_unique(tp, filename_base, suffix.lstrip("."), download_dir)
         lyric_paths.append(lp)
     if temp_cover_path:
         ext = Path(temp_cover_path).suffix.lstrip(".")
-        cover_path = resolve_path(filename_base, ext, download_dir)
-        shutil.move(temp_cover_path, cover_path)
+        cover_path = _move_unique(temp_cover_path, filename_base, ext, download_dir)
 
     # --- Result ---
     parts = []
