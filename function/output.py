@@ -31,13 +31,16 @@ def _display_track_table(
         box=box.ROUNDED,
         show_header=True,
         header_style="bold cyan",
+        expand=True,
     )
-    table.add_column("#", style="dim", width=4)
-    table.add_column("ID", style="dim", width=12)
-    table.add_column("标题", style="bright_white", max_width=40)
-    table.add_column("艺术家", style="yellow", max_width=30)
-    table.add_column("专辑", style="green", max_width=30)
-    table.add_column("时长", style="blue", width=8, justify="right")
+    # ratio 只给标题、艺术家、专辑这三列，rich 据此判断哪些列参与富余宽度分配。
+    # 序号、ID、时长不设 ratio，宽度就按内容自然算，不会被摊宽
+    table.add_column("#", style="dim")
+    table.add_column("ID", style="dim")
+    table.add_column("标题", style="bright_white", ratio=4, max_width=48)
+    table.add_column("艺术家", style="yellow", ratio=3, max_width=36)
+    table.add_column("专辑", style="green", ratio=2, max_width=32)
+    table.add_column("时长", style="blue", justify="right")
 
     for i, t in enumerate(tracks, 1):
         table.add_row(
