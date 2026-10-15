@@ -71,6 +71,10 @@ def validate_config(quiet: bool = False) -> None:
     # [download]
     dl = cfg.get("download", {})
 
+    # 留空表示用 ~/Downloads，键本身必须在
+    if "dir" not in dl:
+        errors.append("[download] dir 缺失")
+
     if not dl.get("filename_format"):
         errors.append("[download] filename_format 缺失或为空")
     elif dl["filename_format"] not in ("10", "01", "1"):
@@ -96,6 +100,8 @@ def validate_config(quiet: bool = False) -> None:
         errors.append(
             f"[download.song] quality 必须为以下之一：{', '.join(QUALITY_MAP)}"
         )
+    if not isinstance(ds.get("parse_credits"), bool):
+        errors.append("[download.song] parse_credits 缺失或不为布尔值")
 
     # [download.lyric]
     dly = dl.get("lyric", {})
@@ -104,6 +110,14 @@ def validate_config(quiet: bool = False) -> None:
             errors.append(f"[download.lyric] {key} 缺失或为空")
         elif dly[key] not in ("0", "1", "2"):
             errors.append(f'[download.lyric] {key} 必须为 "0"、"1" 或 "2"')
+    if not isinstance(dly.get("auto_trim"), bool):
+        errors.append("[download.lyric] auto_trim 缺失或不为布尔值")
+    scan = dly.get("credit_scan_lines")
+    if not isinstance(scan, int) or isinstance(scan, bool) or scan < 1:
+        errors.append("[download.lyric] credit_scan_lines 缺失或不为正整数")
+    prefixes = dly.get("credit_prefixes")
+    if not isinstance(prefixes, list) or not all(isinstance(p, str) for p in prefixes):
+        errors.append("[download.lyric] credit_prefixes 缺失或不为字符串列表")
 
     # [download.cover]
     dc = dl.get("cover", {})
