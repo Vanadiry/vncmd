@@ -1,10 +1,12 @@
+import os
 import shutil
+import sys
 import time
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from datetime import datetime
 from pathlib import Path
 from queue import Empty, Queue
-from threading import Lock
+from threading import Event, Lock
 
 from rich.progress import (
     BarColumn,
@@ -64,6 +66,9 @@ from function.output import (
 )
 
 _move_lock = Lock()
+
+# Ctrl+C 后让 worker 停止取新曲目，已经在下的这首跑完为止
+_cancelled = Event()
 
 
 def _move_unique(temp_path: str, base: str, ext: str, directory: str) -> str:
@@ -370,6 +375,7 @@ def download_song_batch(
 
     want_song = "0" in get_download_content()
     total = len(tracks)
+    _cancelled.clear()
     success_count = 0
     fail_count = 0
     fail_ids = []
@@ -415,6 +421,8 @@ def download_song_batch(
     def _download_one(slot_id):
         nonlocal success_count, fail_count, fail_ids
         while True:
+            if _cancelled.is_set():
+                return
             try:
                 track = queue.get_nowait()
             except Empty:
@@ -529,13 +537,33 @@ def download_song_batch(
                     fail_count += 1
                     fail_ids.append(sid)
 
-    with progress, ThreadPoolExecutor(max_workers=worker_count) as executor:
-        futures = [executor.submit(_download_one, i) for i in range(worker_count)]
-        # 不读 Future 的异常会被线程池吞掉，worker 死掉时队列里剩下的曲目就没人接了
-        for future in as_completed(futures):
-            exc = future.exception()
-            if exc is not None:
-                error(f"下载线程异常退出：{exc}")
+    executor = ThreadPoolExecutor(max_workers=worker_count)
+    interrupted = False
+    with progress:
+        try:
+            futures = [executor.submit(_download_one, i) for i in range(worker_count)]
+            # 不读 Future 的异常会被线程池吞掉，worker 死掉时队列里剩下的曲目就没人接了
+            for future in as_completed(futures):
+                exc = future.exception()
+                if exc is not None:
+                    error(f"下载线程异常退出：{exc}")
+        except KeyboardInterrupt:
+            interrupted = True
+            _cancelled.set()
+            executor.shutdown(wait=False, cancel_futures=True)
+        finally:
+            if not interrupted:
+                executor.shutdown(wait=True)
+
+    if interrupted:
+        left = total - success_count - fail_count
+        info(f"已中断，完成 {success_count + fail_count} 首，剩余 {left} 首未下载")
+        console.print("再次下载会从断点继续")
+        # 解释器退出时会 join 掉所有 worker，正在下的歌可能还要几十秒，
+        # 这里直接结束进程，不再等待
+        sys.stdout.flush()
+        sys.stderr.flush()
+        os._exit(130)
 
     console.print()
     parts = []

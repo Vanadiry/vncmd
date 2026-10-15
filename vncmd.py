@@ -11,6 +11,7 @@ from function.commands import (
     cmd_song,
 )
 from function.config import QUALITY_MAP, acquire_lock, validate_config
+from function.output import console
 from function.tracker import cmd_tracker
 
 
@@ -155,10 +156,17 @@ def main() -> None:
     }
 
     handler = dispatch.get(args.command)
-    if handler:
-        handler(args)
-    else:
+    if not handler:
         parser.print_help()
+        return
+
+    try:
+        handler(args)
+    except KeyboardInterrupt:
+        # 下载循环自己处理并给出明细，这里兜住其余阶段的中断
+        console.print()
+        console.print("[yellow]已中断[/]")
+        sys.exit(130)
 
 
 if __name__ == "__main__":
