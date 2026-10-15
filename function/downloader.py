@@ -69,7 +69,7 @@ def make_session_dir(base_dir):
 
 def _is_within(path: str, parent: str) -> bool:
     """判断 path 是否为 parent 本身或其子目录
-    断点存的是绝对路径，--output 原样传入，相对路径与 ~ 要先展开
+    配置路径与 --output 写法可能不同，展开后才能判定为同一目录
     """
     try:
         resolved = Path(path).expanduser().resolve()

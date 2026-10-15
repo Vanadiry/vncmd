@@ -1,4 +1,5 @@
 import argparse
+import os
 import shutil
 import sys
 
@@ -45,7 +46,8 @@ def _resolve_quality(args: argparse.Namespace) -> int:
 
 def _resolve_output_dir(args: argparse.Namespace) -> str:
     if args.output:
-        return args.output
+        # 不展开 ~ 会在当前目录下建出名为 ~ 的目录
+        return os.path.expanduser(args.output)
     return get_download_dir()
 
 
