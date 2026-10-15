@@ -56,20 +56,26 @@ def process_cover(
 
     # Convert to RGB (required for JPEG)
     if img.mode in ("RGBA", "P", "LA"):
-        background = Image.new("RGB", img.size, (255, 255, 255))
-        if img.mode == "P":
+        # P 与 LA 都要先转 RGBA，否则 alpha 通道被丢掉
+        if img.mode != "RGBA":
             img = img.convert("RGBA")
-        background.paste(img, mask=img.split()[-1] if img.mode == "RGBA" else None)
+        background = Image.new("RGB", img.size, (255, 255, 255))
+        background.paste(img, mask=img.split()[-1])
         img = background
     elif img.mode != "RGB":
         img = img.convert("RGB")
 
-    # Try qualities from 85 down to 60, stop when smaller than original
+    best = None
     for q in (85, 75, 65, 60):
         buf = io.BytesIO()
         img.save(buf, format="JPEG", quality=q, optimize=True)
-        result = buf.getvalue()
-        if len(result) < original_size or q == 60:
+        data = buf.getvalue()
+        if len(data) < original_size:
+            best = data
             break
 
-    return result, "image/jpeg"
+    # 四档都压不小过原图就保留原图
+    if best is None:
+        fmt = detect_format(cover_data)
+        return cover_data, fmt[1] if fmt else _mime_from_url(cover_url)
+    return best, "image/jpeg"
