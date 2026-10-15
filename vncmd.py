@@ -134,12 +134,13 @@ def main() -> None:
 
     args = parser.parse_args()
 
-    if args.command != "init":
-        validate_config()
-
+    # 只看帮助时不碰配置，否则首次运行会先弹配置警告
     if args.command is None:
         parser.print_help()
         sys.exit(0)
+
+    if args.command != "init":
+        validate_config()
 
     dispatch = {
         "init": cmd_init,
