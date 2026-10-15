@@ -21,6 +21,9 @@ def embed(
 ) -> None:
     if music_type == "mp3":
         audio = eyed3.load(music_path)
+        # eyed3 对非 mp3 与损坏文件返回 None，再取 .tag 会抛 AttributeError
+        if audio is None:
+            raise ValueError(f"音频标签无法读取，可能不是 mp3：{music_path}")
         if audio.tag is None:
             audio.initTag()
 
