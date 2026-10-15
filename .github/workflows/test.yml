@@ -1,0 +1,33 @@
+name: Test
+
+permissions:
+  contents: read
+
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install dependencies
+        run: pip install -e . pytest pytest-cov ruff
+
+      - name: Check formatting
+        run: ruff format --check .
+
+      - name: Lint
+        run: ruff check .
+
+      # 标记为 network 的测试会打真实 API，需要 Cookie 且耗时较长，
+      # 在 PR 阶段跑会频繁超时，等耗时问题处理完再加进 CI
+      - name: Unit tests
+        run: pytest -m "not network" --cov=function --cov-report=term-missing
