@@ -170,9 +170,7 @@ def cmd_album(args: argparse.Namespace) -> None:
 def cmd_playlist(args: argparse.Namespace) -> None:
     """Preview or download a playlist."""
     try:
-        pl = get_playlist_details(
-            args.id, limit=args.limit if args.download else (args.limit or 10)
-        )
+        pl = get_playlist_details(args.id)
     except Exception as e:
         error(f"获取歌单失败：{e}")
         sys.exit(1)
@@ -200,6 +198,7 @@ def cmd_playlist(args: argparse.Namespace) -> None:
         output_dir,
         dl_type="playlist",
         dl_id=str(args.id),
+        limit=args.limit,
     )
 
 

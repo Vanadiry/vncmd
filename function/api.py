@@ -140,9 +140,9 @@ def get_song_details(song_id: int) -> dict:
     return result
 
 
-def get_playlist_details(playlist_id: int, limit: int | None = None) -> dict:
-    n = max(2000, limit) if limit else 2000
-    url = f"{BASE_URL}/api/v6/playlist/detail/?id={playlist_id}&n={n}"
+def get_playlist_details(playlist_id: int) -> dict:
+    # n 取多少都至少是 2000，限量由调用方在拿到完整列表后处理
+    url = f"{BASE_URL}/api/v6/playlist/detail/?id={playlist_id}&n=2000"
     resp = _get_session().get(url, timeout=15)
     data = resp.json()
 
@@ -171,10 +171,9 @@ def get_playlist_details(playlist_id: int, limit: int | None = None) -> dict:
         except Exception:
             pass
 
-    # Map tracks to standard format, apply programmatic limit
-    raw_tracks = full_tracks[:limit] if limit else full_tracks
+    # Map tracks to standard format
     tracks = []
-    for t in raw_tracks:
+    for t in full_tracks:
         ar = t.get("ar", [])
         al = t.get("al", {})
         tracks.append(

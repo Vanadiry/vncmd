@@ -198,7 +198,7 @@ def fetch_all_songs(settings: dict) -> tuple[dict[str, dict], list[dict]]:
                     song = get_song_details(src_id)
                     _add_to_raw(raw, song, src_type, src_id)
                 elif src_type == "playlist":
-                    pl = get_playlist_details(src_id, limit=None)
+                    pl = get_playlist_details(src_id)
                     for track in pl["tracks"]:
                         _add_to_raw(raw, track, src_type, src_id)
                     for rt in pl.get("removed_tracks", []):
