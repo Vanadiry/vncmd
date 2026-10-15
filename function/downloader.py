@@ -8,12 +8,14 @@ from pathlib import Path
 from queue import Empty, Queue
 from threading import Event, Lock
 
+from rich.cells import cell_len
 from rich.progress import (
     BarColumn,
     Progress,
     TextColumn,
     TimeRemainingColumn,
 )
+from rich.text import Text
 
 from function.api import get_lyrics_url, get_song_details, get_song_url
 from function.audio import (
@@ -101,6 +103,20 @@ def _is_within(path: str, parent: str) -> bool:
     except (OSError, RuntimeError, ValueError):
         return False
     return resolved == root or root in resolved.parents
+
+
+def _progress_desc(text: str) -> str:
+    """把进度条描述裁到固定显示宽度
+
+    宽度按 cell_len 算而非 len，中日文与 emoji 都是多格字符，
+    按字符数补齐会让进度条起始列随标题内容左右漂移。
+    截断交给 Text.truncate，它按显示格切，不会切在半个宽字符中间。
+    """
+    limit = max(console.width - 60, 30)
+    desc = Text(text, no_wrap=True, overflow="ellipsis")
+    desc.truncate(limit)
+    # 末格遇双格字符会空出来，补齐后各行起始列才一致
+    return desc.plain + " " * max(0, limit - cell_len(desc.plain))
 
 
 def download_song(
@@ -385,13 +401,6 @@ def download_song_batch(
         success(f"所有曲目已下载完毕，位于 {session_dir}")
         return success_count, fail_count, session_dir
 
-    def _desc(text):
-        width = shutil.get_terminal_size().columns
-        limit = max(width - 60, 30)
-        if len(text) > limit:
-            text = text[: limit - 1] + "…"
-        return text.ljust(limit)
-
     # --- Concurrent download with worker slots ---
     counter_lock = Lock()
     progress = Progress(
@@ -416,6 +425,8 @@ def download_song_batch(
     def _reset_slot(task_id):
         progress.update(task_id, description="")
         progress.reset(task_id, total=None)
+        # rich 未提供切换任务可见性的接口，只能直接写属性。
+        # 渲染侧只在取表格时读它，写入是单次属性赋值，最坏情况少渲染一帧
         progress.tasks[task_id].visible = False
 
     def _download_one(slot_id):
@@ -432,11 +443,14 @@ def download_song_batch(
             task_id = slots[slot_id]
             title = track.get("title", "?")
             artist = track.get("artist", "")
+            # 见 _reset_slot 的注释，可见性只能直接写属性
             progress.tasks[task_id].visible = True
 
             try:
                 if not artist:
-                    progress.update(task_id, description=_desc(f"解析中…（ID: {sid}）"))
+                    progress.update(
+                        task_id, description=_progress_desc(f"解析中…（ID: {sid}）")
+                    )
                     try:
                         track = get_song_details(sid)
                         title = track["title"]
@@ -449,7 +463,9 @@ def download_song_batch(
                             fail_ids.append(sid)
                         continue
 
-                progress.update(task_id, description=_desc(f"⏳ {title} - {artist}"))
+                progress.update(
+                    task_id, description=_progress_desc(f"{title} - {artist}")
+                )
 
                 if not want_song:
                     lyrics_api = get_lyrics_url(sid)
@@ -475,8 +491,8 @@ def download_song_batch(
                         if attempt < 3:
                             progress.update(
                                 task_id,
-                                description=_desc(
-                                    f"⏳ {title} - {artist}（获取链接重试 {attempt}/3）"
+                                description=_progress_desc(
+                                    f"{title} - {artist}（获取链接重试 {attempt}/3）"
                                 ),
                             )
                     if not song_url:
@@ -511,8 +527,8 @@ def download_song_batch(
                         if attempt < 3:
                             progress.update(
                                 task_id,
-                                description=_desc(
-                                    f"⏳ {title} - {artist}（重试 {attempt}/3）"
+                                description=_progress_desc(
+                                    f"{title} - {artist}（重试 {attempt}/3）"
                                 ),
                             )
 
