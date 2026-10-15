@@ -28,6 +28,19 @@ def get_type_from_url(url: str) -> str:
     return ext if ext in ("mp3", "flac", "m4a", "wav", "ogg") else "mp3"
 
 
+def looks_like_audio(head: bytes) -> bool:
+    """判断内容是否为音频，用于挡下服务器以 200 返回的错误页"""
+    if not head:
+        return False
+    if head.startswith((b"ID3", b"RIFF", b"OggS", b"fLaC")):
+        return True
+    # MP4 容器前 4 字节是 box 长度，ftyp 标记在偏移 4
+    if head[4:8] == b"ftyp":
+        return True
+    # 没有 ID3 标签的 MP3 以帧同步开头
+    return head[0] == 0xFF and len(head) > 1 and head[1] & 0xE0 == 0xE0
+
+
 def cover_ext(cover_url: str | None) -> str:
     if not cover_url:
         return "jpg"

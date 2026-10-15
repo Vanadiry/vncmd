@@ -1,4 +1,5 @@
 import sys
+from itertools import chain
 
 import requests
 from requests.adapters import HTTPAdapter
@@ -10,6 +11,8 @@ from rich.progress import (
     TransferSpeedColumn,
 )
 from urllib3.util.retry import Retry
+
+from function.audio import looks_like_audio
 
 _dl_session = None
 
@@ -43,13 +46,21 @@ def fetch_audio(
         total = int(resp.headers.get("content-length", 0))
 
         if resp.status_code != 200:
-            return "请求失败"
+            return f"请求失败：HTTP {resp.status_code}"
 
+        # 200 也会带回错误页，落盘前先看内容是不是音频
+        chunks = resp.iter_content(chunk_size=8192)
+        head = next(chunks, b"")
+        if not looks_like_audio(head):
+            ctype = resp.headers.get("content-type", "未知类型")
+            return f"服务器返回的不是音频：{ctype}"
+
+        stream = chain([head], chunks)
         if progress is not None and task_id is not None:
             progress.update(task_id, total=total or None)
             progress.start_task(task_id)
             with open(path, "wb") as f:
-                for chunk in resp.iter_content(chunk_size=8192):
+                for chunk in stream:
                     f.write(chunk)
                     progress.update(task_id, advance=len(chunk))
         elif sys.stdout.isatty():
@@ -63,16 +74,19 @@ def fetch_audio(
             ) as p:
                 task = p.add_task(label[:40], total=total or None)
                 with open(path, "wb") as f:
-                    for chunk in resp.iter_content(chunk_size=8192):
+                    for chunk in stream:
                         f.write(chunk)
                         p.update(task, advance=len(chunk))
         else:
             with open(path, "wb") as f:
-                for chunk in resp.iter_content(chunk_size=8192):
+                for chunk in stream:
                     f.write(chunk)
         return None
     except Exception as e:
         return str(e)
+    finally:
+        if "resp" in locals():
+            resp.close()
 
 
 def fetch_cover(cover_url: str) -> bytes | None:
