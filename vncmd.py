@@ -69,7 +69,6 @@ def _add_download_args(parser: object, batch: bool = False) -> None:
 
 
 def main() -> None:
-    acquire_lock()
     parser = _ArgumentParser(
         prog="vncmd",
         description="网易云音乐 CLI — 搜索、预览与下载",
@@ -134,10 +133,12 @@ def main() -> None:
 
     args = parser.parse_args()
 
-    # 只看帮助时不碰配置，否则首次运行会先弹配置警告
+    # 只看帮助时不碰配置与锁，--help 在 parse_args 内部就已退出
     if args.command is None:
         parser.print_help()
         sys.exit(0)
+
+    acquire_lock()
 
     if args.command != "init":
         validate_config()
