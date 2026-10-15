@@ -381,6 +381,11 @@ def download_song_batch(
     for track in tracks:
         queue.put(track)
 
+    def _reset_slot(task_id):
+        progress.update(task_id, description="")
+        progress.reset(task_id, total=None)
+        progress.tasks[task_id].visible = False
+
     def _download_one(slot_id):
         nonlocal success_count, fail_count, fail_ids
         while True:
@@ -395,67 +400,27 @@ def download_song_batch(
             artist = track.get("artist", "")
             progress.tasks[task_id].visible = True
 
-            if not artist:
-                progress.update(task_id, description=_desc(f"解析中…（ID: {sid}）"))
-                try:
-                    track = get_song_details(sid)
-                    title = track["title"]
-                    artist = track["artist"]
-                except Exception as e:
-                    progress.update(task_id, description="")
-                    progress.reset(task_id, total=None)
-                    progress.tasks[task_id].visible = False
-                    warning(f"跳过 {title}（ID: {sid}）— 获取详情失败：{e}")
-                    with counter_lock:
-                        fail_count += 1
-                        fail_ids.append(sid)
-                    continue
+            try:
+                if not artist:
+                    progress.update(task_id, description=_desc(f"解析中…（ID: {sid}）"))
+                    try:
+                        track = get_song_details(sid)
+                        title = track["title"]
+                        artist = track["artist"]
+                    except Exception as e:
+                        _reset_slot(task_id)
+                        warning(f"跳过 {title}（ID: {sid}）— 获取详情失败：{e}")
+                        with counter_lock:
+                            fail_count += 1
+                            fail_ids.append(sid)
+                        continue
 
-            progress.update(task_id, description=_desc(f"⏳ {title} - {artist}"))
+                progress.update(task_id, description=_desc(f"⏳ {title} - {artist}"))
 
-            if not want_song:
-                lyrics_api = get_lyrics_url(sid)
-                ok, msg, _ = download_song(
-                    song_url="",
-                    song_title=title,
-                    song_artist=artist,
-                    song_album=track.get("album", ""),
-                    song_id=sid,
-                    cover_url=track.get("cover", ""),
-                    lyrics_api_url=lyrics_api,
-                    publish_time=track.get("publish_time", ""),
-                    download_dir=session_dir,
-                    track_no=track.get("track_no"),
-                    cd_no=track.get("cd_no"),
-                )
-            else:
-                song_url = None
-                for attempt in range(1, 4):
-                    song_url = get_song_url(sid, quality=quality)
-                    if song_url:
-                        break
-                    if attempt < 3:
-                        progress.update(
-                            task_id,
-                            description=_desc(
-                                f"⏳ {title} - {artist}（获取链接重试 {attempt}/3）"
-                            ),
-                        )
-                if not song_url:
-                    progress.update(task_id, description="")
-                    progress.reset(task_id, total=None)
-                    progress.tasks[task_id].visible = False
-                    warning(f"跳过 {title} - {artist} — 无法获取下载链接")
-                    info(f"  请尝试 vncmd song {sid} 手动下载")
-                    with counter_lock:
-                        fail_count += 1
-                        fail_ids.append(sid)
-                    continue
-
-                lyrics_api = get_lyrics_url(sid)
-                for attempt in range(1, 4):
+                if not want_song:
+                    lyrics_api = get_lyrics_url(sid)
                     ok, msg, _ = download_song(
-                        song_url=song_url,
+                        song_url="",
                         song_title=title,
                         song_artist=artist,
                         song_album=track.get("album", ""),
@@ -464,37 +429,79 @@ def download_song_batch(
                         lyrics_api_url=lyrics_api,
                         publish_time=track.get("publish_time", ""),
                         download_dir=session_dir,
-                        progress=progress,
-                        task_id=task_id,
                         track_no=track.get("track_no"),
                         cd_no=track.get("cd_no"),
                     )
-                    if ok:
-                        break
-                    progress.reset(task_id, total=None)
-                    if attempt < 3:
-                        progress.update(
-                            task_id,
-                            description=_desc(
-                                f"⏳ {title} - {artist}（重试 {attempt}/3）"
-                            ),
-                        )
+                else:
+                    song_url = None
+                    for attempt in range(1, 4):
+                        song_url = get_song_url(sid, quality=quality)
+                        if song_url:
+                            break
+                        if attempt < 3:
+                            progress.update(
+                                task_id,
+                                description=_desc(
+                                    f"⏳ {title} - {artist}（获取链接重试 {attempt}/3）"
+                                ),
+                            )
+                    if not song_url:
+                        _reset_slot(task_id)
+                        warning(f"跳过 {title} - {artist} — 无法获取下载链接")
+                        info(f"  请尝试 vncmd song {sid} 手动下载")
+                        with counter_lock:
+                            fail_count += 1
+                            fail_ids.append(sid)
+                        continue
 
-            progress.update(task_id, description="")
-            progress.reset(task_id, total=None)
-            progress.tasks[task_id].visible = False
-            if ok:
+                    lyrics_api = get_lyrics_url(sid)
+                    for attempt in range(1, 4):
+                        ok, msg, _ = download_song(
+                            song_url=song_url,
+                            song_title=title,
+                            song_artist=artist,
+                            song_album=track.get("album", ""),
+                            song_id=sid,
+                            cover_url=track.get("cover", ""),
+                            lyrics_api_url=lyrics_api,
+                            publish_time=track.get("publish_time", ""),
+                            download_dir=session_dir,
+                            progress=progress,
+                            task_id=task_id,
+                            track_no=track.get("track_no"),
+                            cd_no=track.get("cd_no"),
+                        )
+                        if ok:
+                            break
+                        progress.reset(task_id, total=None)
+                        if attempt < 3:
+                            progress.update(
+                                task_id,
+                                description=_desc(
+                                    f"⏳ {title} - {artist}（重试 {attempt}/3）"
+                                ),
+                            )
+
+                _reset_slot(task_id)
+                if ok:
+                    with counter_lock:
+                        success(f"{title} - {artist}")
+                        success_count += 1
+                        _mark_done(dl_type, dl_id, sid)
+                else:
+                    with counter_lock:
+                        error(f"「{title} - {artist}」{msg}")
+                        fail_count += 1
+                        fail_ids.append(sid)
+
+                time.sleep(0.3)
+            except Exception as e:
+                # 未预期的异常不能让 worker 死掉，它一死队列里剩下的曲目就没人接了
+                _reset_slot(task_id)
                 with counter_lock:
-                    success(f"{title} - {artist}")
-                    success_count += 1
-                    _mark_done(dl_type, dl_id, sid)
-            else:
-                with counter_lock:
-                    error(f"「{title} - {artist}」{msg}")
+                    error(f"「{title} - {artist}」{type(e).__name__}: {e}")
                     fail_count += 1
                     fail_ids.append(sid)
-
-            time.sleep(0.3)
 
     with progress, ThreadPoolExecutor(max_workers=worker_count) as executor:
         futures = [executor.submit(_download_one, i) for i in range(worker_count)]
