@@ -64,10 +64,13 @@ def display_song_detail(song: dict) -> None:
     # 键多为中文，len 按字符数算会短一格，补齐要用 cell_len
     max_key_len = max(cell_len(k) for k, _ in lines)
     text = Text()
-    for key, value in lines:
+    for i, (key, value) in enumerate(lines):
         pad = " " * (max_key_len - cell_len(key))
         text.append(f"{key}{pad}  ", style="bold cyan")
-        text.append(f"{value}\n", style="bright_white")
+        text.append(value, style="bright_white")
+        # 末行不留换行，否则面板底部会多一行空行
+        if i < len(lines) - 1:
+            text.append("\n")
 
     panel = Panel(text, title="[bold]曲目详情[/]", border_style="cyan", box=box.ROUNDED)
     console.print(panel)
