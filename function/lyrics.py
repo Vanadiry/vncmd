@@ -1,7 +1,7 @@
 import re
 from pathlib import Path
 
-from function.cache import get_song_cache_dir
+from function.cache import put_raw_lyrics
 
 _TIMESTAMP_RE = re.compile(r"^\[(\d{2}):(\d{2})[:.](\d{2,3})\](.*)")
 _META_RE = re.compile(r"^\[(ti|ar|al|offset|length|re|ve):")
@@ -179,9 +179,7 @@ def process(lrc_raw: str, tlyric_raw: str, mode: str, song_id: int) -> dict[str,
     tlyric_clean = clean(tlyric_raw)
 
     # Cache raw cleaned lyrics
-    d = get_song_cache_dir(song_id)
-    (d / "lyric.raw.lrc").write_text(lrc_clean, encoding="utf-8")
-    (d / "tlyric.raw.lrc").write_text(tlyric_clean, encoding="utf-8")
+    put_raw_lyrics(song_id, lrc_clean, tlyric_clean)
 
     if mode == "0":
         return {"lrc": interleave(lrc_clean, tlyric_clean)}

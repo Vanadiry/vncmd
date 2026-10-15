@@ -10,8 +10,13 @@ def _song_dir(song_id: int) -> Path:
     return path
 
 
-def get_song_cache_dir(song_id: int) -> Path:
-    return _song_dir(song_id)
+def put_raw_lyrics(song_id: int, lrc_text: str, tlyric_text: str) -> None:
+    """缓存清理前的原始歌词，供后续解析复用"""
+    if not is_cache_enabled():
+        return
+    d = _song_dir(song_id)
+    (d / "lyric.raw.lrc").write_text(lrc_text, encoding="utf-8")
+    (d / "tlyric.raw.lrc").write_text(tlyric_text, encoding="utf-8")
 
 
 def get_song(song_id: int) -> dict | None:
