@@ -1,6 +1,6 @@
 import shutil
 import time
-from concurrent.futures import ThreadPoolExecutor
+from concurrent.futures import ThreadPoolExecutor, as_completed
 from datetime import datetime
 from pathlib import Path
 from queue import Empty, Queue
@@ -370,7 +370,10 @@ def download_song_batch(
         console=console,
     )
     slots = []
-    for _ in range(min(concurrency, total)):
+    # 槽位数与提交的 worker 数必须一致，多提交的 worker 取到任务后
+    # 索引越界，该曲目会随线程一起消失且不计入成功也不计入失败
+    worker_count = min(concurrency, total)
+    for _ in range(worker_count):
         tid = progress.add_task("", total=None, visible=False)
         slots.append(tid)
 
@@ -493,9 +496,13 @@ def download_song_batch(
 
             time.sleep(0.3)
 
-    with progress, ThreadPoolExecutor(max_workers=concurrency) as executor:
-        for i in range(concurrency):
-            executor.submit(_download_one, i)
+    with progress, ThreadPoolExecutor(max_workers=worker_count) as executor:
+        futures = [executor.submit(_download_one, i) for i in range(worker_count)]
+        # 不读 Future 的异常会被线程池吞掉，worker 死掉时队列里剩下的曲目就没人接了
+        for future in as_completed(futures):
+            exc = future.exception()
+            if exc is not None:
+                error(f"下载线程异常退出：{exc}")
 
     console.print()
     parts = []
