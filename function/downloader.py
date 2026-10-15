@@ -267,6 +267,7 @@ def download_song_batch(
     output_dir: str,
     dl_type: str | None = None,
     dl_id: str | None = None,
+    limit: int | None = None,
 ) -> tuple[int, int, str]:
     """Download a batch of songs with progress display and summary.
 
@@ -276,6 +277,9 @@ def download_song_batch(
     When ``dl_type`` and ``dl_id`` are provided, resume/checkpoint is enabled:
     progress is persisted to ``cache/download/<type>_<id>.json`` and
     already-downloaded tracks are skipped on re-run.
+
+    ``limit`` 只截断本次下载的曲目，断点仍记录全部曲目，
+    否则全量下过之后再限数量会把其余曲目判成已移除并删掉
 
     Returns ``(success_count, fail_count, session_dir)``.
     """
@@ -315,6 +319,12 @@ def download_song_batch(
             temp.mkdir()
 
     # --- Sync checkpoint tracks & filter to pending ---
+    selected = tracks
+    if limit and limit < len(tracks):
+        # 断点记全量曲目，只截断本次要下的部分，
+        # 否则全量下过之后再 -n 1 会把其余曲目判成已移除并删掉
+        info(f"只下载前 {limit} 首，剩余 {len(tracks) - limit} 首下次继续")
+        selected = tracks[:limit]
     if dl_type is not None and dl_id is not None:
         track_map = {str(t["id"]): t.get("title", "?") for t in tracks}
         if is_resuming:
@@ -325,11 +335,12 @@ def download_song_batch(
                 info("发现未完成的下载，将从中断处继续。")
             console.print()
             pending_set = set(pending_ids)
-            tracks = [t for t in tracks if str(t["id"]) in pending_set]
+            selected = [t for t in selected if str(t["id"]) in pending_set]
         else:
             create_checkpoint(
                 dl_type, dl_id, session_dir, [int(tid) for tid in track_map]
             )
+    tracks = selected
 
     want_song = "0" in get_download_content()
     total = len(tracks)

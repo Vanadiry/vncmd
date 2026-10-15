@@ -51,9 +51,12 @@ def _download_tracks(
     output_dir: str,
     dl_type: str | None = None,
     dl_id: str | None = None,
+    limit: int | None = None,
 ) -> None:
     """Shared download for playlists and albums."""
-    download_song_batch(tracks, quality, output_dir, dl_type=dl_type, dl_id=dl_id)
+    download_song_batch(
+        tracks, quality, output_dir, dl_type=dl_type, dl_id=dl_id, limit=limit
+    )
 
 
 def cmd_search(args: argparse.Namespace) -> None:
@@ -160,6 +163,7 @@ def cmd_album(args: argparse.Namespace) -> None:
         output_dir,
         dl_type="album",
         dl_id=str(args.id),
+        limit=args.limit,
     )
 
 
