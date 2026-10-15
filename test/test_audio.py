@@ -1,4 +1,5 @@
 from function.audio import (
+    _MAX_FILENAME_BYTES,
     build_filename,
     check_filename,
     cover_ext,
@@ -43,13 +44,29 @@ class TestCoverExt:
 
 class TestBuildFilename:
     def test_no_illegal_chars(self):
-        name = build_filename("Test/Title", "Artist:Name")
+        name, full = build_filename("Test/Title", "Artist:Name")
         assert "/" not in name
         assert ":" not in name
+        assert full is None
 
     def test_non_empty(self):
-        name = build_filename("Title", "Artist")
+        name, full = build_filename("Title", "Artist")
         assert len(name) > 0
+        assert full is None
+
+    def test_truncated_name_fits_byte_limit(self):
+        name, full = build_filename("曲" * 500, "歌手" * 500)
+        assert len(name.encode("utf-8")) <= _MAX_FILENAME_BYTES
+        assert full == "曲" * 500 + " - " + "歌手" * 500
+
+    def test_truncated_name_keeps_extension_room(self):
+        name, _ = build_filename("曲" * 500, "歌手" * 500)
+        assert len(f"{name}(999).flac".encode()) <= 255
+
+    def test_short_name_not_truncated(self):
+        name, full = build_filename("标题", "歌手")
+        assert name == "标题 - 歌手"
+        assert full is None
 
 
 class TestResolvePath:

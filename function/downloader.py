@@ -132,7 +132,7 @@ def download_song(
     want_lyrics = "1" in content
     want_cover = "2" in content
 
-    filename_base = build_filename(song_title, song_artist)
+    filename_base, full_name = build_filename(song_title, song_artist)
 
     # --- Fetch lyrics ---
     lyric_text, tlyric_text = "", ""
@@ -260,6 +260,12 @@ def download_song(
         ext = Path(temp_cover_path).suffix.lstrip(".")
         cover_path = _move_unique(temp_cover_path, filename_base, ext, download_dir)
 
+    note_path = None
+    if full_name:
+        note_tmp = temp_dir / f"{song_id}.name"
+        note_tmp.write_text(full_name, encoding="utf-8")
+        note_path = _move_unique(str(note_tmp), filename_base, "txt", download_dir)
+
     # --- Result ---
     parts = []
     if music_path:
@@ -268,6 +274,8 @@ def download_song(
         parts.append(f'LRC → "{p}"')
     if cover_path:
         parts.append(f'封面 → "{cover_path}"')
+    if note_path:
+        parts.append(f'完整名字 → "{note_path}"')
 
     if not parts:
         return False, "未下载任何内容，请检查 download_content 配置", None
