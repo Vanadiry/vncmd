@@ -23,10 +23,11 @@
 
 ```bash
 pip install vncmd
+uv tool install vncmd # 如果你使用 uv，推荐用此
 vncmd init
 ```
 
-初次使用，请至少阅读[详细指南](doc/guide.md)。  
+初次使用，请至少阅读[详细指南](doc/guide.md)。
 
 配置和缓存默认放在 `~/.vSoft/vncmd/`，可通过环境变量 `VNCMD_HOME` 自定义。  
 下载目录默认 `~/Downloads/vncmd-dl/`，在配置文件中可修改。
@@ -60,4 +61,4 @@ vncmd check ~/Music
 ## 二进制
 
 vncmd 提供不依赖 Python 环境的二进制程序，打包了所有依赖，能够直接运行。  
-你可以在 [GitHub Releases](https://github.com/Vanadiry/vncmd/releases) 下载，使用方式与 pip 安装的无差别。
+你可以在 [GitHub Releases](https://github.com/Vanadiry/vncmd/releases) 下载，使用方式与 pip/uv 安装的无差别。
