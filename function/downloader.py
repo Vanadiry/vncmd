@@ -67,6 +67,18 @@ def make_session_dir(base_dir):
     return str(path)
 
 
+def _is_within(path: str, parent: str) -> bool:
+    """判断 path 是否为 parent 本身或其子目录
+    断点存的是绝对路径，--output 原样传入，相对路径与 ~ 要先展开
+    """
+    try:
+        resolved = Path(path).expanduser().resolve()
+        root = Path(parent).expanduser().resolve()
+    except (OSError, RuntimeError, ValueError):
+        return False
+    return resolved == root or root in resolved.parents
+
+
 def download_song(
     song_url: str,
     song_title: str,
@@ -266,17 +278,27 @@ def download_song_batch(
     # --- Resolve session directory (checkpoint or new) ---
     if dl_type is not None and dl_id is not None:
         cp = load_checkpoint(dl_type, dl_id)
-        if cp and cp.get("download_dir") and Path(cp["download_dir"]).is_dir():
-            session_dir = cp["download_dir"]
-            is_resuming = True
-        elif cp:
-            info("发现未完成的下载，但原目录已丢失，将重新开始下载。")
-            session_dir = make_session_dir(output_dir)
-            is_resuming = False
-        else:
+        resume_dir = cp.get("download_dir") if cp else None
+        if not resume_dir:
             info("开始全新下载。")
             session_dir = make_session_dir(output_dir)
             is_resuming = False
+        elif not Path(resume_dir).is_dir():
+            info("发现未完成的下载，但原目录已丢失，将重新开始下载。")
+            session_dir = make_session_dir(output_dir)
+            is_resuming = False
+        elif not _is_within(resume_dir, output_dir):
+            # 断点记录了上次运行的目录，output_dir 变了还沿用它会让文件落到
+            # 用户没有指定的位置，且用户拿不到任何提示
+            warning(
+                f"未完成的下载在 {resume_dir}，"
+                f"本次输出目录为 {output_dir}，将重新开始下载"
+            )
+            session_dir = make_session_dir(output_dir)
+            is_resuming = False
+        else:
+            session_dir = resume_dir
+            is_resuming = True
     else:
         session_dir = make_session_dir(output_dir)
         is_resuming = False
@@ -313,7 +335,7 @@ def download_song_batch(
     concurrency = get_concurrency()
 
     if total == 0:
-        success("所有曲目已下载完毕。")
+        success(f"所有曲目已下载完毕，位于 {session_dir}")
         return success_count, fail_count, session_dir
 
     def _desc(text):
