@@ -429,23 +429,24 @@ def download_diff(name: str, quality: int, output_dir: str) -> None:
         info("未找到 diff，请先执行 --fetch。")
         return
 
-    if not added:
-        if removed:
-            info(f"Tracker 中已删除 {len(removed)} 首曲目。")
+    if added:
+        _, _, session_dir = download_song_batch(
+            added,
+            quality,
+            output_dir,
+            dl_type="tracker",
+            dl_id=name,
+        )
+        note_dir = Path(session_dir)
+    else:
         success("没有需要下载的新曲目。")
-        return
-
-    _, _, session_dir = download_song_batch(
-        added,
-        quality,
-        output_dir,
-        dl_type="tracker",
-        dl_id=name,
-    )
+        # 没有新增就没有下载会话，removed.txt 落在输出目录本身
+        note_dir = Path(output_dir)
+        note_dir.mkdir(parents=True, exist_ok=True)
 
     if removed:
-        removed_path = Path(session_dir) / "removed.txt"
         lines = [f"{s['id']}  {s['title']}" for s in removed]
+        removed_path = note_dir / "removed.txt"
         removed_path.write_text(
             "以下曲目已从 Tracker 中移除：\n" + "\n".join(lines) + "\n",
             encoding="utf-8",
