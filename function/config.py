@@ -134,6 +134,12 @@ def validate_config(quiet: bool = False) -> None:
     if not cc.get("dir"):
         errors.append("[cache] dir 缺失或为空")
 
+    # [display]
+    # 整段缺失时按默认值算，升级旧配置不至于报错，类型写错仍要拦下
+    vsc = cfg.get("display", {}).get("virtual_singer_color", True)
+    if not isinstance(vsc, bool):
+        errors.append("[display] virtual_singer_color 不为布尔值")
+
     if errors:
         _die(errors)
 
@@ -225,6 +231,11 @@ def get_cache_dir() -> str:
 
 def is_cache_enabled() -> bool:
     return _get_cfg()["cache"]["enabled"]
+
+
+def is_virtual_singer_color() -> bool:
+    # 配置段缺失时保持默认开启
+    return _get_cfg().get("display", {}).get("virtual_singer_color", True)
 
 
 def show_config() -> str:

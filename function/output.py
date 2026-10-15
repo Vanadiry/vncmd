@@ -6,7 +6,21 @@ from rich.panel import Panel
 from rich.table import Table
 from rich.text import Text
 
+from function.config import is_virtual_singer_color
+from function.vocals import colorize
+
 console = Console()
+
+
+def _artist_text(artist: str, base_style: str) -> Text:
+    """把艺术家串拼成 Text，命中代表色的片段换成自己的颜色"""
+    text = Text()
+    if is_virtual_singer_color():
+        for chunk, color in colorize(artist):
+            text.append(chunk, style=color or base_style)
+    else:
+        text.append(artist, style=base_style)
+    return text
 
 
 def _display_track_table(
@@ -30,7 +44,7 @@ def _display_track_table(
             str(i),
             str(t["id"]),
             escape(t["title"]),
-            escape(t["artist"]),
+            _artist_text(t["artist"], "yellow"),
             escape(t["album"]),
             t["duration"],
         )
@@ -54,7 +68,7 @@ def display_song_detail(song: dict) -> None:
     lines = [
         ("ID", str(song["id"])),
         ("标题", song["title"]),
-        ("艺术家", song["artist"]),
+        ("艺术家", _artist_text(song["artist"], "bright_white")),
         ("专辑", song["album"]),
         ("封面", song["cover"]),
         ("发行时间", song["publish_time"]),
@@ -67,7 +81,10 @@ def display_song_detail(song: dict) -> None:
     for i, (key, value) in enumerate(lines):
         pad = " " * (max_key_len - cell_len(key))
         text.append(f"{key}{pad}  ", style="bold cyan")
-        text.append(value, style="bright_white")
+        if isinstance(value, Text):
+            text.append(value)
+        else:
+            text.append(value, style="bright_white")
         # 末行不留换行，否则面板底部会多一行空行
         if i < len(lines) - 1:
             text.append("\n")

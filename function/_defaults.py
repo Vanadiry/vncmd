@@ -38,6 +38,10 @@ save_quality = "0"
 enabled = true
 # 绝对路径，或相对于 VNCMD_HOME 的路径
 dir = "cache"
+
+[display]
+# 艺术家字段里的虚拟歌姬按代表色着色
+virtual_singer_color = true
 """
 
 TRACKER_SETTINGS_TOML = """\
