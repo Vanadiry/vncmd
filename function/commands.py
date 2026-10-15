@@ -202,6 +202,13 @@ def cmd_playlist(args: argparse.Namespace) -> None:
     )
 
 
+def _write_cookie(value: str) -> None:
+    COOKIE_FILE.write_text(value, encoding="utf-8")
+    # Cookie 是完整的登录凭证，umask 022 下默认是同机可读。
+    # Windows 只认只读位，那里的 chmod 等于确保可写，无害
+    os.chmod(COOKIE_FILE, 0o600)
+
+
 def cmd_init(args: argparse.Namespace) -> None:
     """Initialize ~/.vSoft/vncmd/ with default config and empty cookie."""
     console.print()
@@ -221,7 +228,7 @@ def cmd_init(args: argparse.Namespace) -> None:
     if COOKIE_FILE.exists():
         console.print("  [dim]存在 cookie[/]")
     else:
-        COOKIE_FILE.write_text("", encoding="utf-8")
+        _write_cookie("")
         success("已创建空 cookie 文件")
         console.print(f"  [dim]将 Cookie 粘贴到 {COOKIE_FILE} 以使用 VIP/高音质模式[/]")
 
@@ -251,7 +258,7 @@ def cmd_init(args: argparse.Namespace) -> None:
 def cmd_cookie(args: argparse.Namespace) -> None:
     """Set the Cookie."""
     VNCMD_HOME.mkdir(parents=True, exist_ok=True)
-    COOKIE_FILE.write_text(args.value.strip(), encoding="utf-8")
+    _write_cookie(args.value.strip())
     success("Cookie 已保存")
 
     from function.api import get_song_url
