@@ -1,4 +1,5 @@
 import json
+import re
 import time
 from contextlib import suppress
 from urllib.parse import quote
@@ -84,7 +85,6 @@ def _first_number(value) -> int | None:
         return None
     if isinstance(value, int):
         return value
-    import re
 
     m = re.search(r"\d+", str(value))
     return int(m.group()) if m else None
@@ -96,6 +96,14 @@ def _get_v1_song_detail(song_id: int) -> dict:
     return resp.json()
 
 
+# 网易云数据里混有零宽字符，肉眼看不见，但会被复制进文件名和元数据标签
+_INVISIBLE = re.compile("[\u200b\u200c\u200d\u2060\ufeff]")
+
+
+def _clean(text) -> str:
+    return _INVISIBLE.sub("", text) if isinstance(text, str) else text
+
+
 def _normalize_song(song: dict) -> dict:
     """把 v0 或 v1 返回的 song 对象转成统一结构"""
     if "ar" in song:
@@ -104,9 +112,9 @@ def _normalize_song(song: dict) -> dict:
         song["album"] = song.pop("al")
     return {
         "id": song["id"],
-        "title": song["name"],
-        "artist": ", ".join(a["name"] for a in song.get("artists", [])),
-        "album": song.get("album", {}).get("name", ""),
+        "title": _clean(song["name"]),
+        "artist": _clean(", ".join(a["name"] for a in song.get("artists", []))),
+        "album": _clean(song.get("album", {}).get("name", "")),
         "album_id": song.get("album", {}).get("id"),
         "cover": song.get("album", {}).get("picUrl", ""),
         "publish_time": format_timestamp(song.get("album", {}).get("publishTime")),

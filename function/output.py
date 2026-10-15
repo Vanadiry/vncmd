@@ -38,7 +38,10 @@ def _artist_text(artist: str, base_style: str) -> Text:
 
 
 def _display_track_table(
-    tracks: list[dict], total_count: int, title: str | None = None
+    tracks: list[dict],
+    total_count: int,
+    title: str | None = None,
+    show_album: bool = True,
 ) -> None:
     table = Table(
         title=title,
@@ -53,18 +56,22 @@ def _display_track_table(
     table.add_column("ID", style="dim")
     table.add_column("标题", style="bright_white", ratio=4, max_width=48)
     table.add_column("艺术家", style="yellow", ratio=3, max_width=36)
-    table.add_column("专辑", style="green", ratio=2, max_width=32)
+    if show_album:
+        table.add_column("专辑", style="green", ratio=2, max_width=32, no_wrap=True)
     table.add_column("时长", style="blue", justify="right")
 
     for i, t in enumerate(tracks, 1):
-        table.add_row(
+        row = [
             str(i),
             str(t["id"]),
             escape(t["title"]),
             _artist_text(t["artist"], "yellow"),
-            escape(t["album"]),
-            t["duration"],
-        )
+        ]
+        # 专辑视图下每行的专辑名都是同一个，列表里再列一遍没有信息量
+        if show_album:
+            row.append(escape(t["album"]))
+        row.append(t["duration"])
+        table.add_row(*row)
 
     console.print(table)
 
@@ -133,7 +140,9 @@ def display_album(album: dict, max_tracks: int = 100) -> None:
     header.append("  |  曲目数：", style="dim")
     header.append(f"{album['track_count']}", style="green")
     console.print(Panel(header, border_style="cyan", box=box.ROUNDED))
-    _display_track_table(album["tracks"][:max_tracks], album["track_count"])
+    _display_track_table(
+        album["tracks"][:max_tracks], album["track_count"], show_album=False
+    )
 
 
 def display_lyrics(lyrics_text: str) -> None:
