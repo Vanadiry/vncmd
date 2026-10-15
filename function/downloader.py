@@ -60,6 +60,7 @@ from function.lyrics import (
 )
 from function.metadata import embed as embed_metadata
 from function.output import (
+    abbrev_home,
     console,
     error,
     info,
@@ -293,15 +294,18 @@ def download_song(
         note_path = _move_unique(str(note_tmp), filename_base, "txt", download_dir)
 
     # --- Result ---
+    # 目录由调用方在开头统一打印一次，这里只报文件名，
+    # 完整路径折行会把路径断在中间，复制不出来
     parts = []
     if music_path:
-        parts.append(f'{music_type.upper() if music_type else ""} → "{music_path}"')
+        label = music_type.upper() if music_type else ""
+        parts.append(f'{label} → "{Path(music_path).name}"')
     for p in lyric_paths:
-        parts.append(f'LRC → "{p}"')
+        parts.append(f'LRC → "{Path(p).name}"')
     if cover_path:
-        parts.append(f'封面 → "{cover_path}"')
+        parts.append(f'封面 → "{Path(cover_path).name}"')
     if note_path:
-        parts.append(f'完整名字 → "{note_path}"')
+        parts.append(f'完整名字 → "{Path(note_path).name}"')
 
     if not parts:
         return False, "未下载任何内容，请检查 download_content 配置", None
@@ -388,6 +392,8 @@ def download_song_batch(
                 dl_type, dl_id, session_dir, [int(tid) for tid in track_map]
             )
     tracks = selected
+
+    info(f'下载到 "{abbrev_home(session_dir)}"')
 
     want_song = "0" in get_download_content()
     total = len(tracks)

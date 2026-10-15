@@ -1,3 +1,6 @@
+import os
+from pathlib import Path
+
 from rich import box
 from rich.cells import cell_len
 from rich.console import Console
@@ -10,6 +13,17 @@ from function.config import is_virtual_singer_color
 from function.vocals import colorize
 
 console = Console()
+
+
+def abbrev_home(path) -> str:
+    """把用户主目录那段替换成 ~，路径太长时能省下十几个字符"""
+    text = str(path)
+    home = str(Path.home())
+    if text == home:
+        return "~"
+    if text.startswith(home + os.sep):
+        return "~" + text[len(home) :]
+    return text
 
 
 def _artist_text(artist: str, base_style: str) -> Text:
@@ -136,7 +150,8 @@ def display_lyrics(lyrics_text: str) -> None:
     console.print(panel)
 
 
-ICON_OK = "[green]✓[/]"
+# 绿色留给文件名字符串，图标改青才能区分开
+ICON_OK = "[cyan]✓[/]"
 ICON_FAIL = "[red]✗[/]"
 ICON_INFO = "[blue]ℹ[/]"
 ICON_WARN = "[yellow]⚠[/]"

@@ -26,6 +26,7 @@ from function.config import (
 )
 from function.downloader import download_song, download_song_batch, make_session_dir
 from function.output import (
+    abbrev_home,
     console,
     display_album,
     display_lyrics,
@@ -122,6 +123,7 @@ def cmd_song(args: argparse.Namespace) -> None:
 
     output_dir = make_session_dir(resolve_output_dir(args.output))
     info(f"正在下载「{song['title']} - {song['artist']}」")
+    info(f'下载到 "{abbrev_home(output_dir)}"')
     lyrics_api = get_lyrics_url(args.id)
     ok, msg, _ = download_song(
         song_url=song_url or "",
@@ -307,6 +309,12 @@ def cmd_check(args: argparse.Namespace) -> None:
     ok_count = bad_count = 0
     bad_files = []
 
+    def _show(f: Path) -> str:
+        """传目录时只显示相对路径，绝对路径折行会把文件名断在中间。
+        加引号是为了让 rich 把它当字符串整体着色，否则目录与文件名会被涂成两种颜色"""
+        rel = f.relative_to(path) if path.is_dir() else f.name
+        return f'"{escape(str(rel))}"'
+
     with ThreadPoolExecutor(max_workers=4) as pool:
         futures = {pool.submit(check_audio, str(f)): f for f in files}
         for future in concurrent.futures.as_completed(futures):
@@ -314,14 +322,14 @@ def cmd_check(args: argparse.Namespace) -> None:
             ok, msg = future.result()
             if ok:
                 ok_count += 1
-                console.print(f"  [green]OK[/]  {f}")
+                console.print(f"  [cyan]OK[/]  {_show(f)}")
             else:
                 bad_count += 1
                 bad_files.append((f, msg))
-                console.print(f"  [red]BAD[/] {f}  {msg}")
+                console.print(f"  [red]BAD[/] {_show(f)}  {msg}")
 
-    console.print(f"\n完成：[green]{ok_count} 通过[/]，[red]{bad_count} 损坏[/]")
+    console.print(f"\n完成：[cyan]{ok_count} 通过[/]，[red]{bad_count} 损坏[/]")
     if bad_files:
         console.print("损坏文件：")
         for f, msg in bad_files:
-            console.print(f"  [red]{f}[/]  {msg}")
+            console.print(f"  [red]{_show(f)}[/]  {msg}")
