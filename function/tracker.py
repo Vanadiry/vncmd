@@ -1,34 +1,35 @@
 import argparse
 import json
 import os
-import questionary
 import re
 import shutil
 import sys
 import tomllib
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
 
+import questionary
+from rich.markup import escape
+
+from function._defaults import TRACKER_SETTINGS_TOML
 from function.api import (
-    get_song_details,
-    get_playlist_details,
     get_album_details,
+    get_playlist_details,
+    get_song_details,
+)
+from function.config import (
+    QUALITY_MAP,
+    VNCMD_HOME,
+    get_quality,
+    resolve_output_dir,
 )
 from function.downloader import download_song_batch
 from function.output import (
-    success,
+    console,
     error,
     info,
+    success,
     warning,
-    console,
-)
-from rich.markup import escape
-from function._defaults import TRACKER_SETTINGS_TOML
-from function.config import (
-    get_quality,
-    QUALITY_MAP,
-    VNCMD_HOME,
-    resolve_output_dir,
 )
 
 TRACKER_DIR = VNCMD_HOME / "tracker"
@@ -117,7 +118,7 @@ def backup_db(name: str) -> None:
 def save_songs_db(name: str, songs: list[dict]) -> None:
     backup_db(name)
     data = {
-        "updated_at": datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"),
+        "updated_at": datetime.now(UTC).strftime("%Y-%m-%dT%H:%M:%SZ"),
         "songs": songs,
     }
     _songs_path(name).write_text(
@@ -127,7 +128,7 @@ def save_songs_db(name: str, songs: list[dict]) -> None:
 
 def save_diff(name: str, comparison: dict) -> None:
     diff = {
-        "updated_at": datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"),
+        "updated_at": datetime.now(UTC).strftime("%Y-%m-%dT%H:%M:%SZ"),
         "added": [{"id": s["id"], "title": s["title"]} for s in comparison["added"]],
         "removed": [
             {"id": s["id"], "title": s["title"]} for s in comparison["removed"]
@@ -157,10 +158,10 @@ def show_tracker(name: str) -> None:
     settings = load_settings(name)
     songs = load_songs_db(name)
 
+    from rich import box
     from rich.panel import Panel
     from rich.table import Table
     from rich.text import Text
-    from rich import box
 
     header = Text()
     header.append("Tracker：", style="bold")
@@ -391,7 +392,7 @@ def auto_resolve(
         result[s["id"]] = fresh_dict[s["id"]]
     for s in removed:
         result.pop(s["id"], None)
-    for old, new in changed:
+    for old, _ in changed:
         result[old["id"]] = fresh_dict[old["id"]]
 
     summary_parts = []

@@ -11,7 +11,7 @@ Usage:
 import json
 import os
 import sys
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
 
 
@@ -47,7 +47,7 @@ def main():
         print("No artists found in cache.", file=sys.stderr)
         sys.exit(1)
 
-    date_str = datetime.now(timezone.utc).strftime("%Y%m%d")
+    date_str = datetime.now(UTC).strftime("%Y%m%d")
     script_dir = Path(__file__).resolve().parent
     out_path = script_dir / f"known_artists_{date_str}.txt"
 

@@ -1,20 +1,21 @@
 from pathlib import Path
+
 from function.config import (
-    validate_config,
-    load_config,
-    get_download_dir,
-    get_quality,
-    get_filename_format,
-    get_download_content,
-    get_embed_lyrics_mode,
-    get_save_lyrics_mode,
-    get_embed_cover_quality,
-    get_save_cover_quality,
-    get_cookie,
-    is_cache_enabled,
-    get_cache_dir,
     CONFIG_FILE,
     QUALITY_MAP,
+    get_cache_dir,
+    get_cookie,
+    get_download_content,
+    get_download_dir,
+    get_embed_cover_quality,
+    get_embed_lyrics_mode,
+    get_filename_format,
+    get_quality,
+    get_save_cover_quality,
+    get_save_lyrics_mode,
+    is_cache_enabled,
+    load_config,
+    validate_config,
 )
 
 

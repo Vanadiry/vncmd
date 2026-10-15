@@ -1,5 +1,6 @@
 from pathlib import Path
-from function.lyrics import clean, parse, interleave, process, output_files
+
+from function.lyrics import clean, interleave, output_files, parse, process
 
 LRC = """[by:Someone]
 [00:00.000] 作词 : 测试

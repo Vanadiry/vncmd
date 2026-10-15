@@ -1,23 +1,24 @@
 import shutil
 from pathlib import Path
+
 import pytest
+
+from function.config import get_quality
 from function.tracker import (
-    validate_name,
+    _settings_path,
+    _songs_path,
+    _tracker_path,
+    auto_resolve,
+    compare_songs,
     create_tracker,
+    download_tracker,
+    fetch_all_songs,
     load_settings,
     load_songs_db,
     save_songs_db,
-    compare_songs,
-    fetch_all_songs,
-    auto_resolve,
-    download_tracker,
-    _tracker_path,
-    _settings_path,
-    _songs_path,
+    validate_name,
 )
-from function.config import get_quality
 from test.conftest import SONG_ID
-
 
 NAME_CRUD = "_test_tracker_crud"
 NAME_DB = "_test_tracker_db"

@@ -3,60 +3,65 @@ import time
 from concurrent.futures import ThreadPoolExecutor
 from datetime import datetime
 from pathlib import Path
-from queue import Queue
+from queue import Empty, Queue
 from threading import Lock
 
 from rich.progress import (
-    Progress,
     BarColumn,
+    Progress,
     TextColumn,
     TimeRemainingColumn,
 )
 
-from function.api import get_song_details, get_song_url, get_lyrics_url
-from function.config import (
-    get_download_dir,
-    get_download_content,
-    get_embed_lyrics_mode,
-    get_save_lyrics_mode,
-    get_embed_cover_quality,
-    get_save_cover_quality,
-    get_concurrency,
-    get_parse_credits,
-    get_auto_trim,
-    get_credit_scan_lines,
-    get_credit_prefixes,
-)
+from function.api import get_lyrics_url, get_song_details, get_song_url
 from function.audio import (
-    get_type_from_url,
-    cover_ext,
     build_filename,
+    cover_ext,
+    get_type_from_url,
     resolve_path,
 )
-from function.download import fetch_audio, fetch_cover, fetch_lyrics
-from function.image import process_cover as process_cover_image, detect_format
-from function.lyrics import (
-    process as process_lyrics,
-    output_files as output_lyrics_files,
-    extract_credits,
-    trim_lyrics,
-    is_pure_credits,
-)
-from function.metadata import embed as embed_metadata
-from function.output import (
-    info,
-    warning,
-    success,
-    error,
-    console,
-)
+from function.checker import check_audio, has_ffmpeg
 from function.checkpoint import (
-    load_checkpoint,
     create_checkpoint,
+    load_checkpoint,
     mark_downloaded,
     sync_checkpoint_tracks,
 )
-from function.checker import has_ffmpeg, check_audio
+from function.config import (
+    get_auto_trim,
+    get_concurrency,
+    get_credit_prefixes,
+    get_credit_scan_lines,
+    get_download_content,
+    get_download_dir,
+    get_embed_cover_quality,
+    get_embed_lyrics_mode,
+    get_parse_credits,
+    get_save_cover_quality,
+    get_save_lyrics_mode,
+)
+from function.download import fetch_audio, fetch_cover, fetch_lyrics
+from function.image import detect_format
+from function.image import process_cover as process_cover_image
+from function.lyrics import (
+    extract_credits,
+    is_pure_credits,
+    trim_lyrics,
+)
+from function.lyrics import (
+    output_files as output_lyrics_files,
+)
+from function.lyrics import (
+    process as process_lyrics,
+)
+from function.metadata import embed as embed_metadata
+from function.output import (
+    console,
+    error,
+    info,
+    success,
+    warning,
+)
 
 
 def make_session_dir(base_dir):
@@ -117,9 +122,8 @@ def download_song(
 
     # --- Fetch lyrics ---
     lyric_text, tlyric_text = "", ""
-    if want_lyrics or want_song:
-        if lyrics_api_url and source:
-            lyric_text, tlyric_text = fetch_lyrics(lyrics_api_url, source)
+    if (want_lyrics or want_song) and lyrics_api_url and source:
+        lyric_text, tlyric_text = fetch_lyrics(lyrics_api_url, source)
 
     # --- Parse credits / auto trim ---
     parse_credits = get_parse_credits()
@@ -130,7 +134,7 @@ def download_song(
     skip_lrc = False
 
     if parse_credits:
-        composer, _ = extract_credits(lyric_text, scan_lines, prefixes + ["作曲"])
+        composer, _ = extract_credits(lyric_text, scan_lines, [*prefixes, "作曲"])
 
     if parse_credits and auto_trim:
         lyric_text, _ = trim_lyrics(lyric_text, scan_lines, prefixes=["作曲"])
@@ -368,7 +372,7 @@ def download_song_batch(
         while True:
             try:
                 track = queue.get_nowait()
-            except Exception:
+            except Empty:
                 return
 
             sid = track["id"]
@@ -478,10 +482,9 @@ def download_song_batch(
 
             time.sleep(0.3)
 
-    with progress:
-        with ThreadPoolExecutor(max_workers=concurrency) as executor:
-            for i in range(concurrency):
-                executor.submit(_download_one, i)
+    with progress, ThreadPoolExecutor(max_workers=concurrency) as executor:
+        for i in range(concurrency):
+            executor.submit(_download_one, i)
 
     console.print()
     parts = []

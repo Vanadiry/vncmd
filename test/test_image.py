@@ -1,5 +1,7 @@
 import io
+
 from PIL import Image as PILImage
+
 from function.image import process_cover
 
 

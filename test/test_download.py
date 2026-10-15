@@ -1,7 +1,9 @@
 from pathlib import Path
+
 import pytest
-from function.download import fetch_lyrics, fetch_cover
-from function.api import get_song_details, get_song_url, get_lyrics_url
+
+from function.api import get_lyrics_url, get_song_details, get_song_url
+from function.download import fetch_cover, fetch_lyrics
 from function.downloader import download_song
 from test.conftest import SONG_ID
 
@@ -35,7 +37,7 @@ class TestFullDownload:
         url = get_song_url(SONG_ID)
         if not url:
             pytest.skip("No stream URL available (VIP or rate-limited)")
-        ok, msg, path = download_song(
+        ok, msg, _ = download_song(
             song_url=url,
             song_title=song["title"],
             song_artist=song["artist"],

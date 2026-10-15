@@ -1,10 +1,17 @@
 import shutil
 from pathlib import Path
+
+from function.cache import (
+    get_lyrics as cache_get_lyrics,
+)
 from function.cache import (
     get_song as cache_get_song,
-    put_song as cache_put_song,
-    get_lyrics as cache_get_lyrics,
+)
+from function.cache import (
     put_lyrics as cache_put_lyrics,
+)
+from function.cache import (
+    put_song as cache_put_song,
 )
 from function.config import get_cache_dir
 

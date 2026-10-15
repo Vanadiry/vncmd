@@ -45,6 +45,7 @@ def ffprobe_info(path: str) -> dict | None:
         ],
         capture_output=True,
         text=True,
+        check=False,
     )
     if proc.returncode != 0 or not proc.stdout.strip():
         return None
@@ -79,6 +80,7 @@ def ffmpeg_decode(path: str) -> tuple[list[str], float | None]:
             capture_output=True,
             text=True,
             timeout=30,
+            check=False,
         )
     except subprocess.TimeoutExpired:
         return [], None
@@ -104,7 +106,7 @@ def flac_test(path: str) -> str | None:
     if not shutil.which("flac"):
         return None
     proc = subprocess.run(
-        ["flac", "-t", "-s", str(path)], capture_output=True, text=True
+        ["flac", "-t", "-s", str(path)], capture_output=True, text=True, check=False
     )
     if proc.returncode != 0:
         return (proc.stderr or proc.stdout or "").strip()

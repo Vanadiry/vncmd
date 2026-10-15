@@ -1,9 +1,11 @@
 import io
 import struct
 from pathlib import Path
+
 import eyed3
-from PIL import Image as PILImage
 from mutagen.flac import FLAC
+from PIL import Image as PILImage
+
 from function.metadata import embed
 
 

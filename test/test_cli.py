@@ -1,18 +1,21 @@
-import sys
 import shutil
 import subprocess
+import sys
+
 import pytest
-from test.conftest import PROJECT_ROOT, SONG_ID, PLAYLIST_ID, ALBUM_ID
+
 from function.config import VNCMD_HOME
+from test.conftest import ALBUM_ID, PLAYLIST_ID, PROJECT_ROOT, SONG_ID
 
 
 def _run(args, timeout=30, **kwargs):
     return subprocess.run(
-        [sys.executable, "vncmd.py"] + args,
+        [sys.executable, "vncmd.py", *args],
         capture_output=True,
         text=True,
         timeout=timeout,
         cwd=PROJECT_ROOT,
+        check=False,
         **kwargs,
     )
 
@@ -81,6 +84,7 @@ class TestCliTracker:
             timeout=10,
             cwd=PROJECT_ROOT,
             input="y\n",
+            check=False,
         )
         assert r.returncode == 0
         assert "已创建" in r.stdout

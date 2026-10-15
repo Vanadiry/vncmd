@@ -1,28 +1,24 @@
-[build-system]
-requires = ["setuptools"]
-build-backend = "setuptools.build_meta"
-
 [project]
 name = "vncmd"
 version = "0.4.2"
 description = "NetEase Cloud Music CLI Tool — search, preview, download, and tracker."
 readme = "README.md"
-license-files = ["LICENSE"]
 requires-python = ">=3.11"
+license-files = ["LICENSE"]
 authors = [
-    {name = "Vanadiry", email = "v@vanadiry.com"},
+  { name = "Vanadiry", email = "v@vanadiry.com" },
 ]
-keywords = ["netease", "music", "download", "cli", "lyrics", "metadata"]
-urls = {Repository = "https://github.com/Vanadiry/vncmd", Documentation = "https://magic.vanadiry.com/wiki/vncmd"}
+keywords = ["cli", "download", "lyrics", "metadata", "music", "netease"]
+urls = { Documentation = "https://magic.vanadiry.com/wiki/vncmd", Repository = "https://github.com/Vanadiry/vncmd" }
 dependencies = [
-    "eyed3>=0.9.9",
-    "filelock>=3.32.5",
-    "mutagen>=1.48.1",
-    "pillow>=12.3.0",
-    "prompt-toolkit>=3.0.53",
-    "questionary>=2.1.1",
-    "requests>=2.34.2",
-    "rich>=15.0.0",
+  "eyed3>=0.9.9",
+  "filelock>=3.32.5",
+  "mutagen>=1.48.1",
+  "pillow>=12.3.0",
+  "prompt-toolkit>=3.0.53",
+  "questionary>=2.1.1",
+  "requests>=2.34.2",
+  "rich>=15.0.0",
 ]
 
 [project.scripts]
@@ -30,17 +26,14 @@ vncmd = "vncmd:main"
 
 [dependency-groups]
 dev = [
-    "pytest>=9.1.1",
-    "pytest-cov>=7.1.0",
-    "twine>=7.0.0",
+  "pytest>=9.1.1",
+  "pytest-cov>=7.1.0",
+  "twine>=7.0.0",
 ]
 
-[tool.setuptools]
-py-modules = ["vncmd"]
-packages = ["function"]
-
-[tool.ruff.lint.per-file-ignores]
-"test/*" = ["E402"]
+[build-system]
+requires = ["setuptools"]
+build-backend = "setuptools.build_meta"
 
 [tool.coverage.run]
 source = ["function"]
@@ -48,6 +41,40 @@ omit = ["*/test/*", "*/__pycache__/*"]
 
 [tool.coverage.report]
 exclude_lines = [
-    "pragma: no cover",
-    'if __name__ == "__main__":',
+  "pragma: no cover",
+  'if __name__ == "__main__":',
 ]
+
+[tool.ruff.lint]
+select = [
+  "F",  # pyflakes：未使用的导入、未定义的名字
+  "E",  # pycodestyle
+  "W",  # pycodestyle 警告
+  "I",  # isort
+  "B",  # bugbear
+  "UP",  # pyupgrade，按 requires-python 收敛语法
+  "SIM",  # 简化
+  "C4",  # 推导式
+  "RUF",  # ruff 自带规则
+  "PIE",
+  "RET",
+]
+ignore = [
+  # 本项目面向中文用户，全角标点是正确写法，ambiguous width 的判定不适用
+  "RUF001",
+  "RUF002",
+  "RUF003",
+  # except Exception 均为主动选择：
+  # commands.py 是 CLI 边界，任何失败都要转成用户可读的报错；
+  # api.py 与 download.py 是尽力而为的降级路径，取不到就返回空值继续；
+  # downloader.py 的单曲失败要计入 fail_count 而不能中断整批
+  "BLE001",
+  "S110",
+]
+
+[tool.ruff.lint.per-file-ignores]
+"test/*" = ["E402", "S101"]
+
+[tool.setuptools]
+py-modules = ["vncmd"]
+packages = ["function"]

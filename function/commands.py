@@ -3,38 +3,39 @@ import os
 import shutil
 import sys
 
+from rich.markup import escape
+
 from function.api import (
-    search,
-    get_song_details,
-    get_playlist_details,
     get_album_details,
     get_lyrics,
     get_lyrics_url,
+    get_playlist_details,
+    get_song_details,
     get_song_url,
+    search,
+)
+from function.config import (
+    CONFIG_FILE,
+    COOKIE_FILE,
+    QUALITY_MAP,
+    VNCMD_HOME,
+    get_download_content,
+    get_quality,
+    resolve_output_dir,
+    validate_config,
 )
 from function.downloader import download_song, download_song_batch, make_session_dir
 from function.output import (
-    display_search_results,
+    console,
     display_album,
-    display_song_detail,
-    display_playlist,
     display_lyrics,
-    success,
+    display_playlist,
+    display_search_results,
+    display_song_detail,
     error,
     info,
+    success,
     warning,
-    console,
-)
-from rich.markup import escape
-from function.config import (
-    validate_config,
-    get_quality,
-    get_download_content,
-    QUALITY_MAP,
-    VNCMD_HOME,
-    CONFIG_FILE,
-    COOKIE_FILE,
-    resolve_output_dir,
 )
 
 
@@ -119,7 +120,7 @@ def cmd_song(args: argparse.Namespace) -> None:
     output_dir = make_session_dir(resolve_output_dir(args.output))
     info(f"正在下载「{song['title']} - {song['artist']}」")
     lyrics_api = get_lyrics_url(args.id)
-    ok, msg, path = download_song(
+    ok, msg, _ = download_song(
         song_url=song_url or "",
         song_title=song["title"],
         song_artist=song["artist"],
@@ -263,9 +264,10 @@ def cmd_cookie(args: argparse.Namespace) -> None:
 def cmd_check(args: argparse.Namespace) -> None:
     """Check audio file integrity."""
     import concurrent.futures
-    from pathlib import Path
     from concurrent.futures import ThreadPoolExecutor
-    from function.checker import has_ffmpeg, check_audio
+    from pathlib import Path
+
+    from function.checker import check_audio, has_ffmpeg
 
     if not has_ffmpeg():
         error("需要 ffmpeg 和 ffprobe，请先安装。")

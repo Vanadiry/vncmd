@@ -1,13 +1,14 @@
 import pytest
+
 from function.api import (
-    search,
-    get_song_details,
-    get_playlist_details,
     get_album_details,
     get_lyrics,
+    get_playlist_details,
+    get_song_details,
     get_song_url,
+    search,
 )
-from test.conftest import SONG_ID, PLAYLIST_ID, ALBUM_ID
+from test.conftest import ALBUM_ID, PLAYLIST_ID, SONG_ID
 
 
 @pytest.mark.network

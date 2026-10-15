@@ -1,6 +1,8 @@
 from pathlib import Path
+
 import pytest
-from function.checker import has_ffmpeg, has_flac, check_audio, ffprobe_info
+
+from function.checker import check_audio, ffprobe_info, has_ffmpeg, has_flac
 
 
 def _gen_valid_flac(path: Path) -> None:
@@ -43,7 +45,7 @@ class TestChecker:
     def test_check_corrupted(self, temp_dir):
         bad_path = Path(temp_dir) / "bad.mp3"
         bad_path.write_bytes(b"this is not audio at all")
-        ok, msg = check_audio(str(bad_path))
+        ok, _ = check_audio(str(bad_path))
         assert not ok
 
     @pytest.mark.skipif(not has_ffmpeg(), reason="需要 ffmpeg")

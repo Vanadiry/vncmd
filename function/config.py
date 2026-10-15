@@ -37,7 +37,7 @@ _cfg: dict | None = None
 
 
 def load_config() -> dict:
-    with open(CONFIG_FILE, "r", encoding="utf-8") as f:
+    with open(CONFIG_FILE, encoding="utf-8") as f:
         return tomllib.loads(f.read())
 
 
@@ -125,7 +125,7 @@ def validate_config(quiet: bool = False) -> None:
 
 
 def _die(errors: list[str]) -> None:
-    from function.output import error, console
+    from function.output import console, error
 
     console.print("[red]配置验证失败：[/]")
     for e in errors:

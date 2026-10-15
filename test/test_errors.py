@@ -1,5 +1,6 @@
 import pytest
-from function.api import get_song_details, get_playlist_details, search
+
+from function.api import get_playlist_details, get_song_details, search
 from function.downloader import download_song
 
 
@@ -14,7 +15,7 @@ class TestNonexistentResources:
             get_playlist_details(99999999999)
 
     def test_bad_url_download_fails(self, temp_dir):
-        ok, msg, _ = download_song(
+        ok, _, _ = download_song(
             song_url="http://invalid.example/never.mp3",
             song_title="Test",
             song_artist="Test",

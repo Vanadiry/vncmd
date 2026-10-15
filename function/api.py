@@ -1,14 +1,19 @@
 import time
+from contextlib import suppress
+
 import requests
 from requests.adapters import HTTPAdapter
 from urllib3.util.retry import Retry
 
-from function.config import get_cookie
-from function.cache import get_song as cache_get_song, put_song as cache_put_song
 from function.cache import (
     get_lyrics as cache_get_lyrics,
+)
+from function.cache import get_song as cache_get_song
+from function.cache import (
     put_lyrics as cache_put_lyrics,
 )
+from function.cache import put_song as cache_put_song
+from function.config import get_cookie
 
 BASE_URL = "https://music.163.com"
 HEADERS = {
@@ -94,15 +99,12 @@ def get_song_details(song_id: int) -> dict:
 
     v0_data = {}
     v1_data = {}
-    try:
+    # 两个端点互相兜底，任一失败都不影响另一个
+    with suppress(Exception):
         v0_url = f"{BASE_URL}/api/song/detail/?id={song_id}&ids=%5B{song_id}%5D"
         v0_data = _get_session().get(v0_url, timeout=15).json()
-    except Exception:
-        pass
-    try:
+    with suppress(Exception):
         v1_data = _get_v1_song_detail(song_id)
-    except Exception:
-        pass
 
     song = None
     if v0_data.get("songs"):

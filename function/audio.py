@@ -33,10 +33,9 @@ def build_filename(title: str, artist: str) -> str:
     safe_artist = check_filename(artist)
     if fmt == "10":
         return f"{safe_title} - {safe_artist}"
-    elif fmt == "01":
+    if fmt == "01":
         return f"{safe_artist} - {safe_title}"
-    else:
-        return safe_title
+    return safe_title
 
 
 def resolve_path(base: str, ext: str, directory: str) -> str:

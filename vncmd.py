@@ -2,15 +2,15 @@ import argparse
 import sys
 
 from function.commands import (
+    cmd_album,
+    cmd_check,
+    cmd_cookie,
+    cmd_init,
+    cmd_playlist,
     cmd_search,
     cmd_song,
-    cmd_album,
-    cmd_playlist,
-    cmd_init,
-    cmd_cookie,
-    cmd_check,
 )
-from function.config import validate_config, QUALITY_MAP, acquire_lock
+from function.config import QUALITY_MAP, acquire_lock, validate_config
 from function.tracker import cmd_tracker
 
 

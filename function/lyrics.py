@@ -3,7 +3,6 @@ from pathlib import Path
 
 from function.cache import get_song_cache_dir
 
-
 _TIMESTAMP_RE = re.compile(r"^\[(\d{2}):(\d{2})[:.](\d{2,3})\](.*)")
 _META_RE = re.compile(r"^\[(ti|ar|al|offset|length|re|ve):")
 _CREDIT_RE_TEMPLATE = r"^\[\d{2}:\d{2}[:.]\d{2,3}\]\s*%s\s*:\s*(.+)$"
@@ -137,7 +136,7 @@ def interleave(lrc_text: str, tlyric_text: str, threshold: float = 0.3) -> str:
         timestamp = f"[{mins:02d}:{secs:06.3f}]"
 
         best_idx = None
-        for ti, (tlyric_t, tlyric_text_content, _) in tlyric_by_time:
+        for ti, (tlyric_t, _text, _) in tlyric_by_time:
             if ti in used_tlyric:
                 continue
             if abs(lrc_t - tlyric_t) <= threshold:
@@ -160,7 +159,7 @@ def interleave(lrc_text: str, tlyric_text: str, threshold: float = 0.3) -> str:
         else:
             out.append(lrc_original)
 
-    for ti, (t, text, original) in tlyric_by_time:
+    for ti, (_, _, original) in tlyric_by_time:
         if ti not in used_tlyric:
             out.append(original)
 
@@ -186,10 +185,9 @@ def process(lrc_raw: str, tlyric_raw: str, mode: str, song_id: int) -> dict[str,
 
     if mode == "0":
         return {"lrc": interleave(lrc_clean, tlyric_clean)}
-    elif mode == "1":
+    if mode == "1":
         return {"lrc": lrc_clean + "\n" + tlyric_clean}
-    else:  # "2"
-        return {"lrc": lrc_clean, "2.lrc": tlyric_clean}
+    return {"lrc": lrc_clean, "2.lrc": tlyric_clean}
 
 
 def output_files(lyrics_result: dict[str, str], base_path: str) -> list[str]:

@@ -1,9 +1,10 @@
 import pytest
+
 from function.checkpoint import (
-    load_checkpoint,
-    save_checkpoint,
     create_checkpoint,
+    load_checkpoint,
     mark_downloaded,
+    save_checkpoint,
     sync_checkpoint_tracks,
 )
 

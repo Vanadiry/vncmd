@@ -1,14 +1,15 @@
 import sys
+
 import requests
 from requests.adapters import HTTPAdapter
-from urllib3.util.retry import Retry
 from rich.progress import (
-    Progress,
     BarColumn,
     DownloadColumn,
-    TransferSpeedColumn,
+    Progress,
     TimeRemainingColumn,
+    TransferSpeedColumn,
 )
+from urllib3.util.retry import Retry
 
 _dl_session = None
 
