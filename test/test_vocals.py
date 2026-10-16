@@ -129,3 +129,42 @@ def test_斜杠不是分隔符():
 @pytest.mark.parametrize("name", list(NAME_TO_COLOR))
 def test_表里每个名字都能被自己的映射命中(name):
     assert _colors(name) == [name]
+
+
+class TestKaaiYuki:
+    """歌愛ユキ / 歌爱雪
+
+    AHS 的角色，官网只说「红色制服、红色书包」，没有公布形象色，
+    色值取那身红的砖红调子。日文原名与中文名都注册，
+    接口的艺人字段里「歌愛ユキ」和「歌爱雪」两种写法都出现过。
+    """
+
+    def test_四种写法(self):
+        for name in ("歌愛ユキ", "歌爱ユキ", "歌愛雪", "歌爱雪"):
+            assert _colors(name) == [name], name
+
+    def test_色值(self):
+        for name in ("歌愛ユキ", "歌爱ユキ", "歌愛雪", "歌爱雪"):
+            assert NAME_TO_COLOR[name] == "#A83E34", name
+
+    def test_四种写法同一个色(self):
+        assert (
+            len(
+                {NAME_TO_COLOR[n] for n in ("歌愛ユキ", "歌爱ユキ", "歌愛雪", "歌爱雪")}
+            )
+            == 1
+        )
+
+    def test_接口里出现过的串(self):
+        """这两串是实测抓到的，删了会让真实数据不再着色"""
+        assert _colors("稲葉曇, 歌愛ユキ") == ["歌愛ユキ"]
+        assert _colors("会飞的四十六条腿青木P, 歌爱雪") == ["歌爱雪"]
+
+    def test_与别人的色不撞(self):
+        """撞了的话两个歌手在表里就分不出来了"""
+        assert NAME_TO_COLOR["歌愛ユキ"] not in ("#39C5BB", "#C8484E", "#DD4444")
+
+    def test_混排时各自独立(self):
+        segs = colorize("いよわ, 初音ミク, 歌愛ユキ")
+        assert [c for _, c in segs][-1] == "#A83E34"
+        assert "#39C5BB" in [c for _, c in segs]
