@@ -26,6 +26,9 @@ from function.image import detect_format
 
 _dl_session = None
 
+# 魔数校验只需前几个字节，MP4 的 ftyp 标记落在偏移 4
+_HEAD_BYTES = 16
+
 
 def _get_dl_session():
     global _dl_session
@@ -153,6 +156,16 @@ def _fetch_audio_curl(
 
     if _file_size(path) == 0:
         return "curl 未写出文件"
+
+    # --fail 只看状态码，服务器以 200 带回错误页时照样写出文件，
+    # 这里补上魔数校验，与内建路径保持一致
+    try:
+        with open(path, "rb") as f:
+            blob = f.read(_HEAD_BYTES)
+    except OSError as e:
+        return f"无法读取下载结果：{e}"
+    if not looks_like_audio(blob):
+        return "服务器返回的不是音频"
     return None
 
 

@@ -252,7 +252,7 @@ class TestAgainstRealCurl:
         """
         if not shutil.which("curl"):
             pytest.skip("没装 curl")
-        payload = b"x" * 3_000_000
+        payload = b"fLaC" + b"x" * 3_000_000
         src = tmp_path / "big.bin"
         src.write_bytes(payload)
         dst = tmp_path / "out.bin"
@@ -320,6 +320,70 @@ class TestAgainstRealCurl:
             (tmp_path / "nope").as_uri(), str(tmp_path / "o"), "T"
         )
         assert err is not None
+
+    def test_错误页被魔数校验挡下(self, tmp_path):
+        """200 带回 HTML 错误页时必须拒绝，否则会被当音频收下
+
+        --fail 只看状态码，对这种 200 响应不起作用，
+        内建路径靠 looks_like_audio 挡住，curl 这条路原先没有。
+        """
+        if not shutil.which("curl"):
+            pytest.skip("没装 curl")
+        page = tmp_path / "error.html"
+        page.write_bytes(b"<!DOCTYPE html><html><body>error</body></html>" * 500)
+        dst = tmp_path / "out.flac"
+        err = download._fetch_audio_curl(page.as_uri(), str(dst), "T")
+        assert err is not None
+        assert "不是音频" in err
+        # curl 自己认为传输成功，所以这条错只能由内容校验报出来
+        assert "退出码" not in err
+
+    @pytest.mark.parametrize(
+        "payload",
+        [
+            pytest.param(b"fLaC" + b"\x00" * 4000, id="flac"),
+            pytest.param(b"ID3\x04\x00" + b"\x00" * 4000, id="带 ID3 的 mp3"),
+            pytest.param(b"\xff\xfb\x90\x00" + b"\x00" * 4000, id="裸 mp3 帧同步"),
+            pytest.param(b"\x00\x00\x00\x18ftypM4A " + b"\x00" * 4000, id="mp4 容器"),
+        ],
+    )
+    def test_真实音频不被误伤(self, tmp_path, payload):
+        """守卫只挡错误页，正常音频一个都不能误杀"""
+        if not shutil.which("curl"):
+            pytest.skip("没装 curl")
+        src = tmp_path / "a.bin"
+        src.write_bytes(payload)
+        dst = tmp_path / "out.bin"
+        assert download._fetch_audio_curl(src.as_uri(), str(dst), "T") is None
+        assert dst.read_bytes() == payload
+
+    def test_复用内建路径的同一个判定(self, monkeypatch, tmp_path):
+        """两条路径必须共用 looks_like_audio，不能各判各的
+
+        这里盯的是「调用了同一个函数」，不是重新实现一遍判定规则。
+        """
+        if not shutil.which("curl"):
+            pytest.skip("没装 curl")
+        src = tmp_path / "a.bin"
+        src.write_bytes(b"fLaC" + b"\x00" * 4000)
+        seen = []
+        real = download.looks_like_audio
+
+        def spy(head):
+            seen.append(head)
+            return real(head)
+
+        monkeypatch.setattr(download, "looks_like_audio", spy)
+        assert (
+            download._fetch_audio_curl(src.as_uri(), str(tmp_path / "o.bin"), "T")
+            is None
+        )
+        assert len(seen) == 1, "curl 路径没有调用 looks_like_audio"
+        assert seen[0].startswith(b"fLaC")
+
+    def test_读够魔数所需的字节(self, monkeypatch, tmp_path):
+        """头部长度不能截断，MP4 的 ftyp 落在偏移 4，读太少就认不出"""
+        assert download._HEAD_BYTES >= 8
 
 
 class _FakeSession:
