@@ -20,7 +20,7 @@ from function.cache import put_song as cache_put_song
 from function.config import get_cookie
 from function.output import warning
 
-BASE_URL = "https://music.163.com"
+_BASE_URL = "https://music.163.com"
 # 批量查详情的分片大小，一次 100 个 id 实测约 1300 字符的 URL
 _DETAIL_BATCH_SIZE = 100
 HEADERS = {
@@ -80,7 +80,7 @@ def _get_session() -> requests.Session:
     return _session
 
 
-def format_timestamp(ts: int | None) -> str:
+def _fmt_publish_time(ts: int | None) -> str:
     if ts is None:
         return ""
     t = time.localtime(ts / 1000)
@@ -107,7 +107,7 @@ def _first_number(value) -> int | None:
 
 
 def _get_v1_song_detail(song_id: int) -> dict:
-    url = f"{BASE_URL}/api/v1/song/detail/?id={song_id}&ids=%5B{song_id}%5D"
+    url = f"{_BASE_URL}/api/v1/song/detail/?id={song_id}&ids=%5B{song_id}%5D"
     resp = _get_session().get(url, timeout=15)
     return resp.json()
 
@@ -136,7 +136,7 @@ def _normalize_song(song: dict) -> dict:
         "album": _clean(album.get("name", "")),
         "album_id": album.get("id"),
         "cover": album.get("picUrl", ""),
-        "publish_time": format_timestamp(album.get("publishTime")),
+        "publish_time": _fmt_publish_time(album.get("publishTime")),
         "duration": _fmt_duration(song.get("duration")),
         "track_no": _first_number(song.get("no")),
         "cd_no": _first_number(song.get("cd")),
@@ -152,7 +152,7 @@ def get_song_details(song_id: int) -> dict:
     v1_data = {}
     # 两个端点互相兜底，任一失败都不影响另一个
     with suppress(Exception):
-        v0_url = f"{BASE_URL}/api/song/detail/?id={song_id}&ids=%5B{song_id}%5D"
+        v0_url = f"{_BASE_URL}/api/song/detail/?id={song_id}&ids=%5B{song_id}%5D"
         v0_data = _get_session().get(v0_url, timeout=15).json()
     with suppress(Exception):
         v1_data = _get_v1_song_detail(song_id)
@@ -196,7 +196,7 @@ def get_song_details_many(song_ids: list[int]) -> dict[int, dict]:
         with suppress(Exception):
             resp = (
                 _get_session()
-                .get(f"{BASE_URL}/api/v1/song/detail/?ids={query}", timeout=20)
+                .get(f"{_BASE_URL}/api/v1/song/detail/?ids={query}", timeout=20)
                 .json()
             )
             for raw in resp.get("songs") or []:
@@ -210,7 +210,7 @@ def get_song_details_many(song_ids: list[int]) -> dict[int, dict]:
 
 def get_playlist_details(playlist_id: int) -> dict:
     # n 取多少都至少是 2000，限量由调用方在拿到完整列表后处理
-    url = f"{BASE_URL}/api/v6/playlist/detail/?id={playlist_id}&n=2000"
+    url = f"{_BASE_URL}/api/v6/playlist/detail/?id={playlist_id}&n=2000"
     resp = _get_session().get(url, timeout=15)
     data = resp.json()
 
@@ -256,7 +256,7 @@ def get_playlist_details(playlist_id: int) -> dict:
                 "artist": ", ".join(a["name"] for a in ar),
                 "album": al.get("name", ""),
                 "cover": al.get("picUrl", ""),
-                "publish_time": format_timestamp(al.get("publishTime")),
+                "publish_time": _fmt_publish_time(al.get("publishTime")),
                 "duration": _fmt_duration(t.get("dt")),
             }
         )
@@ -274,7 +274,7 @@ def get_playlist_details(playlist_id: int) -> dict:
 
 
 def get_album_details(album_id: int) -> dict:
-    url = f"{BASE_URL}/api/v1/album/{album_id}"
+    url = f"{_BASE_URL}/api/v1/album/{album_id}"
     resp = _get_session().get(url, timeout=15)
     data = resp.json()
     album = data.get("album")
@@ -290,7 +290,7 @@ def get_album_details(album_id: int) -> dict:
                 "artist": ", ".join(a["name"] for a in s.get("ar", [])),
                 "album": album.get("name", ""),
                 "cover": album.get("picUrl", ""),
-                "publish_time": format_timestamp(
+                "publish_time": _fmt_publish_time(
                     s.get("publishTime") or album.get("publishTime")
                 ),
                 "duration": _fmt_duration(s.get("dt")),
@@ -308,7 +308,7 @@ def get_album_details(album_id: int) -> dict:
 
 
 def search(q: str, limit: int = 30, offset: int = 0) -> dict:
-    url = f"{BASE_URL}/api/cloudsearch/pc"
+    url = f"{_BASE_URL}/api/cloudsearch/pc"
     resp = _get_session().get(
         url, params={"type": 1, "s": q, "limit": limit, "offset": offset}, timeout=15
     )
@@ -325,7 +325,7 @@ def search(q: str, limit: int = 30, offset: int = 0) -> dict:
                 "artist": ", ".join(a["name"] for a in s.get("ar") or []),
                 "album": (s.get("al") or {}).get("name", ""),
                 "cover": (s.get("al") or {}).get("picUrl", ""),
-                "publish_time": format_timestamp(s.get("publishTime")),
+                "publish_time": _fmt_publish_time(s.get("publishTime")),
                 "duration": _fmt_duration(s.get("dt")),
             }
         )
@@ -337,7 +337,7 @@ def search(q: str, limit: int = 30, offset: int = 0) -> dict:
 
 
 def get_lyrics_url(song_id: int) -> str:
-    return f"{BASE_URL}/api/song/lyric?os=pc&id={song_id}&lv=-1&tv=1"
+    return f"{_BASE_URL}/api/song/lyric?os=pc&id={song_id}&lv=-1&tv=1"
 
 
 def get_lyrics(song_id: int) -> dict:
@@ -362,7 +362,7 @@ def get_lyrics(song_id: int) -> dict:
 
 def get_song_url(song_id: int, quality: int | None = None) -> str | None:
     br = quality if quality else 2147483647
-    url = f"{BASE_URL}/api/song/enhance/player/url?ids=[{song_id}]&br={br}"
+    url = f"{_BASE_URL}/api/song/enhance/player/url?ids=[{song_id}]&br={br}"
     resp = _get_session().get(url, timeout=15)
     data = resp.json()
     if data.get("data") and data["data"][0].get("url"):

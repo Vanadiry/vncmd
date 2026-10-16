@@ -13,6 +13,7 @@ from rich.progress import (
 )
 from urllib3.util.retry import Retry
 
+from function.api import HEADERS
 from function.audio import looks_like_audio
 from function.image import detect_format
 
@@ -23,6 +24,9 @@ def _get_dl_session():
     global _dl_session
     if _dl_session is None:
         _dl_session = requests.Session()
+        # 与 API session 保持一致，之前这里发的是 python-requests 的默认 UA，
+        # 调 API 伪装浏览器、下载音频自曝为脚本，两边行为分裂
+        _dl_session.headers.update(HEADERS)
         retry = Retry(
             total=3,
             backoff_factor=0.5,
