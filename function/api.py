@@ -323,7 +323,7 @@ def get_album_details(album_id: int) -> dict:
     }
 
 
-def search(q: str, limit: int = 30, offset: int = 0) -> dict:
+def search(q: str, limit: int = 10, offset: int = 0) -> dict:
     url = f"{_BASE_URL}/api/cloudsearch/pc"
     resp = _get_session().get(
         url, params={"type": 1, "s": q, "limit": limit, "offset": offset}, timeout=15

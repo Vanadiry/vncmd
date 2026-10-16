@@ -110,7 +110,7 @@ def build_parser() -> _ArgumentParser:
     p_search = sub.add_parser("search", help="搜索曲目")
     p_search.add_argument("query", help="搜索关键词")
     p_search.add_argument(
-        "--limit", "-n", type=int, default=30, help="最大结果数（默认：30）"
+        "--limit", "-n", type=int, default=10, help="最大结果数（默认：10）"
     )
     p_search.add_argument("--offset", type=int, default=0, help="分页偏移量")
 
