@@ -8,6 +8,7 @@ from pathlib import Path
 from rich.markup import escape
 
 from function.api import (
+    get_account_info,
     get_album_details,
     get_audio_source,
     get_lyrics,
@@ -296,19 +297,22 @@ def cmd_cookie(args: argparse.Namespace) -> None:
     _write_cookie(args.value.strip())
     success("Cookie 已保存")
 
-    info("正在检查 Cookie 权限，请稍候...")
-    try:
-        url = get_song_url(2056952623)
-    except Exception as e:
-        # 断网、DNS 失败、CDN 返回 HTML 都会走到这里，退出码 2 让脚本能分辨
-        error(f"Cookie 检查失败：{e}")
+    info("正在检查账户权限，请稍候...")
+    account = get_account_info()
+    if account is None:
+        # 断网、DNS 失败、CDN 返回 HTML 都会走到这里，
+        # 退出码 2 让脚本能分辨「查不成」与「查出无效」
+        error("Cookie 检查失败：无法获取账号信息")
         sys.exit(2)
-    if url:
-        success("Cookie 有效")
+    if not account["logged_in"]:
+        error("Cookie 无效或登录已失效，请检查，或重新获取")
+        sys.exit(1)
+    if not account["vip"]:
+        # 非会员的 Cookie 是能用的，只是拿不到高音质，
+        # 判成失败会让脚本以为 Cookie 没设成功
+        warning("Cookie 有效，但所属账号没有 VIP 权限，高音质将不可用")
         return
-    # 曲目本身不可用时也会返回空，提示里写清免得误判成 Cookie 的问题
-    warning("Cookie 可能无 VIP 权限，也可能只是该曲目不可用")
-    sys.exit(1)
+    success("Cookie 有效")
 
 
 def cmd_cache(args: argparse.Namespace) -> None:
