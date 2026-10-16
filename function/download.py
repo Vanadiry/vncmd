@@ -3,6 +3,7 @@ from itertools import chain
 
 import requests
 from requests.adapters import HTTPAdapter
+from rich.markup import escape
 from rich.progress import (
     BarColumn,
     DownloadColumn,
@@ -73,7 +74,8 @@ def fetch_audio(
                 TimeRemainingColumn(),
                 transient=True,
             ) as p:
-                task = p.add_task(label[:40], total=total or None)
+                # 同 _progress_desc，未转义的歌名含 [Live] 会让进度条抛 MarkupError
+                task = p.add_task(escape(label[:40]), total=total or None)
                 with open(path, "wb") as f:
                     for chunk in stream:
                         f.write(chunk)

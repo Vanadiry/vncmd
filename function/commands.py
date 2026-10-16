@@ -266,11 +266,18 @@ def cmd_cookie(args: argparse.Namespace) -> None:
     from function.api import get_song_url
 
     info("正在检查 Cookie 权限，请稍候...")
-    for _ in range(2):
-        if get_song_url(2056952623):
-            success("Cookie 有效")
-            return
-    warning("Cookie 可能无 VIP 权限")
+    try:
+        url = get_song_url(2056952623)
+    except Exception as e:
+        # 断网、DNS 失败、CDN 返回 HTML 都会走到这里，退出码 2 让脚本能分辨
+        error(f"Cookie 检查失败：{e}")
+        sys.exit(2)
+    if url:
+        success("Cookie 有效")
+        return
+    # 曲目本身不可用时也会返回空，提示里写清免得误判成 Cookie 的问题
+    warning("Cookie 可能无 VIP 权限，也可能只是该曲目不可用")
+    sys.exit(1)
 
 
 def cmd_check(args: argparse.Namespace) -> None:

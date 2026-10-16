@@ -32,24 +32,34 @@ def has_flac() -> bool:
 
 
 def ffprobe_info(path: str) -> dict | None:
-    proc = subprocess.run(
-        [
-            "ffprobe",
-            "-v",
-            "error",
-            "-show_entries",
-            "format=duration,bit_rate:stream=duration",
-            "-of",
-            "json",
-            str(path),
-        ],
-        capture_output=True,
-        text=True,
-        check=False,
-    )
+    # 畸形输入会让 ffprobe 挂住不返回，cmd_check 的线程池里挂一个就少一个 worker
+    try:
+        proc = subprocess.run(
+            [
+                "ffprobe",
+                "-v",
+                "error",
+                "-show_entries",
+                "format=duration,bit_rate:stream=duration",
+                "-of",
+                "json",
+                str(path),
+            ],
+            capture_output=True,
+            text=True,
+            timeout=10,
+            check=False,
+        )
+    except (subprocess.TimeoutExpired, OSError):
+        return None
     if proc.returncode != 0 or not proc.stdout.strip():
         return None
-    data = json.loads(proc.stdout)
+    try:
+        data = json.loads(proc.stdout)
+    except json.JSONDecodeError:
+        return None
+    if not isinstance(data, dict):
+        return None
     fmt = data.get("format") or {}
     duration = _to_float(fmt.get("duration"))
     if duration is None:
@@ -105,9 +115,18 @@ def ffmpeg_decode(path: str) -> tuple[list[str], float | None]:
 def flac_test(path: str) -> str | None:
     if not shutil.which("flac"):
         return None
-    proc = subprocess.run(
-        ["flac", "-t", "-s", str(path)], capture_output=True, text=True, check=False
-    )
+    try:
+        proc = subprocess.run(
+            ["flac", "-t", "-s", str(path)],
+            capture_output=True,
+            text=True,
+            timeout=30,
+            check=False,
+        )
+    except subprocess.TimeoutExpired:
+        return "flac 校验超时"
+    except OSError as e:
+        return f"无法运行 flac：{e}"
     if proc.returncode != 0:
         return (proc.stderr or proc.stdout or "").strip()
     return None

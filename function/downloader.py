@@ -9,6 +9,7 @@ from queue import Empty, Queue
 from threading import Event, Lock
 
 from rich.cells import cell_len
+from rich.markup import escape
 from rich.progress import (
     BarColumn,
     Progress,
@@ -107,17 +108,21 @@ def _is_within(path: str, parent: str) -> bool:
 
 
 def _progress_desc(text: str) -> str:
-    """把进度条描述裁到固定显示宽度
+    """把进度条描述裁到固定显示宽度并转义 markup
 
     宽度按 cell_len 算而非 len，中日文与 emoji 都是多格字符，
     按字符数补齐会让进度条起始列随标题内容左右漂移。
     截断交给 Text.truncate，它按显示格切，不会切在半个宽字符中间。
+
+    返回值直接交给 progress.update，那边按 markup 解析，
+    歌名含 [Live] 这类标注时未转义会被当成样式标签，[/b] 这种不配对的直接抛异常。
+    转义放在补齐之后，补齐量按转义前的显示宽度算，反斜杠不占渲染宽度。
     """
     limit = max(console.width - 60, 30)
     desc = Text(text, no_wrap=True, overflow="ellipsis")
     desc.truncate(limit)
     # 末格遇双格字符会空出来，补齐后各行起始列才一致
-    return desc.plain + " " * max(0, limit - cell_len(desc.plain))
+    return escape(desc.plain + " " * max(0, limit - cell_len(desc.plain)))
 
 
 def download_song(
