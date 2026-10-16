@@ -373,20 +373,28 @@ def download_song(
     # 目录由调用方在开头统一打印一次，这里只报文件名，
     # 完整路径折行会把路径断在中间，复制不出来
     parts = []
+    # 标签用中文而不是格式缩写，MP3 与 FLAC 就不再有宽窄差别，
+    # 音频、歌词、封面同为四格，只有完整名字要补齐
     if music_path:
-        name = Path(music_path).name
-        # 类型为空时不留 "→ " 前缀，否则行首多一个空格
-        parts.append(f'{music_type.upper()} → "{name}"' if music_type else f'"{name}"')
+        parts.append(("音频" if music_type else "", Path(music_path).name))
     for p in lyric_paths:
-        parts.append(f'LRC → "{Path(p).name}"')
+        parts.append(("歌词", Path(p).name))
     if cover_path:
-        parts.append(f'封面 → "{Path(cover_path).name}"')
+        parts.append(("封面", Path(cover_path).name))
     if note_path:
-        parts.append(f'完整名字 → "{Path(note_path).name}"')
+        parts.append(("完整名字", Path(note_path).name))
 
     if not parts:
         return False, "未下载任何内容，请检查 download_content 配置", None
-    return True, "\n".join(parts), music_path
+
+    # 完整名字是四个汉字占八格，按显示宽度补齐箭头才能落在同一列。
+    # 类型为空时整行没有标签，那种行不参与补齐也不留箭头
+    width = max(cell_len(label) for label, _ in parts)
+    lines = [
+        f'{label}{" " * (width - cell_len(label))} → "{name}"' if label else f'"{name}"'
+        for label, name in parts
+    ]
+    return True, "\n".join(lines), music_path
 
 
 def download_song_batch(
