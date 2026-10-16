@@ -18,14 +18,18 @@ from rich.progress import (
 )
 from rich.text import Text
 
-from function.api import get_lyrics_url, get_song_details, get_song_url
+from function.api import (
+    get_audio_source,
+    get_lyrics_url,
+    get_song_details,
+)
 from function.audio import (
     build_filename,
     cover_ext,
     get_type_from_url,
     resolve_path,
 )
-from function.checker import check_audio, has_ffmpeg
+from function.checker import check_audio, check_md5, has_ffmpeg
 from function.checkpoint import (
     create_checkpoint,
     load_checkpoint,
@@ -140,6 +144,8 @@ def download_song(
     task_id=None,
     track_no: int | None = None,
     cd_no: int | None = None,
+    song_size: int = 0,
+    song_md5: str = "",
 ) -> tuple[bool, str, str | None]:
     """
     Download a song with metadata, lyrics, and cover.
@@ -227,6 +233,12 @@ def download_song(
         if Path(temp_music_path).stat().st_size == 0:
             Path(temp_music_path).unlink()
             return False, "下载文件为空", None
+
+        # 先用服务端声明的大小与 md5 过一道，纯读文件比全量解码快得多
+        ok, msg = check_md5(temp_music_path, song_md5, song_size)
+        if not ok:
+            Path(temp_music_path).unlink()
+            return False, f"完整性校验失败：{msg}", None
 
         if has_ffmpeg():
             ok, msg = check_audio(temp_music_path)
@@ -495,10 +507,10 @@ def download_song_batch(
                         cd_no=track.get("cd_no"),
                     )
                 else:
-                    song_url = None
+                    source = None
                     for attempt in range(1, 4):
-                        song_url = get_song_url(sid, quality=quality)
-                        if song_url:
+                        source = get_audio_source(sid, quality=quality)
+                        if source:
                             break
                         if attempt < 3:
                             progress.update(
@@ -507,7 +519,7 @@ def download_song_batch(
                                     f"{title} - {artist}（获取链接重试 {attempt}/3）"
                                 ),
                             )
-                    if not song_url:
+                    if not source:
                         _reset_slot(task_id)
                         warning(f"跳过 {title} - {artist} — 无法获取下载链接")
                         info(f"  请尝试 vncmd song {sid} 手动下载")
@@ -519,7 +531,7 @@ def download_song_batch(
                     lyrics_api = get_lyrics_url(sid)
                     for attempt in range(1, 4):
                         ok, msg, _ = download_song(
-                            song_url=song_url,
+                            song_url=source.url,
                             song_title=title,
                             song_artist=artist,
                             song_album=track.get("album", ""),
@@ -532,6 +544,8 @@ def download_song_batch(
                             task_id=task_id,
                             track_no=track.get("track_no"),
                             cd_no=track.get("cd_no"),
+                            song_size=source.size,
+                            song_md5=source.md5,
                         )
                         if ok:
                             break

@@ -360,11 +360,35 @@ def get_lyrics(song_id: int) -> dict:
     return result
 
 
-def get_song_url(song_id: int, quality: int | None = None) -> str | None:
+class AudioSource:
+    """一次取流返回的内容，url 之外还带上服务端给出的校验依据"""
+
+    __slots__ = ("expi", "md5", "size", "url")
+
+    def __init__(self, url: str, size: int = 0, md5: str = "", expi: int = 0) -> None:
+        self.url = url
+        self.size = size
+        self.md5 = md5
+        self.expi = expi
+
+
+def get_audio_source(song_id: int, quality: int | None = None) -> AudioSource | None:
+    """取下载链接，连同 size 与 md5 一起返回，缺失时按 0 与空串处理"""
     br = quality if quality else 2147483647
     url = f"{_BASE_URL}/api/song/enhance/player/url?ids=[{song_id}]&br={br}"
     resp = _get_session().get(url, timeout=15)
     data = resp.json()
     if data.get("data") and data["data"][0].get("url"):
-        return data["data"][0]["url"]
+        d = data["data"][0]
+        return AudioSource(
+            url=d["url"],
+            size=d.get("size") or 0,
+            md5=d.get("md5") or "",
+            expi=d.get("expi") or 0,
+        )
     return None
+
+
+def get_song_url(song_id: int, quality: int | None = None) -> str | None:
+    src = get_audio_source(song_id, quality)
+    return src.url if src else None

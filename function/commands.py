@@ -9,6 +9,7 @@ from rich.markup import escape
 
 from function.api import (
     get_album_details,
+    get_audio_source,
     get_lyrics,
     get_lyrics_url,
     get_playlist_details,
@@ -113,16 +114,16 @@ def cmd_song(args: argparse.Namespace) -> None:
 
     want_song = "0" in get_download_content()
     quality = _resolve_quality(args)
-    song_url = None
+    source = None
     if want_song:
         info(f"正在获取流 URL（音质={args.quality or '配置'}）...")
         for attempt in range(1, 4):
-            song_url = get_song_url(args.id, quality=quality)
-            if song_url:
+            source = get_audio_source(args.id, quality=quality)
+            if source:
                 break
             if attempt < 3:
                 info(f"  重试 {attempt}/3 …")
-        if not song_url:
+        if not source:
             error("无法获取下载链接，若其他曲目能够正常下载，则可能是这个曲目有问题。")
             sys.exit(1)
 
@@ -131,7 +132,7 @@ def cmd_song(args: argparse.Namespace) -> None:
     info(f'下载到 "{abbrev_home(output_dir)}"')
     lyrics_api = get_lyrics_url(args.id)
     ok, msg, _ = download_song(
-        song_url=song_url or "",
+        song_url=source.url if source else "",
         song_title=song["title"],
         song_artist=song["artist"],
         song_album=song["album"],
@@ -142,6 +143,8 @@ def cmd_song(args: argparse.Namespace) -> None:
         download_dir=output_dir,
         track_no=song.get("track_no"),
         cd_no=song.get("cd_no"),
+        song_size=source.size if source else 0,
+        song_md5=source.md5 if source else "",
     )
     if ok:
         success(msg)

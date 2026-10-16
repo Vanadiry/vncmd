@@ -1,3 +1,4 @@
+import hashlib
 import json
 import re
 import shutil
@@ -130,6 +131,49 @@ def flac_test(path: str) -> str | None:
     if proc.returncode != 0:
         return (proc.stderr or proc.stdout or "").strip()
     return None
+
+
+def _short_digest(digest: str, n: int = 7) -> str:
+    """摘要只留前几位，md5 有雪崩效应，一旦不符开头必然不同，全长只是噪音"""
+    return digest if len(digest) <= n else digest[:n] + "..."
+
+
+def check_md5(path: str, expect_md5: str, expect_size: int = 0) -> tuple[bool, str]:
+    """比对服务端声明的大小与 md5，返回 (是否通过, 说明)
+
+    md5 是唯一的裁决者：只要 md5 对得上就放行，哪怕 size 字段本身不准，
+    否则一次字段错乱就会拒掉完好文件。size 用来在 md5 缺席时兜底，
+    并在报错里补上最有诊断价值的那条线索。
+    """
+    if not expect_md5 and not expect_size:
+        return True, ""
+
+    actual_size = Path(path).stat().st_size
+    size_bad = bool(expect_size) and actual_size != expect_size
+
+    if not expect_md5:
+        if size_bad:
+            return False, f"大小不符 (声明 {expect_size} 实际 {actual_size})"
+        return True, ""
+
+    h = hashlib.md5()
+    with open(path, "rb") as f:
+        for block in iter(lambda: f.read(1 << 20), b""):
+            h.update(block)
+    actual = h.hexdigest()
+    if actual == expect_md5.lower():
+        return True, ""
+
+    # 截断是下载最常见的坏法，此时大小差异比摘要更能说明问题
+    if size_bad:
+        return False, (
+            f"大小不符 (声明 {expect_size} 实际 {actual_size})，"
+            f"md5 也不符 ({_short_digest(expect_md5)} 对 {_short_digest(actual)})"
+        )
+    return (
+        False,
+        f"md5 不符 (声明 {_short_digest(expect_md5)} 实际 {_short_digest(actual)})",
+    )
 
 
 def check_audio(path: str) -> tuple[bool, str]:
