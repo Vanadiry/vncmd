@@ -2,6 +2,7 @@ import re
 from pathlib import Path
 
 from function.config import get_filename_format
+from function.output import warning
 
 # Linux 的 ext4 单个文件名上限为 255 字节，macOS 的 APFS 为 255 字符，
 # 按字节收敛最保险；Windows 的完整路径上限 260 字符还要扣掉目录与扩展名
@@ -23,9 +24,21 @@ def check_filename(name: str) -> str:
     return cleaned.strip()
 
 
+# 网易云实际只返回 mp3 与 flac，白名单里的 m4a、wav、ogg 走不到，
+# 留着只会让它们静默跳过元数据嵌入。遇到没见过的格式要出声，
+# 上游改了编码格式时能立刻看到，而不是产出一个错扩展名的文件
+_METADATA_TYPES = ("mp3", "flac")
+
+
 def get_type_from_url(url: str) -> str:
     ext = url.rsplit("?", 1)[0].rsplit(".", 1)[-1].lower()
-    return ext if ext in ("mp3", "flac", "m4a", "wav", "ogg") else "mp3"
+    if ext in _METADATA_TYPES:
+        return ext
+    # 没有扩展名的 URL 会把末段整串当成扩展名，长度与字符集都对不上时仍归 mp3
+    if ext.isalnum() and len(ext) <= 5:
+        warning(f"未预期的音频格式 .{ext}，该格式暂不支持元数据嵌入")
+        return ext
+    return "mp3"
 
 
 def looks_like_audio(head: bytes) -> bool:
