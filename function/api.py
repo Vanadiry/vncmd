@@ -17,6 +17,7 @@ from function.cache import (
 )
 from function.cache import put_song as cache_put_song
 from function.config import get_cookie
+from function.output import warning
 
 BASE_URL = "https://music.163.com"
 # 批量查详情的分片大小，一次 100 个 id 实测约 1300 字符的 URL
@@ -58,7 +59,11 @@ def _get_session():
                 try:
                     value.encode("latin-1")
                 except UnicodeEncodeError:
-                    value = value.encode("latin-1", errors="ignore").decode("latin-1")
+                    # 截断后的值与原值不同，设上去网易云认不出用户，
+                    # 表现是登录态看着有却不生效。这类值多半是复制时没做 URL 编码，
+                    # 宁可跳过并出声，不要静默塞一个错的值
+                    warning(f"Cookie {name} 含非 latin-1 字符，已跳过")
+                    continue
                 if name and value:
                     _session.cookies.set(name, value, domain="music.163.com")
     return _session
