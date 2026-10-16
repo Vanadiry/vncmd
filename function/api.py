@@ -386,14 +386,23 @@ class AudioSource:
         self.level = level
 
 
-def get_audio_source(song_id: int, quality: int | None = None) -> AudioSource | None:
-    """取下载链接，连同 size 与 md5 一起返回，缺失时按 0 与空串处理"""
+def fetch_player_url(song_id: int, quality: int | None = None) -> dict:
+    """取 player/url 的原始条目
+
+    取不到链接时也返回，fee 与 payed 这些判定权限要用的字段照样在里面，
+    所以判断为什么下不了不必再发一次请求。
+    """
     br = quality if quality else 2147483647
     url = f"{_BASE_URL}/api/song/enhance/player/url?ids=[{song_id}]&br={br}"
-    resp = _get_session().get(url, timeout=15)
-    data = resp.json()
-    if data.get("data") and data["data"][0].get("url"):
-        d = data["data"][0]
+    data = _get_session().get(url, timeout=15).json()
+    items = data.get("data") or []
+    return items[0] if items else {}
+
+
+def get_audio_source(song_id: int, quality: int | None = None) -> AudioSource | None:
+    """取下载链接，连同 size 与 md5 一起返回，缺失时按 0 与空串处理"""
+    d = fetch_player_url(song_id, quality)
+    if d.get("url"):
         return AudioSource(
             url=d["url"],
             size=d.get("size") or 0,

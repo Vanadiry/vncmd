@@ -97,6 +97,95 @@ def _trim_midnight(publish_time: str) -> str:
     return publish_time[:10] if publish_time.endswith("00:00:00") else publish_time
 
 
+FEE_LABEL = {
+    0: "无特殊要求",
+    1: "单曲购买",
+    4: "专辑购买",
+    8: "免费通用",
+}
+
+# fee 本身就能说明取不到 URL 的原因，不必再查账号信息
+FEE_NEED = {
+    1: "需要会员权限或单独购买该曲目",
+    4: "需要购买该专辑",
+}
+
+
+def _fmt_bytes(n: int) -> str:
+    if not n:
+        return ""
+    mb = n / 1024 / 1024
+    return f"{n} 字节 ({mb:.1f} MB)" if mb >= 1 else f"{n} 字节"
+
+
+def display_download_detail(song_id: int, info: dict) -> None:
+    """Display everything the download endpoint knows about one song.
+
+    取不到 URL 时照样输出，那是最需要看的时候：费用类型与是否购买
+    都在响应里，不必再发一次请求去问为什么。
+    """
+    from urllib.parse import urlsplit
+
+    from function.api import LEVEL_LABEL
+
+    url = info.get("url") or ""
+    lines = []
+    if url:
+        # 查询串是鉴权 token，两百多字符会把面板撑成四行，没人读它；
+        # 有效期单独一行已经说明了它什么时候失效
+        parts = urlsplit(url)
+        shown = f"{parts.scheme}://{parts.netloc}{parts.path}"
+        lines.append(("URL", shown))
+        if parts.query:
+            lines.append(("鉴权参数", f"已附加 {len(parts.query)} 字符"))
+    else:
+        lines.append(("URL", "无"))
+    if url:
+        lines += [
+            ("类型", info.get("type") or ""),
+            ("音质", LEVEL_LABEL.get(info.get("level", ""), info.get("level", ""))),
+            ("比特率", f"{info['br']} bps" if info.get("br") else ""),
+            ("采样率", f"{info['sr']} Hz" if info.get("sr") else ""),
+        ]
+    if info.get("time"):
+        total = info["time"] // 1000
+        lines.append(("时长", f"{total // 60}:{total % 60:02d}"))
+    lines += [
+        ("大小", _fmt_bytes(info.get("size") or 0)),
+        ("MD5", info.get("md5") or ""),
+    ]
+    if url and info.get("expi"):
+        lines.append(("有效期", f"{info['expi']} 秒"))
+    fee = info.get("fee")
+    if fee is not None:
+        paid = "已购买" if info.get("payed") else "未购买"
+        lines.append(("费用", f"fee={fee} {FEE_LABEL.get(fee, '')} · {paid}"))
+    lines.append(("可用", "是" if url else "否"))
+    if not url and fee in FEE_NEED:
+        lines.append(("原因", FEE_NEED[fee]))
+
+    # 取不到链接时多数字段是空的，留着只是空行
+    lines = [(k, v) for k, v in lines if v]
+
+    max_key = max(cell_len(k) for k, _ in lines)
+    text = Text()
+    for i, (key, value) in enumerate(lines):
+        pad = " " * (max_key - cell_len(key))
+        text.append(f"{key}{pad}  ", style="bold cyan")
+        text.append(value, style="bright_white")
+        if i < len(lines) - 1:
+            text.append("\n")
+
+    console.print(
+        Panel(
+            text,
+            title=f"[bold]下载信息 - {song_id}[/]",
+            border_style="cyan",
+            box=box.ROUNDED,
+        )
+    )
+
+
 def display_song_detail(song: dict) -> None:
     """Display a single song's full metadata."""
     lines = [

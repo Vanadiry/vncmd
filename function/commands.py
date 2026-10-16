@@ -8,6 +8,7 @@ from pathlib import Path
 from rich.markup import escape
 
 from function.api import (
+    fetch_player_url,
     get_account_info,
     get_album_details,
     get_audio_source,
@@ -15,7 +16,6 @@ from function.api import (
     get_lyrics_url,
     get_playlist_details,
     get_song_details,
-    get_song_url,
     search,
 )
 from function.checker import check_audio, has_ffmpeg
@@ -41,6 +41,7 @@ from function.output import (
     abbrev_home,
     console,
     display_album,
+    display_download_detail,
     display_lyrics,
     display_playlist,
     display_search_results,
@@ -115,14 +116,9 @@ def cmd_song(args: argparse.Namespace) -> None:
                 lyric = lyric + "\n\n--- 翻译 ---\n" + tlyric
         display_lyrics(lyric)
 
-    if args.url and not args.download:
+    if args.dlink and not args.download:
         quality = _resolve_quality(args)
-        url = get_song_url(args.id, quality=quality)
-        if url:
-            url_display = url if len(url) <= 80 else f"{url[:77]}..."
-            success(f"流 URL 可用：{url_display}")
-        else:
-            warning("流 URL 不可用")
+        display_download_detail(args.id, fetch_player_url(args.id, quality=quality))
 
     if not args.download:
         return

@@ -114,7 +114,9 @@ def build_parser() -> _ArgumentParser:
     p_song.add_argument("id", type=int, help="曲目 ID")
     p_song.add_argument("--lyrics", "-l", action="store_true", help="显示歌词")
     p_song.add_argument("--tlyric", action="store_true", help="显示翻译歌词")
-    p_song.add_argument("--url", "-u", action="store_true", help="检查流 URL 可用性")
+    p_song.add_argument(
+        "--dlink", "-u", action="store_true", help="显示下载链接与音质、费用等详情"
+    )
     _add_download_args(p_song)
 
     p_al = sub.add_parser("album", help="预览或下载专辑")
