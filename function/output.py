@@ -88,6 +88,15 @@ def display_search_results(query: str, songs: list[dict], total: int) -> None:
     )
 
 
+def _trim_midnight(publish_time: str) -> str:
+    """时间部分是零点时只留日期
+
+    抽样六成里九成半的发行时间都是零点，那段后缀是纯噪声。
+    只在这里处理，原始字符串不动，它还要被写进音频标签。
+    """
+    return publish_time[:10] if publish_time.endswith("00:00:00") else publish_time
+
+
 def display_song_detail(song: dict) -> None:
     """Display a single song's full metadata."""
     lines = [
@@ -95,7 +104,7 @@ def display_song_detail(song: dict) -> None:
         ("艺术家", _artist_text(song["artist"], "bright_white")),
         ("专辑", song["album"]),
         ("封面", song["cover"]),
-        ("发行时间", song["publish_time"]),
+        ("发行时间", _trim_midnight(song["publish_time"])),
         ("时长", song["duration"]),
     ]
 

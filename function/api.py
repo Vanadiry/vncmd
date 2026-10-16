@@ -92,7 +92,10 @@ def _fmt_duration(ms: int | None) -> str:
         return ""
     total_sec = ms // 1000
     m, s = divmod(total_sec, 60)
-    return f"{m}:{s:02d}"
+    # 不足一小时的照旧，超过的补出小时位，
+    # 194:25 这种写法看不出量级，串烧与长现场尤其吃亏
+    h, m = divmod(m, 60)
+    return f"{h}:{m:02d}:{s:02d}" if h else f"{m}:{s:02d}"
 
 
 def _first_number(value) -> int | None:
