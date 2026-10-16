@@ -3,6 +3,7 @@ import shutil
 import sys
 import time
 from concurrent.futures import ThreadPoolExecutor, as_completed
+from contextlib import suppress
 from datetime import datetime
 from pathlib import Path
 from queue import Empty, Queue
@@ -90,6 +91,19 @@ def _move_unique(temp_path: str, base: str, ext: str, directory: str) -> str:
         target = resolve_path(base, ext, directory)
         shutil.move(temp_path, target)
     return target
+
+
+def _discard_temp(paths: list[str]) -> None:
+    """丢弃残留的临时文件
+
+    下载中断或内容校验不过时，半截文件或错误页会留在 _temp 里。
+    这些文件既占地方又没用了，下一轮同名的歌还会撞上。
+    """
+    for p in paths:
+        if not p:
+            continue
+        with suppress(OSError):
+            Path(p).unlink()
 
 
 def make_session_dir(base_dir):
@@ -238,15 +252,17 @@ def download_song(
             use_curl=use_curl,
         )
         if err:
+            # 半截文件或错误页留着没用，还会占着 _temp 里的同名位置
+            _discard_temp([temp_music_path])
             return False, f"下载失败：{err}", None
         if Path(temp_music_path).stat().st_size == 0:
-            Path(temp_music_path).unlink()
+            _discard_temp([temp_music_path])
             return False, "下载文件为空", None
 
         # 先用服务端声明的大小与 md5 过一道，纯读文件比全量解码快得多
         ok, msg = check_md5(temp_music_path, song_md5, song_size)
         if not ok:
-            Path(temp_music_path).unlink()
+            _discard_temp([temp_music_path])
             return False, f"完整性校验失败：{msg}", None
 
         if run_check is None:
@@ -254,7 +270,7 @@ def download_song(
         if run_check and has_ffmpeg():
             ok, msg = check_audio(temp_music_path)
             if not ok:
-                Path(temp_music_path).unlink()
+                _discard_temp([temp_music_path])
                 return False, f"完整性校验失败：{msg}", None
 
         # Process lyrics for embedding
