@@ -5,9 +5,9 @@
 之前用的下载器不好使了，又找不到其他能嵌入元数据，还方便的工具，所以自己造了一个。
 
 本项目不提供越权操作，如果你想下载 VIP 音乐，那你要确保你是 VIP。  
-本项目仅供学习交流，严禁用于商业用途。使用本项目获取的数据，请于 24 小时内删除。
+本项目仅供学习交流，使用本项目获取的数据，请于 24 小时内删除。
 
-[GitHub](https://github.com/Vanadiry/vncmd)｜[PyPI](https://pypi.org/project/vncmd/)｜[Blog](https://magic.vanadiry.com/wiki/vncmd/)
+[GitHub](https://github.com/Vanadiry/vncmd)｜[PyPI](https://pypi.org/project/vncmd/)｜[Blog](https://magic.vanadiry.com/wiki/vncmd/)｜[LICENSE](LICENSE)
 
 ## 功能
 
