@@ -265,13 +265,18 @@ def display_download_detail(song_id: int, name: str, info: dict) -> None:
 
 def display_song_detail(song: dict) -> None:
     """Display a single song's full metadata."""
+    # 专辑名后面带出专辑 ID，方便直接拿去查专辑详情。
+    # 没有专辑条目的曲目接口给的是 id 为 0，那不是真的专辑，别印出去。
+    # 旧缓存里存过 None，or 兜住，免得 Text.append 收到 None 直接抛
+    album = song.get("album") or ""
+    album_id = song.get("album_id") or 0
     lines = [
-        ("标题", song["title"]),
-        ("艺术家", _artist_text(song["artist"], "bright_white")),
-        ("专辑", song["album"]),
-        ("封面", song["cover"]),
-        ("发行时间", _trim_midnight(song["publish_time"])),
-        ("时长", song["duration"]),
+        ("标题", song["title"] or ""),
+        ("艺术家", _artist_text(song["artist"] or "", "bright_white")),
+        ("专辑", f"{album}（{album_id}）" if album_id > 0 else album),
+        ("封面", song["cover"] or ""),
+        ("发行时间", _trim_midnight(song["publish_time"] or "")),
+        ("时长", song["duration"] or ""),
     ]
 
     # 键多为中文，len 按字符数算会短一格，补齐要用 cell_len

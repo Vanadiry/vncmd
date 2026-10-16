@@ -136,6 +136,17 @@ def _clean(text) -> str:
     return _BLANK_FILLER.sub("", _INVISIBLE.sub("", text))
 
 
+def _text(value) -> str:
+    """取字符串字段，键存在但值为 null 时给空串
+
+    _clean 遇到非字符串会原样返回，那是给意外类型兜底的，
+    但字段值为 null 时不能把 None 传下去：它会一路流到面板里，
+    rich 的 Text.append 只收 str 与 Text，收到 None 直接抛 TypeError。
+    接口对没有专辑条目的曲目确实返回 name 为 null。
+    """
+    return _clean(value) if isinstance(value, str) else ""
+
+
 def _normalize_song(song: dict) -> dict:
     """把 v0 或 v1 返回的 song 对象转成统一结构"""
     if "ar" in song:
@@ -147,11 +158,13 @@ def _normalize_song(song: dict) -> dict:
     album = song.get("album") or {}
     return {
         "id": song["id"],
-        "title": _clean(song["name"]),
+        "title": _text(song.get("name")),
         "artist": _clean(", ".join(a["name"] for a in song.get("artists") or [])),
-        "album": _clean(album.get("name", "")),
-        "album_id": album.get("id"),
-        "cover": album.get("picUrl", ""),
+        "album": _text(album.get("name")),
+        # 没有专辑条目的曲目接口返回 id 为 0，不是真的专辑，
+        # 显示时要按「没有」处理而不是印一个 0 出去
+        "album_id": album.get("id") or 0,
+        "cover": _text(album.get("picUrl")),
         "publish_time": _fmt_publish_time(album.get("publishTime")),
         "duration": _fmt_duration(song.get("duration")),
         "track_no": _first_number(song.get("no")),
