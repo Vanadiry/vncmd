@@ -46,6 +46,71 @@ _PERM_MARKS = {
 }
 
 
+def _build_track_table(
+    tracks: list[dict],
+    title: str | None = None,
+    show_album: bool = True,
+    blocked: list[bool | None] | None = None,
+) -> Table:
+    """按列配置拼出曲目表，渲染交给调用方
+
+    拆出来是为了让测试量到真的那份配置。早先测试里抄了一份列定义，
+    于是真表格改了样式或换行方式，测试照样全绿。
+    """
+    show_perm = (
+        blocked is not None
+        and len(blocked) == len(tracks)
+        and any(b is not False for b in blocked)
+    )
+
+    table = Table(
+        title=title,
+        box=box.ROUNDED,
+        show_header=True,
+        header_style="bold cyan",
+        expand=True,
+    )
+    # ratio 不是宽度上限，是空间不够时三列的退让顺序。
+    # 4:3:2 意味着专辑最少，但缺了它，遇到超长字段时 rich 按宽度比例收缩，
+    # 最长的那列会通吃，标题能被压到三个汉字宽
+    # 这里刻意不设 max_width：终端本来就是终极约束，再设一遍是二次约束。
+    # 实测 4 组数据 × 45 个宽度，去掉 max_width 输出完全相同，它一直是死配置。
+    # 序号、ID、时长不设 ratio，宽度就按内容自然算，不会被摊宽
+    table.add_column("#", style="dim")
+    table.add_column("ID", style="dim")
+    # 三列都要显式给 overflow="fold"：rich 的列表头默认 ellipsis，
+    # 遇到比整列还长的词就切一刀加省略号。
+    # 「鏡音リン&天馬司&鳳えむ&草薙寧々&神代類」这种 40 格的长串在 40 格的列里
+    # 会被切成「鏡音リン&天馬司&鳳えむ&草薙寧々&神代 …」，接口明明返回了完整的
+    table.add_column("标题", style="bright_white", ratio=4, overflow="fold")
+    table.add_column("艺术家", style="bright_white", ratio=3, overflow="fold")
+    if show_album:
+        # 标题、艺术家、专辑三列都自由换行，谁长谁折，各折各的。
+        # overflow 必须显式给 fold：rich 的列表头默认是 ellipsis，
+        # 日文与中文这种没有空格的名字会被一刀切成「エイプ …」
+        table.add_column("专辑", style="bright_white", ratio=2, overflow="fold")
+    if show_perm:
+        table.add_column("权限", justify="center")
+    table.add_column("时长", style="blue", justify="right")
+
+    for i, t in enumerate(tracks, 1):
+        row = [
+            str(i),
+            str(t["id"]),
+            escape(t["title"]),
+            _artist_text(t["artist"], "bright_white"),
+        ]
+        # 专辑视图下每行的专辑名都是同一个，列表里再列一遍没有信息量
+        if show_album:
+            row.append(escape(t["album"]))
+        if show_perm:
+            mark, style = _PERM_MARKS[blocked[i - 1]]
+            row.append(Text(mark, style=style))
+        row.append(t["duration"])
+        table.add_row(*row)
+    return table
+
+
 def _display_track_table(
     tracks: list[dict],
     total_count: int,
@@ -62,48 +127,9 @@ def _display_track_table(
     长度不等长时整列不显示：短了会 IndexError，长了会整列错位，
     而错位的权限标记比没有这一列更糟。
     """
-    show_perm = (
-        blocked is not None
-        and len(blocked) == len(tracks)
-        and any(b is not False for b in blocked)
+    console.print(
+        _build_track_table(tracks, title, show_album=show_album, blocked=blocked)
     )
-
-    table = Table(
-        title=title,
-        box=box.ROUNDED,
-        show_header=True,
-        header_style="bold cyan",
-        expand=True,
-    )
-    # ratio 只给标题、艺术家、专辑这三列，rich 据此判断哪些列参与富余宽度分配。
-    # 序号、ID、时长不设 ratio，宽度就按内容自然算，不会被摊宽
-    table.add_column("#", style="dim")
-    table.add_column("ID", style="dim")
-    table.add_column("标题", style="bright_white", ratio=4, max_width=48)
-    table.add_column("艺术家", style="yellow", ratio=3, max_width=36)
-    if show_album:
-        table.add_column("专辑", style="green", ratio=2, max_width=32, no_wrap=True)
-    if show_perm:
-        table.add_column("权限", justify="center")
-    table.add_column("时长", style="blue", justify="right")
-
-    for i, t in enumerate(tracks, 1):
-        row = [
-            str(i),
-            str(t["id"]),
-            escape(t["title"]),
-            _artist_text(t["artist"], "yellow"),
-        ]
-        # 专辑视图下每行的专辑名都是同一个，列表里再列一遍没有信息量
-        if show_album:
-            row.append(escape(t["album"]))
-        if show_perm:
-            mark, style = _PERM_MARKS[blocked[i - 1]]
-            row.append(Text(mark, style=style))
-        row.append(t["duration"])
-        table.add_row(*row)
-
-    console.print(table)
 
     remaining = total_count - len(tracks)
     if remaining > 0:

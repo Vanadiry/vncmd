@@ -44,20 +44,24 @@ def test_搜索视图有专辑列(render):
     assert "专辑" in render(160, show_album=True)[1]
 
 
-def test_专辑列不折行(render):
-    # no_wrap 之前专辑名会折成两三行，行高不齐
+def test_专辑名过长时折行(render):
+    """专辑与标题、艺术家一样自由换行，谁长谁折"""
     lines = render(100, show_album=True)
     body = [ln for ln in lines[2:-1] if ln.startswith("│")]
-    assert len(body) == len(TRACKS), "专辑名折行导致行数变多"
+    assert len(body) > len(TRACKS), "专辑名过长时应当折行"
 
 
-def test_专辑名过长时省略而不是折行(render):
-    lines = render(100, show_album=True)
-    assert "…" in lines[3], "专辑名应当被省略号截断"
+def test_专辑视图可以比搜索视图高(render):
+    """专辑不再被限制在前两列的行高之内"""
+    assert len(render(100, show_album=True)) >= len(render(100, show_album=False))
 
 
-def test_专辑视图行数与搜索视图一致(render):
-    assert len(render(100, show_album=False)) == len(render(100, show_album=True))
+def test_专辑名不被省略号切掉(render):
+    """折行而不是截断：截断会断在词中间，认不出是什么专辑"""
+    out = "\n".join(render(160, show_album=True))
+    assert "…" not in out
+    for t in TRACKS:
+        assert t["album"] in out, t["album"]
 
 
 @pytest.mark.parametrize("cp", ["", "‌", "‍", "⁠", "﻿"])
