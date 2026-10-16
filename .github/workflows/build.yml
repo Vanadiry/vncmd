@@ -26,23 +26,28 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - uses: actions/setup-python@v5
+      - name: Install uv
+        uses: astral-sh/setup-uv@v6
         with:
           python-version: "3.11"
+          enable-cache: true
+          cache-dependency-glob: uv.lock
 
-      - name: Install dependencies
-        run: |
-          pip install -e . nuitka
+      - name: Install project
+        run: uv sync --frozen
+
+      - name: Install nuitka
+        run: uv pip install nuitka
 
       - name: Build (Linux/macOS)
         if: runner.os != 'Windows'
         run: |
-          nuitka --standalone --onefile --output-dir=dist --output-filename=vncmd vncmd.py --assume-yes-for-downloads
+          uv run nuitka --standalone --onefile --output-dir=dist --output-filename=vncmd vncmd.py --assume-yes-for-downloads
 
       - name: Build (Windows)
         if: runner.os == 'Windows'
         run: |
-          nuitka --standalone --onefile --output-dir=dist --output-filename=vncmd vncmd.py --msvc=latest --assume-yes-for-downloads
+          uv run nuitka --standalone --onefile --output-dir=dist --output-filename=vncmd vncmd.py --msvc=latest --assume-yes-for-downloads
 
       - name: Package binary
         shell: bash
@@ -62,11 +67,13 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
+      - name: Install uv
+        uses: astral-sh/setup-uv@v6
         with:
           python-version: "3.11"
-      - run: pip install build
-      - run: python -m build
+          enable-cache: true
+          cache-dependency-glob: uv.lock
+      - run: uv build
       - uses: actions/upload-artifact@v4
         with:
           name: sdist

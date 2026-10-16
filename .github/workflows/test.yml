@@ -14,20 +14,27 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - uses: actions/setup-python@v5
+      - name: Install uv
+        uses: astral-sh/setup-uv@v6
         with:
-          python-version: "3.11"
+          enable-cache: true
+          cache-dependency-glob: uv.lock
 
-      - name: Install dependencies
-        run: pip install -e . pytest pytest-cov ruff
+      - name: Install project
+        run: uv sync --frozen --dev
+
+      # ruff 不在 dev 组里，它只用来做格式化与静态检查，不参与运行
+      - name: Install linter
+        run: uv tool install ruff
 
       - name: Check formatting
-        run: ruff format --check .
+        run: uvx ruff format --check .
 
       - name: Lint
-        run: ruff check .
+        run: uvx ruff check .
 
-      # 标记为 network 的测试会打真实 API，需要 Cookie 且耗时较长，
-      # 在 PR 阶段跑会频繁超时，等耗时问题处理完再加进 CI
+      # 刻意不设 TZ：发行时间走本地时区，测试用 as_tz 自己钉住断言。
+      # runner 默认就是 UTC，这样任何新写的时区相关断言都会当场暴露，
+      # 而不是被一个固定的 TZ 变量掩盖过去。
       - name: Unit tests
-        run: pytest -m "not network" --cov=function --cov-report=term-missing
+        run: uv run pytest -m "not network" --cov=function --cov-report=term-missing
