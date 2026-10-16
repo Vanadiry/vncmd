@@ -2,6 +2,7 @@ import json
 import re
 import time
 from contextlib import suppress
+from threading import Lock
 from urllib.parse import quote
 
 import requests
@@ -29,43 +30,53 @@ HEADERS = {
 }
 
 _session = None
+_session_lock = Lock()
 
 
-def _get_session():
+def _build_session() -> requests.Session:
+    sess = requests.Session()
+    sess.headers.update(HEADERS)
+
+    retry = Retry(
+        total=3,
+        backoff_factor=0.5,
+        status_forcelist=[500, 502, 503, 504],
+        allowed_methods={"GET"},
+    )
+    adapter = HTTPAdapter(max_retries=retry)
+    sess.mount("http://", adapter)
+    sess.mount("https://", adapter)
+
+    cookie = get_cookie()
+    if cookie:
+        for item in cookie.split(";"):
+            item = item.strip()
+            if "=" not in item:
+                continue
+            name, value = item.split("=", 1)
+            name = name.strip()
+            value = value.strip()
+            try:
+                value.encode("latin-1")
+            except UnicodeEncodeError:
+                # 截断后的值与原值不同，设上去网易云认不出用户，
+                # 表现是登录态看着有却不生效。这类值多半是复制时没做 URL 编码，
+                # 宁可跳过并出声，不要静默塞一个错的值
+                warning(f"Cookie {name} 含非 latin-1 字符，已跳过")
+                continue
+            if name and value:
+                sess.cookies.set(name, value, domain="music.163.com")
+    return sess
+
+
+def _get_session() -> requests.Session:
+    # 下载走线程池，多个 worker 可能同时走到这里。
+    # 检查放在锁外让常态不加锁，真正要建的那次在锁内再确认一遍
     global _session
     if _session is None:
-        _session = requests.Session()
-        _session.headers.update(HEADERS)
-
-        retry = Retry(
-            total=3,
-            backoff_factor=0.5,
-            status_forcelist=[500, 502, 503, 504],
-            allowed_methods={"GET"},
-        )
-        adapter = HTTPAdapter(max_retries=retry)
-        _session.mount("http://", adapter)
-        _session.mount("https://", adapter)
-
-        cookie = get_cookie()
-        if cookie:
-            for item in cookie.split(";"):
-                item = item.strip()
-                if "=" not in item:
-                    continue
-                name, value = item.split("=", 1)
-                name = name.strip()
-                value = value.strip()
-                try:
-                    value.encode("latin-1")
-                except UnicodeEncodeError:
-                    # 截断后的值与原值不同，设上去网易云认不出用户，
-                    # 表现是登录态看着有却不生效。这类值多半是复制时没做 URL 编码，
-                    # 宁可跳过并出声，不要静默塞一个错的值
-                    warning(f"Cookie {name} 含非 latin-1 字符，已跳过")
-                    continue
-                if name and value:
-                    _session.cookies.set(name, value, domain="music.163.com")
+        with _session_lock:
+            if _session is None:
+                _session = _build_session()
     return _session
 
 
