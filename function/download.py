@@ -185,7 +185,10 @@ def fetch_audio(
         )
 
     try:
-        resp = _get_dl_session().get(url, stream=True, timeout=(15, 10))
+        # 读超时给到 30 秒，原先的 10 秒对 25 MB 单连接过于激进，
+        # 传输中只要卡一下就整个掐断。curl 那边用
+        # --speed-limit 1024 --speed-time 30 表达同样的语义
+        resp = _get_dl_session().get(url, stream=True, timeout=(15, 30))
         total = int(resp.headers.get("content-length", 0))
 
         if resp.status_code != 200:
