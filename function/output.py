@@ -37,12 +37,37 @@ def _artist_text(artist: str, base_style: str) -> Text:
     return text
 
 
+# 权限三态：下不了、能下、看不出来
+# 用符号而不是文字，一格宽度摆得下，标题能多拿三格
+_PERM_MARKS = {
+    True: ("✗", "red"),
+    False: ("✓", "green"),
+    None: ("?", "yellow"),
+}
+
+
 def _display_track_table(
     tracks: list[dict],
     total_count: int,
     title: str | None = None,
     show_album: bool = True,
+    blocked: list[bool | None] | None = None,
 ) -> None:
+    """显示曲目表
+
+    blocked 是与 tracks 等长的逐行判定：True 为下不了，False 为能下，
+    None 为看不出来。整列都是 False 时不显示，搜索表已经挤到标题和艺术家
+    都在截断，能不占地方就不占。
+
+    长度不等长时整列不显示：短了会 IndexError，长了会整列错位，
+    而错位的权限标记比没有这一列更糟。
+    """
+    show_perm = (
+        blocked is not None
+        and len(blocked) == len(tracks)
+        and any(b is not False for b in blocked)
+    )
+
     table = Table(
         title=title,
         box=box.ROUNDED,
@@ -58,6 +83,8 @@ def _display_track_table(
     table.add_column("艺术家", style="yellow", ratio=3, max_width=36)
     if show_album:
         table.add_column("专辑", style="green", ratio=2, max_width=32, no_wrap=True)
+    if show_perm:
+        table.add_column("权限", justify="center")
     table.add_column("时长", style="blue", justify="right")
 
     for i, t in enumerate(tracks, 1):
@@ -70,6 +97,9 @@ def _display_track_table(
         # 专辑视图下每行的专辑名都是同一个，列表里再列一遍没有信息量
         if show_album:
             row.append(escape(t["album"]))
+        if show_perm:
+            mark, style = _PERM_MARKS[blocked[i - 1]]
+            row.append(Text(mark, style=style))
         row.append(t["duration"])
         table.add_row(*row)
 
@@ -81,10 +111,15 @@ def _display_track_table(
         info(f"还有 {remaining} 首曲目未显示")
 
 
-def display_search_results(query: str, songs: list[dict], total: int) -> None:
+def display_search_results(
+    query: str, songs: list[dict], total: int, blocked: list[bool | None] | None = None
+) -> None:
     """Display search results as a table."""
     _display_track_table(
-        songs, total, title=f"搜索：「{escape(query)}」  —  共 {total} 首"
+        songs,
+        total,
+        title=f"搜索：「{escape(query)}」  —  共 {total} 首",
+        blocked=blocked,
     )
 
 

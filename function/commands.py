@@ -18,6 +18,7 @@ from function.api import (
     get_lyrics_url,
     get_playlist_details,
     get_song_details,
+    permission_verdict,
     search,
 )
 from function.checker import check_audio, has_ffmpeg
@@ -95,7 +96,10 @@ def cmd_search(args: argparse.Namespace) -> None:
         warning("未找到结果。")
         return
 
-    display_search_results(args.query, result["songs"], result["total"])
+    # 账号状态 main 里已经查过，这里读的是进程内缓存，不发请求
+    account = get_account_info()
+    blocked = [permission_verdict(s, account) for s in result["songs"]]
+    display_search_results(args.query, result["songs"], result["total"], blocked)
 
 
 def cmd_song(args: argparse.Namespace) -> None:

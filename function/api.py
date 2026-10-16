@@ -343,6 +343,8 @@ def search(q: str, limit: int = 30, offset: int = 0) -> dict:
                 "cover": (s.get("al") or {}).get("picUrl", ""),
                 "publish_time": _fmt_publish_time(s.get("publishTime")),
                 "duration": _fmt_duration(s.get("dt")),
+                # 搜索结果里就有 fee，判断能不能下不必再发请求
+                "fee": s.get("fee"),
             }
         )
 
@@ -533,3 +535,30 @@ def account_needs_check() -> bool:
         return False
     cached = load_account()
     return not (cached and account_is_fresh(cached))
+
+
+# 无会员时这两档都下不了，其余的无会员也能下
+_FEE_NEED_VIP = {1, 4}
+
+
+def permission_verdict(song: dict, account: dict | None) -> bool | None:
+    """判断当前账号能不能下这一首
+
+    三态：True 为确定下不了，False 为确定能下，None 为看不出来。
+    两处返回 None 的理由一样，都是信息不够而不是结论相反：
+
+    - 查不出账号状态时无从判断，标成下不了是在编
+    - 接口没给 fee 时同上，标成能下同样是在编
+
+    有会员一律给 False。实测有会员时 fee=1 的 205 首全部能下，
+    而 fee=4 要看专辑买没买过，接口不给这个信息，
+    样本里「有会员但没买过」这个组合没出现过，没法证伪就不断言。
+    """
+    if not account:
+        return None
+    if account.get("vip"):
+        return False
+    fee = song.get("fee")
+    if fee is None:
+        return None
+    return fee in _FEE_NEED_VIP
