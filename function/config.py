@@ -158,13 +158,21 @@ def _die(errors: list[str]) -> None:
     sys.exit(1)
 
 
+def _user_path(value: str) -> Path:
+    """展开用户填的路径，相对的挂到 VNCMD_HOME 下
+
+    用 os.path.expanduser 而非 Path.expanduser，用户名不存在时前者原样返回，
+    后者抛 RuntimeError，配置里误写一个 ~someone 会变成加载崩溃。
+    绝对路径直接返回，不与 VNCMD_HOME 拼接。
+    """
+    path = os.path.expanduser(value)
+    return Path(path) if os.path.isabs(path) else VNCMD_HOME / path
+
+
 def get_download_dir() -> str:
     path = _get_cfg()["download"]["dir"] or ""
     if path:
-        path = os.path.expanduser(path)
-        if not os.path.isabs(path):
-            path = str(VNCMD_HOME / path)
-        return path
+        return str(_user_path(path))
     return str(Path.home() / "Downloads" / "vncmd-dl")
 
 
@@ -236,7 +244,7 @@ def get_cache_ttl() -> int:
 
 def get_cache_dir() -> str:
     # 不展开 ~ 会在 VNCMD_HOME 下建出名为 ~ 的目录
-    return str(VNCMD_HOME / os.path.expanduser(_get_cfg()["cache"]["dir"]))
+    return str(_user_path(_get_cfg()["cache"]["dir"]))
 
 
 def is_cache_enabled() -> bool:
