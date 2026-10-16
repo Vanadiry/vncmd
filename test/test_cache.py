@@ -1,4 +1,3 @@
-import json
 import os
 import time
 from pathlib import Path
@@ -109,9 +108,18 @@ def test_非法ttl被拦下(monkeypatch, tmp_path, bad):
         config_mod.validate_config(quiet=True)
 
 
-def test_info_json不是合法JSON会抛(cached):
-    # 读端的容错归 #26，这里锁住当前行为不被顺手改掉
+def test_info_json不是合法JSON时按未命中处理(cached, capsys):
+    # 坏文件不该让后续每次运行都崩，出声后退回重新拉取
     cache_mod.put_song(6, {"title": "x"})
     (cache_mod._song_dir(6) / "info.json").write_text("{坏", encoding="utf-8")
-    with pytest.raises(json.JSONDecodeError):
-        cache_mod.get_song(6)
+    assert cache_mod.get_song(6) is None
+    assert "已损坏" in capsys.readouterr().out
+
+
+def test_缓存文件损坏后能自愈(cached):
+    # 返回 None 之后下一次写入会覆盖坏文件，不留死角
+    cache_mod.put_song(7, {"title": "x"})
+    (cache_mod._song_dir(7) / "info.json").write_text("{坏", encoding="utf-8")
+    cache_mod.get_song(7)
+    cache_mod.put_song(7, {"title": "y"})
+    assert cache_mod.get_song(7) == {"title": "y"}

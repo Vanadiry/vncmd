@@ -1,7 +1,7 @@
-import json
 from pathlib import Path
 
 from function.config import get_cache_dir
+from function.jsonstore import read_json_safe, write_json_atomic
 from function.output import info
 
 _CHECKPOINT_DIR = None
@@ -23,12 +23,12 @@ def load_checkpoint(dl_type: str, dl_id: str) -> dict | None:
     path = get_checkpoint_path(dl_type, dl_id)
     if not path.exists():
         return None
-    return json.loads(path.read_text(encoding="utf-8"))
+    # 坏掉的断点会带着整个专辑永远下不完，读不出来时当作没有断点重新开始
+    return read_json_safe(path, None, what="下载断点")
 
 
 def save_checkpoint(dl_type: str, dl_id: str, data: dict) -> None:
-    path = get_checkpoint_path(dl_type, dl_id)
-    path.write_text(json.dumps(data, ensure_ascii=False, indent=2), encoding="utf-8")
+    write_json_atomic(get_checkpoint_path(dl_type, dl_id), data)
 
 
 def create_checkpoint(

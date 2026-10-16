@@ -24,6 +24,7 @@ from function.config import (
     resolve_output_dir,
 )
 from function.downloader import download_song_batch
+from function.jsonstore import read_json_safe, write_json_atomic
 from function.output import (
     console,
     error,
@@ -98,11 +99,21 @@ def create_tracker(name: str) -> None:
 
 
 def load_songs_db(name: str) -> list[dict]:
+    """读曲目库，主文件坏了退回 backup_db 留下的那份
+
+    这里不能像缓存那样读不出来就当空：曲目库是用户攒下来的，
+    返回空列表会被后续同步当成「没有需要下载的曲目」，等于静默清空。
+    """
     path = _songs_path(name)
     if not path.exists():
         return []
-    data = json.loads(path.read_text(encoding="utf-8"))
-    return data.get("songs", [])
+    data = read_json_safe(path, None, what="曲目库")
+    if data is None:
+        bak = path.with_name(f"{path.name}.bak")
+        data = read_json_safe(bak, None, what="曲目库备份")
+        if data is not None:
+            warning(f"已改用备份：{bak}")
+    return data.get("songs", []) if isinstance(data, dict) else []
 
 
 def backup_db(name: str) -> None:
@@ -121,9 +132,7 @@ def save_songs_db(name: str, songs: list[dict]) -> None:
         "updated_at": datetime.now(UTC).strftime("%Y-%m-%dT%H:%M:%SZ"),
         "songs": songs,
     }
-    _songs_path(name).write_text(
-        json.dumps(data, ensure_ascii=False, indent=2), encoding="utf-8"
-    )
+    write_json_atomic(_songs_path(name), data)
 
 
 def save_diff(name: str, comparison: dict) -> None:
@@ -151,7 +160,9 @@ def load_diff(name: str) -> dict:
     path = _diff_path(name)
     if not path.exists():
         return {"added": [], "removed": [], "changed": []}
-    return json.loads(path.read_text(encoding="utf-8"))
+    empty = {"added": [], "removed": [], "changed": []}
+    data = read_json_safe(path, None, what="变更记录")
+    return data if isinstance(data, dict) else empty
 
 
 def show_tracker(name: str) -> None:

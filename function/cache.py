@@ -1,8 +1,8 @@
-import json
 import time
 from pathlib import Path
 
 from function.config import get_cache_dir, get_cache_ttl, is_cache_enabled
+from function.jsonstore import read_json_safe, write_json_atomic
 
 
 def _song_dir(song_id: int) -> Path:
@@ -41,14 +41,13 @@ def get_song(song_id: int) -> dict | None:
     path = _song_dir(song_id) / "info.json"
     if not path.exists() or _is_stale(path):
         return None
-    return json.loads(path.read_text(encoding="utf-8"))
+    return read_json_safe(path, None, what=f"曲目 {song_id} 的缓存")
 
 
 def put_song(song_id: int, data: dict) -> None:
     if not is_cache_enabled():
         return
-    path = _song_dir(song_id) / "info.json"
-    path.write_text(json.dumps(data, ensure_ascii=False), encoding="utf-8")
+    write_json_atomic(_song_dir(song_id) / "info.json", data, indent=None)
 
 
 def get_lyrics(song_id: int) -> dict | None:
