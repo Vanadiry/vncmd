@@ -2,6 +2,7 @@
 
 import shutil
 import subprocess
+import threading
 
 import pytest
 
@@ -242,6 +243,49 @@ class TestValidation:
 
 class TestAgainstRealCurl:
     """真跑一次 curl，确认参数拼得对、退出码读得到"""
+
+    def test_海量_stderr_不会阻塞(self, monkeypatch, tmp_path):
+        """curl 写满 stderr 时必须照样下完，不能卡死在管道上
+
+        管道缓冲区约 64 KB，超出后 curl 阻塞在 write，而 _wait_curl 只轮询
+        returncode，两边死锁。--trace-ascii /dev/stderr 稳定复现。
+        """
+        if not shutil.which("curl"):
+            pytest.skip("没装 curl")
+        payload = b"x" * 3_000_000
+        src = tmp_path / "big.bin"
+        src.write_bytes(payload)
+        dst = tmp_path / "out.bin"
+        monkeypatch.setattr(
+            download, "get_curl_arg", lambda: "--trace-ascii /dev/stderr"
+        )
+
+        box = []
+        worker = threading.Thread(
+            target=lambda: box.append(
+                download._fetch_audio_curl(src.as_uri(), str(dst), "T")
+            ),
+            daemon=True,
+        )
+        worker.start()
+        worker.join(timeout=45)
+        if worker.is_alive():
+            pytest.fail("curl 被 stderr 阻塞，45 秒仍未结束")
+
+        assert box == [None], f"应下载成功，实际 {box}"
+        assert dst.read_bytes() == payload
+
+    def test_stderr_内容仍会带回错误信息(self, tmp_path):
+        """改成临时文件后，报错里的 curl 原始输出不能丢"""
+        if not shutil.which("curl"):
+            pytest.skip("没装 curl")
+        missing = tmp_path / "missing" / "x.flac"
+        dst = tmp_path / "out.bin"
+        err = download._fetch_audio_curl(missing.as_uri(), str(dst), "T")
+        assert err is not None
+        assert "curl" in err
+        # 退出码说明之外还要带上 curl 自己的话，否则用户无从判断原因
+        assert err.split("：", 1)[-1].strip(), "错误说明里没有 curl 的原始输出"
 
     def test_downloads_and_advances(self, tmp_path):
         if not shutil.which("curl"):

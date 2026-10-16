@@ -3,6 +3,7 @@ import shlex
 import shutil
 import subprocess
 import sys
+import tempfile
 import time
 from itertools import chain
 
@@ -104,39 +105,44 @@ def _fetch_audio_curl(
 
     与 ``fetch_audio`` 同签名好让上层无感切换。
     """
-    try:
-        proc = subprocess.Popen(
-            _curl_argv(url, path),
-            stdout=subprocess.DEVNULL,
-            stderr=subprocess.PIPE,
-        )
-    except OSError as e:
-        return f"无法启动 curl：{e}"
+    # stderr 落临时文件而不是管道。管道缓冲区约 64 KB，curl 写满后会阻塞在
+    # write 上，而 _wait_curl 只轮询 returncode，不读管道，两边就此死锁：
+    # 下载永久卡住且进度条停在原地。落文件则没有这个上限。
+    with tempfile.TemporaryFile() as errf:
+        try:
+            proc = subprocess.Popen(
+                _curl_argv(url, path),
+                stdout=subprocess.DEVNULL,
+                stderr=errf,
+            )
+        except OSError as e:
+            return f"无法启动 curl：{e}"
 
-    try:
-        if progress is not None and task_id is not None:
-            progress.update(task_id, total=total or None)
-            progress.start_task(task_id)
-            _wait_curl(proc, path, lambda n: progress.update(task_id, advance=n))
-        elif sys.stdout.isatty():
-            with Progress(
-                "[progress.description]{task.description}",
-                BarColumn(),
-                DownloadColumn(),
-                TransferSpeedColumn(),
-                TimeRemainingColumn(),
-                transient=True,
-            ) as p:
-                task = p.add_task(escape(label[:40]), total=total or None)
-                _wait_curl(proc, path, lambda n: p.update(task, advance=n))
-        else:
-            _wait_curl(proc, path, lambda _n: None)
-
-        stderr = proc.communicate()[1] or b""
-    finally:
-        if proc.poll() is None:
-            proc.kill()
+        try:
+            if progress is not None and task_id is not None:
+                progress.update(task_id, total=total or None)
+                progress.start_task(task_id)
+                _wait_curl(proc, path, lambda n: progress.update(task_id, advance=n))
+            elif sys.stdout.isatty():
+                with Progress(
+                    "[progress.description]{task.description}",
+                    BarColumn(),
+                    DownloadColumn(),
+                    TransferSpeedColumn(),
+                    TimeRemainingColumn(),
+                    transient=True,
+                ) as p:
+                    task = p.add_task(escape(label[:40]), total=total or None)
+                    _wait_curl(proc, path, lambda n: p.update(task, advance=n))
+            else:
+                _wait_curl(proc, path, lambda _n: None)
+        finally:
+            if proc.poll() is None:
+                proc.kill()
             proc.wait()
+
+        errf.seek(0)
+        stderr = errf.read()
 
     if proc.returncode != 0:
         detail = stderr.decode("utf-8", "replace").strip()
