@@ -94,6 +94,10 @@ def validate_config(quiet: bool = False) -> None:
     if not isinstance(ccy, int) or ccy < 1 or ccy > 16:
         errors.append("[download] concurrency 必须为 1-16 的整数")
 
+    chk = dl.get("check", True)
+    if not isinstance(chk, bool):
+        errors.append("[download] check 必须为 true 或 false")
+
     # [download.song]
     ds = dl.get("song", {})
     if not ds.get("quality"):
@@ -178,6 +182,11 @@ def get_download_dir() -> str:
 
 def get_concurrency() -> int:
     return _get_cfg()["download"]["concurrency"]
+
+
+def get_check_enabled() -> bool:
+    """是否做 ffmpeg 全量解码校验，老配置没写这个键时按开着处理"""
+    return _get_cfg().get("download", {}).get("check", True)
 
 
 def resolve_output_dir(value: str | None) -> str:

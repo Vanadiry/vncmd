@@ -58,6 +58,12 @@ def _add_output_arg(parser: object) -> None:
 def _add_download_args(parser: object, batch: bool = False) -> None:
     """Add download-related args to a parser."""
     parser.add_argument("--download", "-d", action="store_true", help="下载而非仅预览")
+    parser.add_argument(
+        "--check",
+        action="store_true",
+        default=None,
+        help="下载时做 ffmpeg 全量解码校验（默认：使用配置）",
+    )
     _add_quality_arg(parser)
     _add_output_arg(parser)
     if batch:
@@ -70,7 +76,7 @@ def _add_download_args(parser: object, batch: bool = False) -> None:
         )
 
 
-def main() -> None:
+def build_parser() -> _ArgumentParser:
     parser = _ArgumentParser(
         prog="vncmd",
         description="网易云音乐 CLI — 搜索、预览与下载",
@@ -137,6 +143,11 @@ def main() -> None:
     _add_quality_arg(p_tracker)
     _add_output_arg(p_tracker)
 
+    return parser
+
+
+def main() -> None:
+    parser = build_parser()
     args = parser.parse_args()
 
     # 只看帮助时不碰配置与锁，--help 在 parse_args 内部就已退出

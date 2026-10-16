@@ -38,6 +38,7 @@ from function.checkpoint import (
 )
 from function.config import (
     get_auto_trim,
+    get_check_enabled,
     get_concurrency,
     get_credit_prefixes,
     get_credit_scan_lines,
@@ -146,6 +147,7 @@ def download_song(
     cd_no: int | None = None,
     song_size: int = 0,
     song_md5: str = "",
+    run_check: bool | None = None,
 ) -> tuple[bool, str, str | None]:
     """
     Download a song with metadata, lyrics, and cover.
@@ -240,7 +242,9 @@ def download_song(
             Path(temp_music_path).unlink()
             return False, f"完整性校验失败：{msg}", None
 
-        if has_ffmpeg():
+        if run_check is None:
+            run_check = get_check_enabled()
+        if run_check and has_ffmpeg():
             ok, msg = check_audio(temp_music_path)
             if not ok:
                 Path(temp_music_path).unlink()
@@ -337,6 +341,7 @@ def download_song_batch(
     dl_type: str | None = None,
     dl_id: str | None = None,
     limit: int | None = None,
+    run_check: bool | None = None,
 ) -> tuple[int, int, str]:
     """Download a batch of songs with progress display and summary.
 
@@ -546,6 +551,7 @@ def download_song_batch(
                             cd_no=track.get("cd_no"),
                             song_size=source.size,
                             song_md5=source.md5,
+                            run_check=run_check,
                         )
                         if ok:
                             break

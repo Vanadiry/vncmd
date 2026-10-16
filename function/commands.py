@@ -59,10 +59,17 @@ def _download_tracks(
     dl_type: str | None = None,
     dl_id: str | None = None,
     limit: int | None = None,
+    run_check: bool | None = None,
 ) -> None:
     """Shared download for playlists and albums."""
     download_song_batch(
-        tracks, quality, output_dir, dl_type=dl_type, dl_id=dl_id, limit=limit
+        tracks,
+        quality,
+        output_dir,
+        dl_type=dl_type,
+        dl_id=dl_id,
+        limit=limit,
+        run_check=run_check,
     )
 
 
@@ -145,6 +152,7 @@ def cmd_song(args: argparse.Namespace) -> None:
         cd_no=song.get("cd_no"),
         song_size=source.size if source else 0,
         song_md5=source.md5 if source else "",
+        run_check=args.check,
     )
     if ok:
         success(msg)
@@ -174,6 +182,7 @@ def cmd_album(args: argparse.Namespace) -> None:
         dl_type="album",
         dl_id=str(args.id),
         limit=args.limit,
+        run_check=args.check,
     )
 
 
@@ -209,6 +218,7 @@ def cmd_playlist(args: argparse.Namespace) -> None:
         dl_type="playlist",
         dl_id=str(args.id),
         limit=args.limit,
+        run_check=args.check,
     )
 
 

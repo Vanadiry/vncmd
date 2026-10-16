@@ -8,6 +8,8 @@ filename_format = "10"
 content = "012"
 # 并发下载数：1-16（默认 4）
 concurrency = 4
+# 下载后是否做 ffmpeg 全量解码校验；size 与 md5 的校验始终执行
+check = true
 
 [download.song]
 # 音质：128、192、320、999（最高）
