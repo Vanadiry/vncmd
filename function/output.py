@@ -91,7 +91,6 @@ def display_search_results(query: str, songs: list[dict], total: int) -> None:
 def display_song_detail(song: dict) -> None:
     """Display a single song's full metadata."""
     lines = [
-        ("ID", str(song["id"])),
         ("标题", song["title"]),
         ("艺术家", _artist_text(song["artist"], "bright_white")),
         ("专辑", song["album"]),
@@ -114,7 +113,13 @@ def display_song_detail(song: dict) -> None:
         if i < len(lines) - 1:
             text.append("\n")
 
-    panel = Panel(text, title="[bold]曲目详情[/]", border_style="cyan", box=box.ROUNDED)
+    # ID 挪到表头，面板里再列一遍是重复
+    panel = Panel(
+        text,
+        title=f"[bold]曲目详情 - {song['id']}[/]",
+        border_style="cyan",
+        box=box.ROUNDED,
+    )
     console.print(panel)
 
 
@@ -127,7 +132,14 @@ def display_playlist(playlist: dict, max_tracks: int = 100) -> None:
     header.append(f"{playlist['creator']}", style="yellow")
     header.append("  |  曲目数：", style="dim")
     header.append(f"{playlist['track_count']}", style="green")
-    console.print(Panel(header, border_style="cyan", box=box.ROUNDED))
+    console.print(
+        Panel(
+            header,
+            title=f"[bold]歌单详情 - {playlist['id']}[/]",
+            border_style="cyan",
+            box=box.ROUNDED,
+        )
+    )
 
     _display_track_table(playlist["tracks"][:max_tracks], playlist["track_count"])
 
@@ -140,7 +152,14 @@ def display_album(album: dict, max_tracks: int = 100) -> None:
     header.append(f"{album['artist']}", style="yellow")
     header.append("  |  曲目数：", style="dim")
     header.append(f"{album['track_count']}", style="green")
-    console.print(Panel(header, border_style="cyan", box=box.ROUNDED))
+    console.print(
+        Panel(
+            header,
+            title=f"[bold]专辑详情 - {album['id']}[/]",
+            border_style="cyan",
+            box=box.ROUNDED,
+        )
+    )
     _display_track_table(
         album["tracks"][:max_tracks], album["track_count"], show_album=False
     )
