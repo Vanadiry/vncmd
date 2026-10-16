@@ -82,6 +82,7 @@ def test_no_other_tight_timeouts_in_transfer_path():
     """封面对歌词用的是整请求超时，与流式读超时是两回事，别被一起改掉"""
     import function.download as dl
 
-    src = inspect.getsource(dl.fetch_audio)
+    # 读超时现在住在续传循环里，不再在 fetch_audio 本体
+    src = inspect.getsource(dl._fetch_audio_builtin)
     assert "timeout=(15, 30)" in src
     assert "timeout=(15, 10)" not in src

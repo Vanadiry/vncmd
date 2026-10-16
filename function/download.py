@@ -5,6 +5,7 @@ import subprocess
 import sys
 import tempfile
 import time
+from contextlib import suppress
 from itertools import chain
 
 import requests
@@ -29,6 +30,14 @@ _dl_session = None
 # 魔数校验只需前几个字节，MP4 的 ftyp 标记落在偏移 4
 _HEAD_BYTES = 16
 
+# 断流后按 Range 续传的重试次数。CDN 实测支持 Accept-Ranges: bytes，
+# 续传比从零重下省流量，慢连接上尤其明显。
+_RESUME_ATTEMPTS = 3
+
+# curl 里可以靠 -C - 接着下的退出码：18 传输中断、28 低速超时、56 接收失败。
+# 33 不在其中：那是「服务端不支持 Range」，要先把残file 丢掉才谈得上重试。
+_CURL_RESUMABLE = {18, 28, 56}
+
 
 def _get_dl_session():
     global _dl_session
@@ -49,26 +58,19 @@ def _get_dl_session():
     return _dl_session
 
 
-def _curl_argv(url: str, path: str) -> list[str]:
+def _curl_argv(url: str, path: str, resume: bool = True) -> list[str]:
     """拼 curl 的调用参数
 
     ``-o`` 放在用户参数之后，保证目标文件一定是我们的，
     用户误写了 ``-o`` 也只是覆盖不掉，不会把文件写到别处。
     ``--fail`` 必须带，否则 HTTP 错误页会被当正文写进文件并返回 0。
+    ``-C -`` 让 curl 按目标文件已有的大小自动续传。
     """
-    return [
-        "curl",
-        "-sSL",
-        "--fail",
-        "--speed-limit",
-        "1024",
-        "--speed-time",
-        "30",
-        *shlex.split(get_curl_arg() or ""),
-        "-o",
-        path,
-        url,
-    ]
+    argv = ["curl", "-sSL", "--fail", "--speed-limit", "1024", "--speed-time", "30"]
+    if resume:
+        argv += ["-C", "-"]
+    argv += [*shlex.split(get_curl_arg() or ""), "-o", path, url]
+    return argv
 
 
 def _file_size(path: str) -> int:
@@ -78,13 +80,14 @@ def _file_size(path: str) -> int:
         return 0
 
 
-def _wait_curl(proc, path: str, on_bytes) -> None:
+def _wait_curl(proc, path: str, on_bytes, start: int = 0) -> None:
     """等 curl 退出，顺带把目标文件的长大量喂给进度条
 
     curl 没有可供解析的进度输出，直接盯文件大小最省事，
-    也让两条下载路径共用同一套进度接口。
+    也让两条下载路径共用同一套进度接口。``start`` 是续传前的已有长度，
+    只有新增的部分才算进度，否则续传时进度条会从已有大小再跳一遍。
     """
-    last = 0
+    last = start
     while proc.poll() is None:
         size = _file_size(path)
         if size > last:
@@ -108,48 +111,26 @@ def _fetch_audio_curl(
 
     与 ``fetch_audio`` 同签名好让上层无感切换。
     """
-    # stderr 落临时文件而不是管道。管道缓冲区约 64 KB，curl 写满后会阻塞在
-    # write 上，而 _wait_curl 只轮询 returncode，不读管道，两边就此死锁：
-    # 下载永久卡住且进度条停在原地。落文件则没有这个上限。
-    with tempfile.TemporaryFile() as errf:
-        try:
-            proc = subprocess.Popen(
-                _curl_argv(url, path),
-                stdout=subprocess.DEVNULL,
-                stderr=errf,
-            )
-        except OSError as e:
-            return f"无法启动 curl：{e}"
+    for attempt in range(1, _RESUME_ATTEMPTS + 1):
+        have = _file_size(path)
+        # 服务端声明的大小已知且已经下齐，不必再发请求
+        if total and have and have >= total:
+            return None
 
-        try:
-            if progress is not None and task_id is not None:
-                progress.update(task_id, total=total or None)
-                progress.start_task(task_id)
-                _wait_curl(proc, path, lambda n: progress.update(task_id, advance=n))
-            elif sys.stdout.isatty():
-                with Progress(
-                    "[progress.description]{task.description}",
-                    BarColumn(),
-                    DownloadColumn(),
-                    TransferSpeedColumn(),
-                    TimeRemainingColumn(),
-                    transient=True,
-                ) as p:
-                    task = p.add_task(escape(label[:40]), total=total or None)
-                    _wait_curl(proc, path, lambda n: p.update(task, advance=n))
-            else:
-                _wait_curl(proc, path, lambda _n: None)
-        finally:
-            if proc.poll() is None:
-                proc.kill()
-            proc.wait()
-
-        errf.seek(0)
-        stderr = errf.read()
-
-    if proc.returncode != 0:
+        code, stderr = _run_curl(url, path, have, total, label, progress, task_id)
+        if code == 0:
+            break
         detail = stderr.decode("utf-8", "replace").strip()
-        code = proc.returncode
+        last_attempt = attempt >= _RESUME_ATTEMPTS
+        # 33 是「服务端不支持 Range」。实测 curl 不会自己从头来，
+        # 残file 会原封不动卡在原地，所以要丢掉重来
+        if code == 33 and not last_attempt:
+            with suppress(OSError):
+                os.unlink(path)
+            continue
+        # 传输类中断留给下一轮：残file 还在，curl 的 -C - 会接着往下拉
+        if code in _CURL_RESUMABLE and not last_attempt:
+            continue
         # 22 是 --fail 命中 HTTP 错误，单独说明比裸报退出码有用
         head = "curl 传输失败" if code == 22 else f"curl 退出码 {code}"
         return f"{head}：{detail}" if detail else head
@@ -167,6 +148,53 @@ def _fetch_audio_curl(
     if not looks_like_audio(blob):
         return "服务器返回的不是音频"
     return None
+
+
+def _run_curl(url, path, have, total, label, progress, task_id):
+    """跑一次 curl，返回 (退出码, stderr)"""
+    # stderr 落临时文件而不是管道。管道缓冲区约 64 KB，curl 写满后会阻塞在
+    # write 上，而 _wait_curl 只轮询 returncode，不读管道，两边就此死锁：
+    # 下载永久卡住且进度条停在原地。落文件则没有这个上限。
+    with tempfile.TemporaryFile() as errf:
+        try:
+            proc = subprocess.Popen(
+                _curl_argv(url, path),
+                stdout=subprocess.DEVNULL,
+                stderr=errf,
+            )
+        except OSError:
+            raise
+        try:
+            if progress is not None and task_id is not None:
+                progress.update(task_id, total=total or None)
+                progress.start_task(task_id)
+                _wait_curl(
+                    proc,
+                    path,
+                    lambda n: progress.update(task_id, advance=n),
+                    start=have,
+                )
+            elif sys.stdout.isatty():
+                with Progress(
+                    "[progress.description]{task.description}",
+                    BarColumn(),
+                    DownloadColumn(),
+                    TransferSpeedColumn(),
+                    TimeRemainingColumn(),
+                    transient=True,
+                ) as p:
+                    task = p.add_task(escape(label[:40]), total=total or None)
+                    _wait_curl(
+                        proc, path, lambda n: p.update(task, advance=n), start=have
+                    )
+            else:
+                _wait_curl(proc, path, lambda _n: None, start=have)
+        finally:
+            if proc.poll() is None:
+                proc.kill()
+            proc.wait()
+        errf.seek(0)
+        return proc.returncode, errf.read()
 
 
 def fetch_audio(
@@ -203,56 +231,101 @@ def fetch_audio(
             task_id=task_id,
         )
 
-    try:
-        # 读超时给到 30 秒，原先的 10 秒对 25 MB 单连接过于激进，
-        # 传输中只要卡一下就整个掐断。curl 那边用
-        # --speed-limit 1024 --speed-time 30 表达同样的语义
-        resp = _get_dl_session().get(url, stream=True, timeout=(15, 30))
-        total = int(resp.headers.get("content-length", 0))
+    # 读超时给到 30 秒，原先的 10 秒对 25 MB 单连接过于激进，
+    # 传输中只要卡一下就整个掐断。curl 那边用
+    # --speed-limit 1024 --speed-time 30 表达同样的语义
+    return _fetch_audio_builtin(
+        url, path, label, progress=progress, task_id=task_id, expect_total=total
+    )
 
-        if resp.status_code != 200:
-            return f"请求失败：HTTP {resp.status_code}"
 
-        # 200 也会带回错误页，落盘前先看内容是不是音频
-        chunks = resp.iter_content(chunk_size=8192)
-        head = next(chunks, b"")
-        if not looks_like_audio(head):
-            ctype = resp.headers.get("content-type", "未知类型")
-            return f"服务器返回的不是音频：{ctype}"
+def _drain(path: str, stream, mode: str, on_bytes) -> None:
+    """把响应流落盘，边写边报增量"""
+    with open(path, mode) as f:
+        for chunk in stream:
+            f.write(chunk)
+            on_bytes(len(chunk))
 
-        stream = chain([head], chunks)
-        if progress is not None and task_id is not None:
-            progress.update(task_id, total=total or None)
-            progress.start_task(task_id)
-            with open(path, "wb") as f:
-                for chunk in stream:
-                    f.write(chunk)
-                    progress.update(task_id, advance=len(chunk))
-        elif sys.stdout.isatty():
-            with Progress(
-                "[progress.description]{task.description}",
-                BarColumn(),
-                DownloadColumn(),
-                TransferSpeedColumn(),
-                TimeRemainingColumn(),
-                transient=True,
-            ) as p:
-                # 同 _progress_desc，未转义的歌名含 [Live] 会让进度条抛 MarkupError
-                task = p.add_task(escape(label[:40]), total=total or None)
-                with open(path, "wb") as f:
-                    for chunk in stream:
-                        f.write(chunk)
-                        p.update(task, advance=len(chunk))
-        else:
-            with open(path, "wb") as f:
-                for chunk in stream:
-                    f.write(chunk)
-        return None
-    except Exception as e:
-        return str(e)
-    finally:
-        if "resp" in locals():
-            resp.close()
+
+def _fetch_audio_builtin(
+    url: str,
+    path: str,
+    label: str,
+    progress=None,
+    task_id=None,
+    expect_total: int = 0,
+) -> str | None:
+    """流式下载，断流后按 Range 续传
+
+    续传前先看目标文件已有多少，从那个偏移继续；服务端不认 Range 时会
+    回 200 而不是 206，这时只能丢掉已有内容从头写。
+    """
+    last = ""
+    for attempt in range(1, _RESUME_ATTEMPTS + 1):
+        offset = _file_size(path)
+        # 服务端声明的大小已知且已经下齐，不必再发请求
+        if expect_total and offset and offset >= expect_total:
+            return None
+
+        resp = None
+        try:
+            headers = {"Range": f"bytes={offset}-"} if offset else {}
+            resp = _get_dl_session().get(
+                url, stream=True, timeout=(15, 30), headers=headers
+            )
+            if resp.status_code == 206:
+                mode, fresh = "ab", False
+            elif resp.status_code == 200:
+                # 要了 Range 却拿到 200，说明服务端不认，只能从头来
+                mode, fresh, offset = "wb", True, 0
+            else:
+                return f"请求失败：HTTP {resp.status_code}"
+
+            total = expect_total or (
+                offset + int(resp.headers.get("content-length", 0))
+            )
+            chunks = resp.iter_content(chunk_size=8192)
+            head = next(chunks, b"")
+            # 续传段不是文件开头，魔数只对全新内容有意义
+            if fresh and not looks_like_audio(head):
+                ctype = resp.headers.get("content-type", "未知类型")
+                return f"服务器返回的不是音频：{ctype}"
+            stream = chain([head], chunks)
+
+            if progress is not None and task_id is not None:
+                progress.update(task_id, total=total or None)
+                progress.start_task(task_id)
+                _drain(
+                    path, stream, mode, lambda n: progress.update(task_id, advance=n)
+                )
+            elif sys.stdout.isatty():
+                with Progress(
+                    "[progress.description]{task.description}",
+                    BarColumn(),
+                    DownloadColumn(),
+                    TransferSpeedColumn(),
+                    TimeRemainingColumn(),
+                    transient=True,
+                ) as p:
+                    # 同 _progress_desc，未转义的歌名含 [Live] 会让进度条抛 MarkupError
+                    task = p.add_task(escape(label[:40]), total=total or None)
+                    _drain(
+                        path,
+                        stream,
+                        mode,
+                        lambda n, _p=p, _t=task: _p.update(_t, advance=n),
+                    )
+            else:
+                _drain(path, stream, mode, lambda _n: None)
+            return None
+        except Exception as e:
+            last = str(e)
+            if attempt < _RESUME_ATTEMPTS:
+                time.sleep(0.5 * attempt)
+        finally:
+            if resp is not None:
+                resp.close()
+    return last
 
 
 def fetch_cover(cover_url: str) -> bytes | None:

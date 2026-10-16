@@ -599,6 +599,11 @@ def download_song_batch(
 
                     lyrics_api = get_lyrics_url(sid)
                     for attempt in range(1, 4):
+                        # URL 里带签名时间戳，expi 只有 20 分钟，
+                        # 每次重试都重取，续传才不会拿着过期的链接去续
+                        fresh = get_audio_source(sid, quality=quality)
+                        if fresh:
+                            source = fresh
                         ok, msg, _ = download_song(
                             song_url=source.url,
                             song_title=title,
