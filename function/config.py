@@ -98,6 +98,13 @@ def validate_config(quiet: bool = False) -> None:
     if not isinstance(chk, bool):
         errors.append("[download] check 必须为 true 或 false")
 
+    kind = dl.get("downloader", "builtin")
+    if kind not in ("builtin", "curl"):
+        errors.append('[download] downloader 只能是 "builtin" 或 "curl"')
+
+    if not isinstance(dl.get("curl_arg", ""), str):
+        errors.append("[download] curl_arg 必须是字符串")
+
     # [download.song]
     ds = dl.get("song", {})
     if not ds.get("quality"):
@@ -187,6 +194,14 @@ def get_concurrency() -> int:
 def get_check_enabled() -> bool:
     """是否做 ffmpeg 全量解码校验，老配置没写这个键时按开着处理"""
     return _get_cfg().get("download", {}).get("check", True)
+
+
+def get_downloader() -> str:
+    return _get_cfg().get("download", {}).get("downloader", "builtin")
+
+
+def get_curl_arg() -> str:
+    return _get_cfg().get("download", {}).get("curl_arg", "")
 
 
 def resolve_output_dir(value: str | None) -> str:

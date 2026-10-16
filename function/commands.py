@@ -60,6 +60,7 @@ def _download_tracks(
     dl_id: str | None = None,
     limit: int | None = None,
     run_check: bool | None = None,
+    use_curl: bool | None = None,
 ) -> None:
     """Shared download for playlists and albums."""
     download_song_batch(
@@ -70,6 +71,7 @@ def _download_tracks(
         dl_id=dl_id,
         limit=limit,
         run_check=run_check,
+        use_curl=use_curl,
     )
 
 
@@ -153,6 +155,7 @@ def cmd_song(args: argparse.Namespace) -> None:
         song_size=source.size if source else 0,
         song_md5=source.md5 if source else "",
         run_check=args.check,
+        use_curl=args.curl,
     )
     if ok:
         success(msg)
@@ -183,6 +186,7 @@ def cmd_album(args: argparse.Namespace) -> None:
         dl_id=str(args.id),
         limit=args.limit,
         run_check=args.check,
+        use_curl=args.curl,
     )
 
 
@@ -219,6 +223,7 @@ def cmd_playlist(args: argparse.Namespace) -> None:
         dl_id=str(args.id),
         limit=args.limit,
         run_check=args.check,
+        use_curl=args.curl,
     )
 
 

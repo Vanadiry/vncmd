@@ -148,6 +148,7 @@ def download_song(
     song_size: int = 0,
     song_md5: str = "",
     run_check: bool | None = None,
+    use_curl: bool | None = None,
 ) -> tuple[bool, str, str | None]:
     """
     Download a song with metadata, lyrics, and cover.
@@ -228,7 +229,13 @@ def download_song(
         temp_music_path = str(temp_dir / f"{song_id}.{music_type}")
         label = f"{song_title} - {song_artist}"
         err = fetch_audio(
-            song_url, temp_music_path, label, progress=progress, task_id=task_id
+            song_url,
+            temp_music_path,
+            label,
+            progress=progress,
+            task_id=task_id,
+            total=song_size,
+            use_curl=use_curl,
         )
         if err:
             return False, f"下载失败：{err}", None
@@ -342,6 +349,7 @@ def download_song_batch(
     dl_id: str | None = None,
     limit: int | None = None,
     run_check: bool | None = None,
+    use_curl: bool | None = None,
 ) -> tuple[int, int, str]:
     """Download a batch of songs with progress display and summary.
 
@@ -552,6 +560,7 @@ def download_song_batch(
                             song_size=source.size,
                             song_md5=source.md5,
                             run_check=run_check,
+                            use_curl=use_curl,
                         )
                         if ok:
                             break

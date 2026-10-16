@@ -10,6 +10,10 @@ content = "012"
 concurrency = 4
 # 下载后是否做 ffmpeg 全量解码校验；size 与 md5 的校验始终执行
 check = true
+# 下载方式：builtin 用内建请求，curl 交给系统 curl
+downloader = "builtin"
+# 追加给 curl 的参数，仅从配置读取，不接受命令行传入
+curl_arg = ""
 
 [download.song]
 # 音质：128、192、320、999（最高）

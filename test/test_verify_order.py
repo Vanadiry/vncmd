@@ -15,7 +15,9 @@ def harness(tmp_path, monkeypatch):
     """把 download_song 的外部依赖换成可控的替身，只留下校验逻辑本身"""
     calls = []
 
-    def fake_fetch_audio(url, path, label, progress=None, task_id=None):
+    def fake_fetch_audio(
+        url, path, label, progress=None, task_id=None, total=0, use_curl=None
+    ):
         with open(path, "wb") as f:
             f.write(AUDIO)
         return

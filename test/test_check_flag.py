@@ -12,7 +12,9 @@ def harness(tmp_path, monkeypatch):
     """记录解码校验是否被调用，并把 md5 校验固定成能通过"""
     calls = []
 
-    def fake_fetch_audio(url, path, label, progress=None, task_id=None):
+    def fake_fetch_audio(
+        url, path, label, progress=None, task_id=None, total=0, use_curl=None
+    ):
         with open(path, "wb") as f:
             f.write(AUDIO)
         return

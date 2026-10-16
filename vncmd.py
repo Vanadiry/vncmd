@@ -64,6 +64,12 @@ def _add_download_args(parser: object, batch: bool = False) -> None:
         default=None,
         help="下载时做 ffmpeg 全量解码校验（默认：使用配置）",
     )
+    parser.add_argument(
+        "--curl",
+        action="store_true",
+        default=None,
+        help="用系统 curl 下载（默认：使用配置）",
+    )
     _add_quality_arg(parser)
     _add_output_arg(parser)
     if batch:
