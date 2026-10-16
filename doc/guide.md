@@ -17,6 +17,7 @@
 | `album <ID>` | 预览专辑 |
 | `tracker <名称>` | 新建/查看 Tracker |
 | `cookie "..."` | 写入 Cookie |
+| `cookie --check` | 不写文件，只检查当前 Cookie 状态 |
 | `check "目录/文件"` | 检查音频数据完整性 |
 
 对于 `song/playlist/album` 的参数：

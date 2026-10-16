@@ -22,7 +22,6 @@ from rich.text import Text
 from function.api import (
     EXPECTED_LEVEL,
     LEVEL_LABEL,
-    get_account_info,
     get_audio_source,
     get_lyrics_url,
     get_song_details,
@@ -119,31 +118,7 @@ def _embed_with_retry(fn, *args) -> str:
     return last
 
 
-_account_notified = False
 _downgrade_notified = False
-
-
-def _notify_account() -> None:
-    """下载开始前说清 Cookie 能不能用，无论结果如何都不中断下载
-
-    必须在取链接之前调：付费歌拿不到链接时会直接退出，
-    等到落盘那一步就永远等不到这条提示了。
-
-    只说一次：get_account_info 本身已经缓存，但提示要是跟着每首走，
-    批量下载会把同一句话刷满屏。
-    """
-    global _account_notified
-    if _account_notified:
-        return
-    _account_notified = True
-
-    info = get_account_info()
-    if info is None:
-        warning("Cookie 检查失败，无法获取账号信息，不影响本次下载")
-    elif not info["logged_in"]:
-        warning("未检测到登录状态，可能是 Cookie 有问题或登录已失效，可尝试重新获取")
-    elif not info["vip"]:
-        warning("Cookie 所属账号没有 VIP 权限，高音质将不可用，本次仍会按可用音质下载")
 
 
 def _notify_downgrade(want_level: str, got_level: str) -> None:
@@ -544,9 +519,6 @@ def download_song_batch(
     if total == 0:
         success(f"所有曲目已下载完毕，位于 {session_dir}")
         return success_count, fail_count, session_dir
-
-    # 登录态与会员要在开始下载前查一次，批量里不能给每首都发请求
-    _notify_account()
 
     # --- Concurrent download with worker slots ---
     counter_lock = Lock()

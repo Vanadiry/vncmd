@@ -21,9 +21,9 @@ def run_cookie(tmp_path, monkeypatch):
     monkeypatch.setattr(commands, "VNCMD_HOME", tmp_path)
     monkeypatch.setattr(commands, "COOKIE_FILE", tmp_path / "cookie")
 
-    def run(account, value="MYCOOKIE"):
-        monkeypatch.setattr(commands, "get_account_info", lambda: account)
-        args = argparse.Namespace(value=value)
+    def run(account, value="MYCOOKIE", check=False):
+        monkeypatch.setattr(commands, "get_account_info", lambda force=False: account)
+        args = argparse.Namespace(value=value, check=check)
         try:
             commands.cmd_cookie(args)
         except SystemExit as exc:
@@ -87,3 +87,80 @@ def test_探测曲目ID已从代码中移除():
     with open(commands.__file__, encoding="utf-8") as f:
         src = f.read()
     assert "2056952623" not in src
+
+
+class TestCookieCheckOnly:
+    """cookie --check 不碰文件，只查当前状态"""
+
+    def test_不给值也能跑(self, run_cookie, capsys, tmp_path):
+        """value 原本是必填，单独用 --check 会报「缺少参数」"""
+        code = run_cookie(
+            {"logged_in": True, "vip": True, "vip_type": 11}, value=None, check=True
+        )
+        assert code == 0
+        assert not (tmp_path / "cookie").exists(), "--check 不该创建 cookie 文件"
+
+    def test_不覆盖已有cookie(self, run_cookie, capsys, tmp_path):
+        (tmp_path / "cookie").write_text("OLD", encoding="utf-8")
+        run_cookie(
+            {"logged_in": True, "vip": True, "vip_type": 11}, value=None, check=True
+        )
+        assert (tmp_path / "cookie").read_text(encoding="utf-8") == "OLD"
+
+    def test_查不成仍退出二(self, run_cookie):
+        assert run_cookie(None, value=None, check=True) == 2
+
+
+class TestCookieArgErrors:
+    def _run(self, value, check):
+        args = argparse.Namespace(value=value, check=check)
+        with pytest.raises(SystemExit) as exc:
+            commands.cmd_cookie(args)
+        return exc.value.code
+
+    def test_两者同给报错(self):
+        """--check 的意思就是不写文件，同时给值是自相矛盾"""
+        assert self._run("abc", True) == 2
+
+    def test_什么都不给报错(self):
+        """value 改成 nargs=? 之后，漏给不再由 argparse 报，
+        提示要说清还有 --check 这条路"""
+        assert self._run(None, False) == 2
+
+
+class TestCookieForcesCheck:
+    """cookie 这条命令必须绕过磁盘缓存"""
+
+    def _run(self, monkeypatch, tmp_path, account):
+        from function import commands
+
+        monkeypatch.setattr(commands, "VNCMD_HOME", tmp_path)
+        monkeypatch.setattr(commands, "COOKIE_FILE", tmp_path / "cookie")
+        seen = []
+
+        def fake(force=False):
+            seen.append(force)
+            return account
+
+        monkeypatch.setattr(commands, "get_account_info", fake)
+        commands.cmd_cookie(argparse.Namespace(value="K", check=False))
+        return seen
+
+    def test_写入后强制查(self, monkeypatch, tmp_path):
+        """cookie 文件刚被改过，缓存里那份描述的是另一个人"""
+        good = {"logged_in": True, "vip": True, "vip_type": 11}
+        assert self._run(monkeypatch, tmp_path, good) == [True]
+
+    def test_只检查时也强制查(self, monkeypatch, tmp_path):
+        good = {"logged_in": True, "vip": True, "vip_type": 11}
+        from function import commands
+
+        monkeypatch.setattr(commands, "COOKIE_FILE", tmp_path / "cookie")
+        seen = []
+        monkeypatch.setattr(
+            commands,
+            "get_account_info",
+            lambda force=False: (seen.append(force), good)[1],
+        )
+        commands.cmd_cookie(argparse.Namespace(value=None, check=True))
+        assert seen == [True], "--check 的全部意义就是查当下的状态"

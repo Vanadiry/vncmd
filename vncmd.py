@@ -2,6 +2,7 @@ import argparse
 import sys
 
 from function.commands import (
+    announce_account,
     cmd_album,
     cmd_cache,
     cmd_check,
@@ -94,7 +95,10 @@ def build_parser() -> _ArgumentParser:
     sub.add_parser("init", help="初始化 vncmd 并写入默认配置")
 
     p_cookie = sub.add_parser("cookie", help="设置 Cookie")
-    p_cookie.add_argument("value", help="Cookie 值")
+    p_cookie.add_argument("value", nargs="?", help="Cookie 值，省略时需配 --check")
+    p_cookie.add_argument(
+        "--check", action="store_true", help="不写文件，只检查当前 Cookie 状态"
+    )
 
     p_check = sub.add_parser("check", help="检查音频文件完整性")
     p_check.add_argument("path", help="文件或目录路径")
@@ -154,6 +158,12 @@ def build_parser() -> _ArgumentParser:
     return parser
 
 
+# 这几条不播报账号状态：init 还没配置好，cookie 自己要报，
+# cache --clear 刚清完缓存又被自动写回来就白清了。
+# --help 在 parse_args 内部已退出，也走不到这里
+_NO_ACCOUNT_REPORT = {"init", "cookie", "cache"}
+
+
 def main() -> None:
     parser = build_parser()
     args = parser.parse_args()
@@ -167,6 +177,11 @@ def main() -> None:
 
     if args.command != "init":
         validate_config()
+
+    # 播报账号状态。放这里而不是下载前，是因为它必须在取链接之前，
+    # 付费歌拿不到链接会直接退出，等到落盘那一步就永远等不到这条提示了
+    if args.command not in _NO_ACCOUNT_REPORT:
+        announce_account()
 
     dispatch = {
         "init": cmd_init,

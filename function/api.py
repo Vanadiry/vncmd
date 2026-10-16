@@ -10,6 +10,12 @@ from requests.adapters import HTTPAdapter
 from urllib3.util.retry import Retry
 
 from function.cache import (
+    _STATE_KEYS,
+    account_is_fresh,
+    load_account,
+    save_account,
+)
+from function.cache import (
     get_lyrics as cache_get_lyrics,
 )
 from function.cache import get_song as cache_get_song
@@ -437,23 +443,62 @@ LEVEL_LABEL = {
 
 _ACCOUNT_UNSET = object()
 _account_state = _ACCOUNT_UNSET
+_account_checked_at = 0
+_account_from_cache = False
 
 
-def get_account_info() -> dict | None:
-    """查登录态与会员档位，同一进程内只查一次
+def get_account_info(force: bool = False) -> dict | None:
+    """查登录态与会员档位，进程内与磁盘都缓存
 
     返回 ``{"logged_in": bool, "vip": bool, "vip_type": int}``；
     查询本身失败时返回 None，与「查出来没登录」是两回事，提示不能混。
+
+    磁盘那份一天至多刷新一次，中间的运行都从缓存读，省掉一次请求。
+    失效判据是 cookie 文件的修改时间，见 account_is_fresh。
+    checked_at 存的是浮点秒：截成整秒的话，同一秒内刚写下的 cookie
+    会因为 mtime 带小数而显得比检查时间新，于是每次运行都重查。
+
+    force=True 时既不读缓存，查失败也不拿旧值兜底：
+    「强制检查」要的是当下的真相，拿一小时前的状态顶替等于没查。
 
     这个接口无论登录与否都返回 code=200，不能看 code，要看 account 有没有。
     实测登录但无会员的账号 account 同样存在，会员档位是 vipType 字段，
     非零即有会员。
     """
-    global _account_state
-    if _account_state is not _ACCOUNT_UNSET:
+    global _account_state, _account_checked_at, _account_from_cache
+    if not force and _account_state is not _ACCOUNT_UNSET:
         return _account_state
 
-    _account_state = None
+    cached = None if force else load_account()
+    if cached and account_is_fresh(cached):
+        _account_state = {k: cached[k] for k in _STATE_KEYS}
+        _account_checked_at = cached["checked_at"]
+        _account_from_cache = True
+        return _account_state
+
+    now = time.time()
+    state = _fetch_account()
+    if state is None:
+        # 查失败时保留上一次的好值，只把时间戳推进。
+        # 不这么做的话，一次网络抖动会让用户一整天看不到权限状态
+        if cached:
+            _account_state = {k: cached[k] for k in _STATE_KEYS}
+            _account_checked_at = now
+            _account_from_cache = True
+            save_account(_account_state, now)
+            return _account_state
+        _account_state = None
+        return None
+
+    _account_state = state
+    _account_checked_at = now
+    _account_from_cache = False
+    save_account(state, now)
+    return state
+
+
+def _fetch_account() -> dict | None:
+    """实打实发一次请求，失败返回 None"""
     try:
         resp = _get_session().get(f"{_BASE_URL}/api/nuser/account/get", timeout=15)
         acc = resp.json().get("account") or {}
@@ -461,11 +506,17 @@ def get_account_info() -> dict | None:
         return None
 
     if acc:
-        _account_state = {
+        return {
             "logged_in": True,
             "vip": bool(acc.get("vipType", 0)),
             "vip_type": acc.get("vipType", 0),
         }
-    else:
-        _account_state = {"logged_in": False, "vip": False, "vip_type": 0}
-    return _account_state
+    return {"logged_in": False, "vip": False, "vip_type": 0}
+
+
+def account_stamp() -> tuple[int, bool]:
+    """（检查时间，是否来自缓存），供提示说明这份状态的新鲜度
+
+    没查过就返回 (0, False)，调用方按「刚查的」处理。
+    """
+    return _account_checked_at, _account_from_cache

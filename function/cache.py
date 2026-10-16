@@ -1,8 +1,17 @@
 import time
 from pathlib import Path
 
-from function.config import get_cache_dir, get_cache_ttl, is_cache_enabled
+from function.config import (
+    COOKIE_FILE,
+    get_cache_dir,
+    get_cache_ttl,
+    is_cache_enabled,
+)
 from function.jsonstore import read_json_safe, write_json_atomic
+
+# 账号状态一天查一次就够了，中间都从磁盘读
+ACCOUNT_TTL = 86400
+_STATE_KEYS = ("logged_in", "vip", "vip_type")
 
 
 def _song_dir(song_id: int) -> Path:
@@ -82,3 +91,56 @@ def put_lyrics(song_id: int, data: dict) -> None:
     elif tlyric_path.exists():
         # 翻译被上游删掉时必须删掉旧的，否则 get_lyrics 会一直读到上一次的翻译
         tlyric_path.unlink()
+
+
+def _account_path() -> Path:
+    # 放在缓存根目录，cache --clear 全清时会顺带清掉，不用另外处理
+    return Path(get_cache_dir()) / "account.json"
+
+
+def load_account() -> dict | None:
+    """读缓存的账号状态，过期与否交给 account_is_fresh 判
+
+    三个状态键缺一不可：手工编辑过或写坏了的半份数据，
+    当成没缓存重新查，比拿它去拼一个残缺的状态安全。
+    """
+    if not is_cache_enabled():
+        return None
+    state = read_json_safe(_account_path(), None, what="账号缓存")
+    if not isinstance(state, dict) or not all(k in state for k in _STATE_KEYS):
+        return None
+    return state
+
+
+def account_is_fresh(state: dict) -> bool:
+    """判断这份账号状态还能不能用
+
+    失效判据取 cookie 文件的修改时间，而不是记一个 set_at：
+    记 set_at 只覆盖「用命令设置」这一种途径，用户手工编辑 cookie 文件时
+    缓存不会作废，会拿着旧账号状态去下音频。cookie 改了就是换了个人，
+    这是零成本的判据。
+    """
+    checked_at = state.get("checked_at") or 0
+    if time.time() - checked_at >= ACCOUNT_TTL:
+        return False
+    try:
+        return COOKIE_FILE.stat().st_mtime <= checked_at
+    except OSError:
+        # cookie 文件不见了，等于换了一份，重新查
+        return False
+
+
+def save_account(state: dict, checked_at: int) -> None:
+    """写账号状态到缓存
+
+    写不进去不能让命令失败：缓存只是省一次请求，
+    为了它把整个操作打断是本末倒置。
+    """
+    if not is_cache_enabled():
+        return
+    try:
+        path = _account_path()
+        path.parent.mkdir(parents=True, exist_ok=True)
+        write_json_atomic(path, {"checked_at": checked_at, **state})
+    except OSError:
+        pass

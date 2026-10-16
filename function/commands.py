@@ -2,12 +2,14 @@ import argparse
 import os
 import shutil
 import sys
+import time
 from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 
 from rich.markup import escape
 
 from function.api import (
+    account_stamp,
     fetch_player_url,
     get_account_info,
     get_album_details,
@@ -32,7 +34,6 @@ from function.config import (
     validate_config,
 )
 from function.downloader import (
-    _notify_account,
     download_song,
     download_song_batch,
     make_session_dir,
@@ -132,9 +133,6 @@ def cmd_song(args: argparse.Namespace) -> None:
     quality = _resolve_quality(args)
     source = None
     if want_song:
-        # 取链接之前就说清 Cookie 能不能用：付费歌拿不到链接会直接退出，
-        # 等到落盘那一步就永远等不到这条提示
-        _notify_account()
         info(f"正在获取流 URL（音质={args.quality or '配置'}）...")
         for attempt in range(1, 4):
             source = get_audio_source(args.id, quality=quality)
@@ -246,6 +244,41 @@ def _write_cookie(value: str) -> None:
     os.chmod(COOKIE_FILE, 0o600)
 
 
+def _ago(ts: int) -> str:
+    """把时间戳说成多久以前，用于标注缓存的新鲜度"""
+    seconds = max(0, time.time() - ts)
+    if seconds < 60:
+        return "刚刚"
+    # checked_at 是浮点，整除的结果也带小数，文案里不能出现「2.0 小时前」
+    if seconds < 3600:
+        return f"{int(seconds // 60)} 分钟前"
+    return f"{int(seconds // 3600)} 小时前"
+
+
+def announce_account() -> None:
+    """每次运行报一次账号状态，用旧数据时说清它有多旧
+
+    必须放在取链接之前：付费歌拿不到链接时会直接退出，
+    等到落盘那一步就永远等不到这条提示了。
+
+    不管结果如何都报。用旧缓存时把检查时间一并写出来，
+    用户看到「没有重新联网」才知道那不是查不动而是不必查。
+    """
+    state = get_account_info()
+    checked_at, from_cache = account_stamp()
+    suffix = f" · 取自{_ago(checked_at)}的缓存" if from_cache else ""
+
+    if state is None:
+        warning(f"Cookie 检查失败：无法获取账号信息，不影响本次下载{suffix}")
+    elif not state["logged_in"]:
+        hint = "可能是 Cookie 有问题或登录已失效，可尝试重新获取"
+        warning(f"未检测到登录状态，{hint}{suffix}")
+    elif not state["vip"]:
+        warning(f"Cookie 所属账号没有 VIP 权限，高音质将不可用{suffix}")
+    else:
+        success(f"账号状态：已登录，有 VIP 权限{suffix}")
+
+
 def cmd_init(args: argparse.Namespace) -> None:
     """Initialize ~/.vSoft/vncmd/ with default config and empty cookie."""
     console.print()
@@ -293,13 +326,22 @@ def cmd_init(args: argparse.Namespace) -> None:
 
 
 def cmd_cookie(args: argparse.Namespace) -> None:
-    """Set the Cookie."""
-    VNCMD_HOME.mkdir(parents=True, exist_ok=True)
-    _write_cookie(args.value.strip())
-    success("Cookie 已保存")
+    """Set or check the Cookie."""
+    if args.check and args.value:
+        error("--check 不写文件，与 Cookie 值不能一起给")
+        sys.exit(2)
+    if not args.check and not args.value:
+        error("请给出 Cookie 值，或用 --check 只检查当前状态")
+        sys.exit(2)
+
+    if args.value:
+        VNCMD_HOME.mkdir(parents=True, exist_ok=True)
+        _write_cookie(args.value.strip())
+        success("Cookie 已保存")
 
     info("正在检查账户权限，请稍候...")
-    account = get_account_info()
+    # 强制检查：cookie 刚被改过，缓存里那份描述的是另一个人
+    account = get_account_info(force=True)
     if account is None:
         # 断网、DNS 失败、CDN 返回 HTML 都会走到这里，
         # 退出码 2 让脚本能分辨「查不成」与「查出无效」
