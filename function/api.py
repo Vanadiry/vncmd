@@ -117,10 +117,17 @@ def _get_v1_song_detail(song_id: int) -> dict:
 
 # 网易云数据里混有零宽字符，肉眼看不见，但会被复制进文件名和元数据标签
 _INVISIBLE = re.compile("[\u200b\u200c\u200d\u2060\ufeff]")
+# HANGUL FILLER 看着是空白，实际是个宽字符：Unicode 标它为 Wide，
+# 终端按宽渲染，而表格算列宽时按零宽算，两边对不上会把竖线错开。
+# 它只是拿来顶替空白的填充字符，清掉即可。
+# 同类的 U+2800 盲文空白字符也有这个问题，暂不处理。
+_BLANK_FILLER = re.compile("ㅤ")
 
 
 def _clean(text) -> str:
-    return _INVISIBLE.sub("", text) if isinstance(text, str) else text
+    if not isinstance(text, str):
+        return text
+    return _BLANK_FILLER.sub("", _INVISIBLE.sub("", text))
 
 
 def _normalize_song(song: dict) -> dict:
@@ -255,9 +262,9 @@ def get_playlist_details(playlist_id: int) -> dict:
         tracks.append(
             {
                 "id": t["id"],
-                "title": t["name"],
-                "artist": ", ".join(a["name"] for a in ar),
-                "album": al.get("name", ""),
+                "title": _clean(t["name"]),
+                "artist": _clean(", ".join(a["name"] for a in ar)),
+                "album": _clean(al.get("name", "")),
                 "cover": al.get("picUrl", ""),
                 "publish_time": _fmt_publish_time(al.get("publishTime")),
                 "duration": _fmt_duration(t.get("dt")),
@@ -289,9 +296,9 @@ def get_album_details(album_id: int) -> dict:
         tracks.append(
             {
                 "id": s["id"],
-                "title": s["name"],
-                "artist": ", ".join(a["name"] for a in s.get("ar", [])),
-                "album": album.get("name", ""),
+                "title": _clean(s["name"]),
+                "artist": _clean(", ".join(a["name"] for a in s.get("ar", []))),
+                "album": _clean(album.get("name", "")),
                 "cover": album.get("picUrl", ""),
                 "publish_time": _fmt_publish_time(
                     s.get("publishTime") or album.get("publishTime")
@@ -324,9 +331,9 @@ def search(q: str, limit: int = 30, offset: int = 0) -> dict:
         songs.append(
             {
                 "id": s["id"],
-                "title": s["name"],
-                "artist": ", ".join(a["name"] for a in s.get("ar") or []),
-                "album": (s.get("al") or {}).get("name", ""),
+                "title": _clean(s["name"]),
+                "artist": _clean(", ".join(a["name"] for a in s.get("ar") or [])),
+                "album": _clean((s.get("al") or {}).get("name", "")),
                 "cover": (s.get("al") or {}).get("picUrl", ""),
                 "publish_time": _fmt_publish_time(s.get("publishTime")),
                 "duration": _fmt_duration(s.get("dt")),
