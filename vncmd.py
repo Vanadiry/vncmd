@@ -79,7 +79,7 @@ def main() -> None:
         dest="command", help="可用命令", parser_class=_ArgumentParser
     )
 
-    sub.add_parser("init", help="初始化 vncmd 并写入默认配置", parents=[])
+    sub.add_parser("init", help="初始化 vncmd 并写入默认配置")
 
     p_cookie = sub.add_parser("cookie", help="设置 Cookie")
     p_cookie.add_argument("value", help="Cookie 值")

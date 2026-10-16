@@ -2,6 +2,7 @@ import argparse
 import os
 import shutil
 import sys
+from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 
 from rich.markup import escape
@@ -15,6 +16,7 @@ from function.api import (
     get_song_url,
     search,
 )
+from function.checker import check_audio, has_ffmpeg
 from function.config import (
     CONFIG_FILE,
     COOKIE_FILE,
@@ -311,10 +313,6 @@ def cmd_cache(args: argparse.Namespace) -> None:
 
 def cmd_check(args: argparse.Namespace) -> None:
     """Check audio file integrity."""
-    from concurrent.futures import ThreadPoolExecutor
-
-    from function.checker import check_audio, has_ffmpeg
-
     if not has_ffmpeg():
         error("需要 ffmpeg 和 ffprobe，请先安装。")
         sys.exit(1)
@@ -354,6 +352,13 @@ def cmd_check(args: argparse.Namespace) -> None:
         # 同一个目录两次运行长得不一样。检查本身仍是并发的
         futures = [(f, pool.submit(check_audio, str(f))) for f in files]
         for f, future in futures:
+            # 一个文件抛异常不能让整条命令中断，已经检查过的结果不能白跑
+            exc = future.exception()
+            if exc is not None:
+                bad_count += 1
+                bad_files.append((f, f"{type(exc).__name__}: {exc}"))
+                console.print(f"  [red]BAD[/] {_show(f)}  检查失败")
+                continue
             ok, msg = future.result()
             if ok:
                 ok_count += 1

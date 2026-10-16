@@ -56,8 +56,6 @@ def test_check按文件名排序输出(tmp_path, monkeypatch, capsys):
     import argparse
     import time
 
-    from function import checker
-
     for name in ("c.flac", "a.flac", "b.flac", "d.flac"):
         (tmp_path / name).write_bytes(b"")
 
@@ -67,8 +65,9 @@ def test_check按文件名排序输出(tmp_path, monkeypatch, capsys):
         time.sleep(delays[path.rsplit("/", 1)[-1]])
         return True, ""
 
-    monkeypatch.setattr(checker, "check_audio", fake_check)
-    monkeypatch.setattr(checker, "has_ffmpeg", lambda: True)
+    # check_audio 与 has_ffmpeg 已在 commands 模块顶层绑定，要打在 commands 上
+    monkeypatch.setattr(commands_mod, "check_audio", fake_check)
+    monkeypatch.setattr(commands_mod, "has_ffmpeg", lambda: True)
     args = argparse.Namespace(path=str(tmp_path))
     commands_mod.cmd_check(args)
 

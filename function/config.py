@@ -192,9 +192,12 @@ def get_quality() -> int:
 
 
 def get_cookie() -> str:
-    if not COOKIE_FILE.exists():
+    # 权限不足或文件损坏时返回空串，调用方本来就按无 Cookie 走，
+    # 这里抛异常会让每次请求都带不上 Cookie 并中断
+    try:
+        return COOKIE_FILE.read_text(encoding="utf-8").strip()
+    except (OSError, UnicodeDecodeError):
         return ""
-    return COOKIE_FILE.read_text(encoding="utf-8").strip()
 
 
 def get_filename_format() -> str:
