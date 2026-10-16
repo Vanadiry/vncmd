@@ -311,7 +311,6 @@ def cmd_cache(args: argparse.Namespace) -> None:
 
 def cmd_check(args: argparse.Namespace) -> None:
     """Check audio file integrity."""
-    import concurrent.futures
     from concurrent.futures import ThreadPoolExecutor
 
     from function.checker import check_audio, has_ffmpeg
@@ -351,9 +350,10 @@ def cmd_check(args: argparse.Namespace) -> None:
         return f'"{escape(str(rel))}"'
 
     with ThreadPoolExecutor(max_workers=4) as pool:
-        futures = {pool.submit(check_audio, str(f)): f for f in files}
-        for future in concurrent.futures.as_completed(futures):
-            f = futures[future]
+        # 按提交顺序取结果而不是 as_completed，否则输出顺序随线程完成顺序变，
+        # 同一个目录两次运行长得不一样。检查本身仍是并发的
+        futures = [(f, pool.submit(check_audio, str(f))) for f in files]
+        for f, future in futures:
             ok, msg = future.result()
             if ok:
                 ok_count += 1

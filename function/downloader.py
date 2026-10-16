@@ -602,7 +602,7 @@ def download_song_batch(
         parts.append(f"[red]{fail_count} 失败[/]")
     else:
         parts.append("[dim]0 失败[/]")
-    console.print(f"完成：{', '.join(parts)}")
+    console.print(f"完成：{'，'.join(parts)}")
     if fail_ids:
         console.print(f"失败 ID：{', '.join(str(i) for i in fail_ids)}")
     return success_count, fail_count, session_dir

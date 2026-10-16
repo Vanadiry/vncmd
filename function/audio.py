@@ -69,10 +69,11 @@ def build_filename(title: str, artist: str) -> tuple[str, str | None]:
     fmt = get_filename_format()
     safe_title = check_filename(title)
     safe_artist = check_filename(artist)
-    if fmt == "10":
+    # 艺术家为空时直接留标题，拼接会多出一个待分隔的连字符
+    if fmt == "01":
+        name = f"{safe_artist} - {safe_title}" if safe_artist else safe_title
+    elif fmt == "10" and safe_artist:
         name = f"{safe_title} - {safe_artist}"
-    elif fmt == "01":
-        name = f"{safe_artist} - {safe_title}"
     else:
         name = safe_title
     # 在拼接结果上截断而不是分别截断标题与歌手，分开截断会把歌手整段挤掉

@@ -77,7 +77,8 @@ def _display_track_table(
 
     remaining = total_count - len(tracks)
     if remaining > 0:
-        console.print(f"  ... 还有 {remaining} 首曲目", style="dim")
+        # 用 info() 而不是裸 print，这一行旁边没有表格边框，裸输出看着是悬空的
+        info(f"还有 {remaining} 首曲目未显示")
 
 
 def display_search_results(query: str, songs: list[dict], total: int) -> None:
