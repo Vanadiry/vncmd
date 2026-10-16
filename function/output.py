@@ -97,13 +97,6 @@ def _trim_midnight(publish_time: str) -> str:
     return publish_time[:10] if publish_time.endswith("00:00:00") else publish_time
 
 
-FEE_LABEL = {
-    0: "无特殊要求",
-    1: "单曲购买",
-    4: "专辑购买",
-    8: "免费通用",
-}
-
 # fee 本身就能说明取不到 URL 的原因，不必再查账号信息
 FEE_NEED = {
     1: "需要会员权限或单独购买该曲目",
@@ -134,21 +127,6 @@ def _fmt_validity(expi: int) -> str:
     minutes = expi / 60
     text = f"{int(minutes)}" if minutes == int(minutes) else f"{minutes:.1f}"
     return f"{text} 分钟内有效"
-
-
-def _clip(text: str, width: int) -> str:
-    """截到指定显示宽度，末尾补省略号"""
-    if width <= 1 or cell_len(text) <= width:
-        return text
-    out = ""
-    used = 0
-    for ch in text:
-        w = cell_len(ch)
-        if used + w > width - 1:
-            break
-        out += ch
-        used += w
-    return out + "…"
 
 
 def _download_lines(
