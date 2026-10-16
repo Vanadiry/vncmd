@@ -105,7 +105,9 @@ def cmd_song(args: argparse.Namespace) -> None:
         error(f"获取曲目详情失败：{e}")
         sys.exit(1)
 
-    display_song_detail(song)
+    # --dlink 自己会给一个辨认用的标题，不必再打完整详情卡
+    if not args.dlink:
+        display_song_detail(song)
 
     if args.lyrics:
         lyrics_data = get_lyrics(args.id)
@@ -117,8 +119,11 @@ def cmd_song(args: argparse.Namespace) -> None:
         display_lyrics(lyric)
 
     if args.dlink and not args.download:
+        # 完整详情卡对看下载信息没有帮助，面板里已经带了标题用于辨认
         quality = _resolve_quality(args)
-        display_download_detail(args.id, fetch_player_url(args.id, quality=quality))
+        display_download_detail(
+            args.id, song["title"], fetch_player_url(args.id, quality=quality)
+        )
 
     if not args.download:
         return

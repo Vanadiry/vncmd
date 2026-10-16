@@ -111,78 +111,116 @@ FEE_NEED = {
 }
 
 
-def _fmt_bytes(n: int) -> str:
+def _fmt_size(n: int) -> str:
+    """先给人看的单位，原始值跟在后面备查"""
     if not n:
         return ""
     mb = n / 1024 / 1024
-    return f"{n} 字节 ({mb:.1f} MB)" if mb >= 1 else f"{n} 字节"
+    return f"{mb:.1f} MB ({n} 字节)" if mb >= 0.1 else f"{n} 字节"
 
 
-def display_download_detail(song_id: int, info: dict) -> None:
-    """Display everything the download endpoint knows about one song.
+def _fmt_kbps(bps: int) -> str:
+    if not bps:
+        return ""
+    return f"{bps // 1000} kbps ({bps} bps)"
 
-    取不到 URL 时照样输出，那是最需要看的时候：费用类型与是否购买
+
+def _fmt_validity(expi: int) -> str:
+    """有效期超过一分钟的换算成分钟，秒数看着不如分钟直观"""
+    if not expi:
+        return ""
+    if expi < 60:
+        return f"{expi} 秒内有效"
+    minutes = expi / 60
+    text = f"{int(minutes)}" if minutes == int(minutes) else f"{minutes:.1f}"
+    return f"{text} 分钟内有效"
+
+
+def _clip(text: str, width: int) -> str:
+    """截到指定显示宽度，末尾补省略号"""
+    if width <= 1 or cell_len(text) <= width:
+        return text
+    out = ""
+    used = 0
+    for ch in text:
+        w = cell_len(ch)
+        if used + w > width - 1:
+            break
+        out += ch
+        used += w
+    return out + "…"
+
+
+def _download_lines(
+    song_id: int, name: str, info: dict
+) -> tuple[list[tuple[str, str]], str]:
+    """把响应组装成面板的键值行与标题
+
+    取不到 URL 时照样组装，那是最需要看的时候：费用类型与是否购买
     都在响应里，不必再发一次请求去问为什么。
     """
-    from urllib.parse import urlsplit
-
     from function.api import LEVEL_LABEL
 
     url = info.get("url") or ""
-    lines = []
-    if url:
-        # 查询串是鉴权 token，两百多字符会把面板撑成四行，没人读它；
-        # 有效期单独一行已经说明了它什么时候失效
-        parts = urlsplit(url)
-        shown = f"{parts.scheme}://{parts.netloc}{parts.path}"
-        lines.append(("URL", shown))
-        if parts.query:
-            lines.append(("鉴权参数", f"已附加 {len(parts.query)} 字符"))
-    else:
-        lines.append(("URL", "无"))
+    fee = info.get("fee")
+
+    # 标题放在面板里当第一行，面板外不留别的内容，选哪一块都清楚
+    lines = [("标题", name)]
     if url:
         lines += [
             ("类型", info.get("type") or ""),
             ("音质", LEVEL_LABEL.get(info.get("level", ""), info.get("level", ""))),
-            ("比特率", f"{info['br']} bps" if info.get("br") else ""),
+            ("比特率", _fmt_kbps(info.get("br") or 0)),
             ("采样率", f"{info['sr']} Hz" if info.get("sr") else ""),
         ]
     if info.get("time"):
         total = info["time"] // 1000
         lines.append(("时长", f"{total // 60}:{total % 60:02d}"))
     lines += [
-        ("大小", _fmt_bytes(info.get("size") or 0)),
+        ("大小", _fmt_size(info.get("size") or 0)),
         ("MD5", info.get("md5") or ""),
     ]
-    if url and info.get("expi"):
-        lines.append(("有效期", f"{info['expi']} 秒"))
-    fee = info.get("fee")
-    if fee is not None:
-        paid = "已购买" if info.get("payed") else "未购买"
-        lines.append(("费用", f"fee={fee} {FEE_LABEL.get(fee, '')} · {paid}"))
-    lines.append(("可用", "是" if url else "否"))
-    if not url and fee in FEE_NEED:
-        lines.append(("原因", FEE_NEED[fee]))
+
+    # 能下就只说能下，说不了才讲为什么，下得了的人不关心有没有买过
+    if url:
+        lines.append(("权限", "允许访问"))
+    else:
+        reason = FEE_NEED.get(fee, "当前账号没有相应权限")
+        lines.append(("权限", f"不允许访问（{reason}）"))
 
     # 取不到链接时多数字段是空的，留着只是空行
     lines = [(k, v) for k, v in lines if v]
 
-    max_key = max(cell_len(k) for k, _ in lines)
+    title = f"下载信息 - {song_id}"
+    validity = _fmt_validity(info.get("expi") or 0)
+    if validity:
+        title += f" - {validity}"
+    return lines, title
+
+
+def display_download_detail(song_id: int, name: str, info: dict) -> None:
+    """Display everything the download endpoint knows about one song.
+
+    链接整条印在面板外面，不截断也不加边框：面板里那行折了字之后既选不中
+    也点不开，而整条裸着印出来，双击就能选中，粘贴到浏览器直接能下。
+    """
+    url = info.get("url") or ""
+    if url:
+        console.print(url, style="bright_white", soft_wrap=True, crop=False)
+
+    lines, title = _download_lines(song_id, name, info)
+    pad_to = max(cell_len(k) for k, _ in lines)
+
     text = Text()
     for i, (key, value) in enumerate(lines):
-        pad = " " * (max_key - cell_len(key))
+        pad = " " * (pad_to - cell_len(key))
         text.append(f"{key}{pad}  ", style="bold cyan")
         text.append(value, style="bright_white")
         if i < len(lines) - 1:
             text.append("\n")
 
     console.print(
-        Panel(
-            text,
-            title=f"[bold]下载信息 - {song_id}[/]",
-            border_style="cyan",
-            box=box.ROUNDED,
-        )
+        Panel(text, title=f"[bold]{title}[/]", border_style="cyan", box=box.ROUNDED)
     )
 
 
