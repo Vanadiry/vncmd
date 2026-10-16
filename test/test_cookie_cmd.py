@@ -112,20 +112,45 @@ class TestCookieCheckOnly:
 
 
 class TestCookieArgErrors:
-    def _run(self, value, check):
-        args = argparse.Namespace(value=value, check=check)
-        with pytest.raises(SystemExit) as exc:
-            commands.cmd_cookie(args)
-        return exc.value.code
+    """参数层由 argparse 的互斥组与 cmd_cookie 一起把住"""
 
-    def test_两者同给报错(self):
+    def _parse(self, argv):
+        from vncmd import build_parser
+
+        return build_parser().parse_args(argv)
+
+    def test_两者同给由argparse拦下(self):
         """--check 的意思就是不写文件，同时给值是自相矛盾"""
-        assert self._run("abc", True) == 2
+        with pytest.raises(SystemExit) as exc:
+            self._parse(["cookie", "abc", "--check"])
+        assert exc.value.code == 2
 
-    def test_什么都不给报错(self):
+    def test_只给值(self):
+        args = self._parse(["cookie", "abc"])
+        assert args.value == "abc"
+        assert args.check is False
+
+    def test_只给check(self):
+        args = self._parse(["cookie", "--check"])
+        assert args.value is None
+        assert args.check is True
+
+    def test_什么都不给要报错(self):
         """value 改成 nargs=? 之后，漏给不再由 argparse 报，
         提示要说清还有 --check 这条路"""
-        assert self._run(None, False) == 2
+        args = argparse.Namespace(value=None, check=False)
+        with pytest.raises(SystemExit) as exc:
+            commands.cmd_cookie(args)
+        assert exc.value.code == 2
+
+    def test_check时漏给值不算错(self, run_cookie):
+        """--check 本来就不用值，漏给不该被当成错误"""
+        assert (
+            run_cookie(
+                {"logged_in": True, "vip": True, "vip_type": 11}, value=None, check=True
+            )
+            == 0
+        )
 
 
 class TestCookieForcesCheck:

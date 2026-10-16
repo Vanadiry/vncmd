@@ -322,10 +322,10 @@ def cmd_init(args: argparse.Namespace) -> None:
 
 
 def cmd_cookie(args: argparse.Namespace) -> None:
-    """Set or check the Cookie."""
-    if args.check and args.value:
-        error("--check 不写文件，与 Cookie 值不能一起给")
-        sys.exit(2)
+    """Set or check the Cookie.
+
+    值与 --check 同给由 argparse 的互斥组拦住，这里不再重复校验。
+    """
     if not args.check and not args.value:
         error("请给出 Cookie 值，或用 --check 只检查当前状态")
         sys.exit(2)

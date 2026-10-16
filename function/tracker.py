@@ -467,6 +467,15 @@ def download_diff(name: str, quality: int, output_dir: str) -> None:
 
 def cmd_tracker(args: argparse.Namespace) -> None:
     name = args.name
+
+    # --diff 只是 -d 的修饰，单独给它在代码里落不到任何分支，
+    # 什么都不做也没有提示。与其静默，不如说清它要配合 -d。
+    # 这个检查放在最前面：放到 tracker 存在性判断之后的话，
+    # 用户会先被问「是否创建 tracker」，才发现自己的参数写错了
+    if args.diff and not args.download:
+        error("--diff 需要配合 -d 使用，只下载上次拉取后新增的曲目")
+        sys.exit(2)
+
     validate_name(name)
 
     tdir = _tracker_path(name)

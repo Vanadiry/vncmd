@@ -56,9 +56,17 @@ def _add_output_arg(parser: object) -> None:
     )
 
 
-def _add_download_args(parser: object, batch: bool = False) -> None:
-    """Add download-related args to a parser."""
-    parser.add_argument("--download", "-d", action="store_true", help="下载而非仅预览")
+def _add_download_args(
+    parser: object, batch: bool = False, download_group: object = None
+) -> None:
+    """Add download-related args to a parser.
+
+    download_group 非空时把 --download 放进那个互斥组。
+    单曲的 --dlink 是查看数据，与 --download 是两种动作，两者互斥；
+    专辑与歌单没有查看链接的开关，所以照旧直接加在 parser 上。
+    """
+    add = download_group.add_argument if download_group else parser.add_argument
+    add("--download", "-d", action="store_true", help="下载而非仅预览")
     parser.add_argument(
         "--check",
         action="store_true",
@@ -95,8 +103,10 @@ def build_parser() -> _ArgumentParser:
     sub.add_parser("init", help="初始化 vncmd 并写入默认配置")
 
     p_cookie = sub.add_parser("cookie", help="设置 Cookie")
-    p_cookie.add_argument("value", nargs="?", help="Cookie 值，省略时需配 --check")
-    p_cookie.add_argument(
+    grp_cookie = p_cookie.add_mutually_exclusive_group()
+    # 写成 --check 又给值是自相矛盾：--check 的意思就是不写文件
+    grp_cookie.add_argument("value", nargs="?", help="Cookie 值，省略时需配 --check")
+    grp_cookie.add_argument(
         "--check", action="store_true", help="不写文件，只检查当前 Cookie 状态"
     )
 
@@ -116,12 +126,16 @@ def build_parser() -> _ArgumentParser:
 
     p_song = sub.add_parser("song", help="预览或下载单曲")
     p_song.add_argument("id", type=int, help="曲目 ID")
-    p_song.add_argument("--lyrics", "-l", action="store_true", help="显示歌词")
-    p_song.add_argument("--tlyric", action="store_true", help="显示翻译歌词")
-    p_song.add_argument(
+    # 查看数据与下载是两种动作，同给时由 argparse 报错退出。
+    # 早先这里是 `args.dlink and not args.download`，两者同给时 --dlink 被
+    # 静默丢弃，用户以为两个开关叠加了，实际上什么都没发生
+    grp_song = p_song.add_mutually_exclusive_group()
+    grp_song.add_argument(
         "--dlink", "-u", action="store_true", help="显示下载链接与音质、费用等详情"
     )
-    _add_download_args(p_song)
+    _add_download_args(p_song, download_group=grp_song)
+    p_song.add_argument("--lyrics", "-l", action="store_true", help="显示歌词")
+    p_song.add_argument("--tlyric", action="store_true", help="显示翻译歌词")
 
     p_al = sub.add_parser("album", help="预览或下载专辑")
     p_al.add_argument("id", type=int, help="专辑 ID")
@@ -133,24 +147,30 @@ def build_parser() -> _ArgumentParser:
 
     p_tracker = sub.add_parser("tracker", help="追踪音乐来源变更并批量下载")
     p_tracker.add_argument("name", help="Tracker 名称")
-    p_tracker.add_argument(
+    # 三个顶层动作只能选一个。命令里是 if / elif / else，同给时前面的分支
+    # 会静默吃掉后面的：-f --fetch-auto 是 fetch_auto 胜出，-f -d 是拉取胜出，
+    # 用户以为两个开关叠加了，实际上只有一个生效
+    grp_tracker = p_tracker.add_mutually_exclusive_group()
+    grp_tracker.add_argument(
         "--fetch",
         "-f",
         action="store_true",
         help="拉取并对比，交互式解决冲突",
     )
-    p_tracker.add_argument(
+    grp_tracker.add_argument(
         "--fetch-auto",
         action="store_true",
         help="拉取并自动同步，无需交互",
     )
+    grp_tracker.add_argument(
+        "--download", "-d", action="store_true", help="下载所有已缓存曲目"
+    )
+    # --diff 不是独立动作而是 -d 的修饰，所以不进互斥组：
+    # 依赖关系 argparse 表达不了，单独给时由 cmd_tracker 报错
     p_tracker.add_argument(
         "--diff",
         action="store_true",
         help="与 -d 配合时，仅下载上次拉取后新增的曲目",
-    )
-    p_tracker.add_argument(
-        "--download", "-d", action="store_true", help="下载所有已缓存曲目"
     )
     _add_quality_arg(p_tracker)
     _add_output_arg(p_tracker)
