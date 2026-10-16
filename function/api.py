@@ -373,13 +373,17 @@ def get_lyrics(song_id: int) -> dict:
 class AudioSource:
     """一次取流返回的内容，url 之外还带上服务端给出的校验依据"""
 
-    __slots__ = ("expi", "md5", "size", "url")
+    __slots__ = ("expi", "level", "md5", "size", "url")
 
-    def __init__(self, url: str, size: int = 0, md5: str = "", expi: int = 0) -> None:
+    def __init__(
+        self, url: str, size: int = 0, md5: str = "", expi: int = 0, level: str = ""
+    ) -> None:
         self.url = url
         self.size = size
         self.md5 = md5
         self.expi = expi
+        # 服务端实际给的音质，可能因权限不足低于请求值
+        self.level = level
 
 
 def get_audio_source(song_id: int, quality: int | None = None) -> AudioSource | None:
@@ -395,6 +399,7 @@ def get_audio_source(song_id: int, quality: int | None = None) -> AudioSource | 
             size=d.get("size") or 0,
             md5=d.get("md5") or "",
             expi=d.get("expi") or 0,
+            level=d.get("level") or "",
         )
     return None
 
@@ -402,3 +407,56 @@ def get_audio_source(song_id: int, quality: int | None = None) -> AudioSource | 
 def get_song_url(song_id: int, quality: int | None = None) -> str | None:
     src = get_audio_source(song_id, quality)
     return src.url if src else None
+
+
+# br -> 服务端在有权限时应当返回的 level。实测 128/192/320 三档有无 VIP
+# 结果一致，只有最高档会因权限不足被压回 exhigh，所以只有它需要提示。
+EXPECTED_LEVEL = {
+    128000: "standard",
+    192000: "higher",
+    320000: "exhigh",
+    2147483647: "lossless",
+}
+
+# level 是服务端的英文字段名，直接嵌进提示里中英文硬拼，读着别扭
+LEVEL_LABEL = {
+    "standard": "标准音质",
+    "higher": "高音质",
+    "exhigh": "超高音质",
+    "lossless": "无损音质",
+}
+
+_ACCOUNT_UNSET = object()
+_account_state = _ACCOUNT_UNSET
+
+
+def get_account_info() -> dict | None:
+    """查登录态与会员档位，同一进程内只查一次
+
+    返回 ``{"logged_in": bool, "vip": bool, "vip_type": int}``；
+    查询本身失败时返回 None，与「查出来没登录」是两回事，提示不能混。
+
+    这个接口无论登录与否都返回 code=200，不能看 code，要看 account 有没有。
+    实测登录但无会员的账号 account 同样存在，会员档位是 vipType 字段，
+    非零即有会员。
+    """
+    global _account_state
+    if _account_state is not _ACCOUNT_UNSET:
+        return _account_state
+
+    _account_state = None
+    try:
+        resp = _get_session().get(f"{_BASE_URL}/api/nuser/account/get", timeout=15)
+        acc = resp.json().get("account") or {}
+    except Exception:
+        return None
+
+    if acc:
+        _account_state = {
+            "logged_in": True,
+            "vip": bool(acc.get("vipType", 0)),
+            "vip_type": acc.get("vipType", 0),
+        }
+    else:
+        _account_state = {"logged_in": False, "vip": False, "vip_type": 0}
+    return _account_state

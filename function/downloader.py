@@ -20,6 +20,9 @@ from rich.progress import (
 from rich.text import Text
 
 from function.api import (
+    EXPECTED_LEVEL,
+    LEVEL_LABEL,
+    get_account_info,
     get_audio_source,
     get_lyrics_url,
     get_song_details,
@@ -116,6 +119,50 @@ def _embed_with_retry(fn, *args) -> str:
     return last
 
 
+_account_notified = False
+_downgrade_notified = False
+
+
+def _notify_account() -> None:
+    """下载开始前说清 Cookie 能不能用，无论结果如何都不中断下载
+
+    必须在取链接之前调：付费歌拿不到链接时会直接退出，
+    等到落盘那一步就永远等不到这条提示了。
+
+    只说一次：get_account_info 本身已经缓存，但提示要是跟着每首走，
+    批量下载会把同一句话刷满屏。
+    """
+    global _account_notified
+    if _account_notified:
+        return
+    _account_notified = True
+
+    info = get_account_info()
+    if info is None:
+        warning("Cookie 检查失败，无法获取账号信息，不影响本次下载")
+    elif not info["logged_in"]:
+        warning("未检测到登录状态，可能是 Cookie 有问题或登录已失效，可尝试重新获取")
+    elif not info["vip"]:
+        warning("Cookie 所属账号没有 VIP 权限，高音质将不可用，本次仍会按可用音质下载")
+
+
+def _notify_downgrade(want_level: str, got_level: str) -> None:
+    """请求的音质与实际拿到的不一致时说一声
+
+    服务端不会因为权限不足报错，只是悄悄降级，不提示的话用户
+    只能等看到文件名后缀才发现。
+    """
+    global _downgrade_notified
+    if not want_level or not got_level or got_level == want_level:
+        return
+    if _downgrade_notified:
+        return
+    _downgrade_notified = True
+    want_label = LEVEL_LABEL.get(want_level, want_level)
+    got_label = LEVEL_LABEL.get(got_level, got_level)
+    warning(f"当前 Cookie 权限不支持{want_label}，本次已按{got_label}下载")
+
+
 def _discard_temp(paths: list[str]) -> None:
     """丢弃残留的临时文件
 
@@ -186,6 +233,8 @@ def download_song(
     song_md5: str = "",
     run_check: bool | None = None,
     use_curl: bool | None = None,
+    song_level: str = "",
+    want_br: int = 0,
 ) -> tuple[bool, str, str | None]:
     """
     Download a song with metadata, lyrics, and cover.
@@ -202,6 +251,8 @@ def download_song(
 
     content = get_download_content()
     want_song = "0" in content
+    if want_song:
+        _notify_downgrade(EXPECTED_LEVEL.get(want_br, ""), song_level)
     want_lyrics = "1" in content
     want_cover = "2" in content
 
@@ -494,6 +545,9 @@ def download_song_batch(
         success(f"所有曲目已下载完毕，位于 {session_dir}")
         return success_count, fail_count, session_dir
 
+    # 登录态与会员要在开始下载前查一次，批量里不能给每首都发请求
+    _notify_account()
+
     # --- Concurrent download with worker slots ---
     counter_lock = Lock()
     progress = Progress(
@@ -622,6 +676,8 @@ def download_song_batch(
                             song_md5=source.md5,
                             run_check=run_check,
                             use_curl=use_curl,
+                            song_level=source.level,
+                            want_br=quality,
                         )
                         if ok:
                             break

@@ -30,7 +30,12 @@ from function.config import (
     resolve_output_dir,
     validate_config,
 )
-from function.downloader import download_song, download_song_batch, make_session_dir
+from function.downloader import (
+    _notify_account,
+    download_song,
+    download_song_batch,
+    make_session_dir,
+)
 from function.output import (
     abbrev_home,
     console,
@@ -125,6 +130,9 @@ def cmd_song(args: argparse.Namespace) -> None:
     quality = _resolve_quality(args)
     source = None
     if want_song:
+        # 取链接之前就说清 Cookie 能不能用：付费歌拿不到链接会直接退出，
+        # 等到落盘那一步就永远等不到这条提示
+        _notify_account()
         info(f"正在获取流 URL（音质={args.quality or '配置'}）...")
         for attempt in range(1, 4):
             source = get_audio_source(args.id, quality=quality)
@@ -156,6 +164,8 @@ def cmd_song(args: argparse.Namespace) -> None:
         song_md5=source.md5 if source else "",
         run_check=args.check,
         use_curl=args.curl,
+        song_level=source.level if source else "",
+        want_br=quality,
     )
     if ok:
         success(msg)
