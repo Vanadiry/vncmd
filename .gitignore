@@ -3,6 +3,7 @@ __pycache__/
 .venv/
 .ruff_cache/
 .vscode/
+TODO*.md
 
 # Test
 .pytest_cache/
