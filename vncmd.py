@@ -158,10 +158,11 @@ def build_parser() -> _ArgumentParser:
     return parser
 
 
-# 这几条不播报账号状态：init 还没配置好，cookie 自己要报，
-# cache --clear 刚清完缓存又被自动写回来就白清了。
+# 这几条不查账号状态：init 还没配置好，cookie 自己要查，
+# cache --clear 刚清完缓存又被自动写回来就白清了，
+# check 纯本地干活，联网对它没有意义，输出还可能给脚本读。
 # --help 在 parse_args 内部已退出，也走不到这里
-_NO_ACCOUNT_REPORT = {"init", "cookie", "cache"}
+_NO_ACCOUNT_REPORT = {"init", "cookie", "cache", "check"}
 
 
 def main() -> None:

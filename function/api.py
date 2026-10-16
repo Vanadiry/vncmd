@@ -520,3 +520,16 @@ def account_stamp() -> tuple[int, bool]:
     没查过就返回 (0, False)，调用方按「刚查的」处理。
     """
     return _account_checked_at, _account_from_cache
+
+
+def account_needs_check() -> bool:
+    """这次调用会不会真的发请求
+
+    播报要在请求之前先说一声「正在检查」，不然那一下停顿看着像卡住了。
+    判据必须与 get_account_info 用的是同一套，否则会出现
+    「预告了要查，结果读的是缓存」这种前后不一。
+    """
+    if _account_state is not _ACCOUNT_UNSET:
+        return False
+    cached = load_account()
+    return not (cached and account_is_fresh(cached))

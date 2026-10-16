@@ -15,6 +15,7 @@
 
 import json
 import os
+import sys
 import time
 
 import pytest
@@ -310,18 +311,117 @@ class TestForceCheck:
         assert saved["checked_at"] > 1
 
 
+class TestAccountNeedsCheck:
+    """预告「正在检查」之前要先知道这次会不会真发请求"""
+
+    def test_没有缓存说要查(self, disk):
+        import function.api as api
+
+        assert api.account_needs_check() is True
+
+    def test_缓存新鲜说不用查(self, disk):
+        import function.api as api
+
+        _write_cache(
+            disk["path"],
+            checked_at=time.time(),
+            logged_in=True,
+            vip=True,
+            vip_type=11,
+        )
+        assert api.account_needs_check() is False
+
+    def test_缓存过期说要查(self, disk):
+        import function.api as api
+
+        _write_cache(
+            disk["path"],
+            checked_at=time.time() - 90000,
+            logged_in=True,
+            vip=True,
+            vip_type=11,
+        )
+        assert api.account_needs_check() is True
+
+    def test_cookie改过说要查(self, disk):
+        import function.api as api
+
+        _write_cache(
+            disk["path"],
+            checked_at=time.time(),
+            logged_in=True,
+            vip=True,
+            vip_type=11,
+        )
+        os.utime(disk["cookie"], (time.time(), time.time()))
+        assert api.account_needs_check() is True
+
+    def test_进程内已有结果说不查(self, disk, monkeypatch):
+        import function.api as api
+
+        _write_cache(
+            disk["path"],
+            checked_at=time.time() - 90000,
+            logged_in=True,
+            vip=True,
+            vip_type=11,
+        )
+        monkeypatch.setattr(
+            api, "_account_state", {"logged_in": True, "vip": True, "vip_type": 11}
+        )
+        assert api.account_needs_check() is False
+
+    def test_与实际请求一致(self, disk, monkeypatch):
+        """预告说查却没发请求，或者不预告却发了，都会让人以为出了问题"""
+        import function.api as api
+
+        count = _responder(monkeypatch, {"code": 200, "account": {"vipType": 11}})
+        assert api.account_needs_check() is True
+        api.get_account_info()
+        assert count() == 1
+        assert api.account_needs_check() is False, "查过之后不该再预告"
+
+
 class TestAnnounceSkips:
-    def test_这几条命令不播报(self):
-        """cache --clear 刚清完缓存又被自动写回来就白清了"""
+    def test_这几条命令不查(self):
+        """cache --clear 刚清完缓存又被自动写回来就白清了；
+        check 纯本地干活，联网对它没有意义"""
         from vncmd import _NO_ACCOUNT_REPORT
 
-        assert set(_NO_ACCOUNT_REPORT) == {"init", "cookie", "cache"}
+        assert set(_NO_ACCOUNT_REPORT) == {"init", "cookie", "cache", "check"}
 
-    def test_下载类的命令要播报(self):
+    def test_下载与浏览类的命令要查(self):
         from vncmd import _NO_ACCOUNT_REPORT
 
-        for cmd in ("song", "album", "playlist", "search", "tracker", "check"):
+        for cmd in ("song", "album", "playlist", "search", "tracker"):
             assert cmd not in _NO_ACCOUNT_REPORT, f"{cmd} 漏了"
+
+    def _run_main(self, monkeypatch, argv):
+        """跑一次 main，数一下它有没有去查账号状态"""
+        import vncmd
+
+        calls = {"n": 0}
+        monkeypatch.setattr(vncmd, "acquire_lock", lambda: None)
+        monkeypatch.setattr(vncmd, "validate_config", lambda: None)
+        monkeypatch.setattr(
+            vncmd, "announce_account", lambda: calls.__setitem__("n", calls["n"] + 1)
+        )
+        for name in ("cmd_check", "cmd_cache", "cmd_song"):
+            monkeypatch.setattr(vncmd, name, lambda _a: None)
+        monkeypatch.setattr(sys, "argv", ["vncmd", *argv])
+        vncmd.main()
+        return calls["n"]
+
+    def test_check不联网查(self, monkeypatch, tmp_path):
+        """纯本地操作，多一次请求就是白等一次网络"""
+        assert self._run_main(monkeypatch, ["check", str(tmp_path)]) == 0
+
+    def test_cache不联网查(self, monkeypatch):
+        """--clear 刚清完缓存又被自动写回来就白清了"""
+        assert self._run_main(monkeypatch, ["cache", "--stats"]) == 0
+
+    def test_song要查(self, monkeypatch):
+        assert self._run_main(monkeypatch, ["song", "1"]) == 1
 
 
 def _cap(capsys):
@@ -353,17 +453,18 @@ class TestLevelLabel:
 
 
 class TestAnnounceAccount:
-    """每次运行报一次账号状态
+    """联网查过 Cookie 权限就播报一次
 
     原先这条提示挂在下载路径上，只在下载时才出现，
     现在挪到 main 里统一播报，所以搜索、看详情这些也都会报。
     """
 
-    def _say(self, monkeypatch, capsys, state, from_cache=False, checked_at=0):
+    def _say(self, monkeypatch, capsys, state, from_cache=False, needs_check=True):
         from function import commands
 
         monkeypatch.setattr(commands, "get_account_info", lambda: state)
-        monkeypatch.setattr(commands, "account_stamp", lambda: (checked_at, from_cache))
+        monkeypatch.setattr(commands, "account_stamp", lambda: (0, from_cache))
+        monkeypatch.setattr(commands, "account_needs_check", lambda: needs_check)
         commands.announce_account()
         return _cap(capsys)
 
@@ -395,19 +496,58 @@ class TestAnnounceAccount:
         )
         assert "有 VIP 权限" in out
 
-    def test_用缓存时说清有多旧(self, monkeypatch, capsys):
-        """不说明的话，「没重新联网」看着像查不动"""
-        import time
+    def test_标签叫Cookie权限(self, monkeypatch, capsys):
+        """「账号状态」听着像在说服务端那边的账号，
+        实际查的是本地这份 Cookie 拿到了什么权限"""
+        out = self._say(
+            monkeypatch, capsys, {"logged_in": True, "vip": True, "vip_type": 11}
+        )
+        assert "Cookie 权限" in out
+        assert "账号状态" not in out
 
+    def test_请求前先说一声(self, monkeypatch, capsys):
+        """不然中间那一下停顿看着像卡住了"""
+        out = self._say(
+            monkeypatch, capsys, {"logged_in": True, "vip": True, "vip_type": 11}
+        )
+        assert "正在检查" in out
+        assert out.index("正在检查") < out.index("Cookie 权限"), "预告要排在结果前面"
+
+    def test_不联网时不要预告(self, monkeypatch, capsys):
+        """说了要查结果读的是缓存，前后就对不上了"""
+        out = self._say(
+            monkeypatch,
+            capsys,
+            {"logged_in": True, "vip": True, "vip_type": 11},
+            needs_check=False,
+        )
+        assert "正在检查" not in out
+
+    def test_用缓存时完全静默(self, monkeypatch, capsys):
+        """报的是「刚查出来是这样」，不是「此刻是这样」
+
+        一天至多刷一次，每次运行都复读只会变成噪声，
+        真要提醒的那一次反而被淹掉。
+        """
         out = self._say(
             monkeypatch,
             capsys,
             {"logged_in": True, "vip": True, "vip_type": 11},
             from_cache=True,
-            checked_at=time.time() - 3 * 3600,
+            needs_check=False,
         )
-        assert "缓存" in out
-        assert "3 小时前" in out
+        assert out == "", f"命中缓存不该出声：{out}"
+
+    def test_用缓存时有毛病也不出声(self, monkeypatch, capsys):
+        """播报跟着联网检查走，缓存里的旧结论不重复提"""
+        out = self._say(
+            monkeypatch,
+            capsys,
+            {"logged_in": True, "vip": False, "vip_type": 0},
+            from_cache=True,
+            needs_check=False,
+        )
+        assert out == ""
 
     def test_刚查的不提缓存(self, monkeypatch, capsys):
         out = self._say(
