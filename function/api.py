@@ -110,14 +110,17 @@ def _normalize_song(song: dict) -> dict:
         song["artists"] = song.pop("ar")
     if "al" in song:
         song["album"] = song.pop("al")
+    # 键存在但值为 null 时 .get 的默认值不生效，得用 or 兜住，
+    # 网易云的 v1 接口对部分歌曲确实返回 al 为 null
+    album = song.get("album") or {}
     return {
         "id": song["id"],
         "title": _clean(song["name"]),
-        "artist": _clean(", ".join(a["name"] for a in song.get("artists", []))),
-        "album": _clean(song.get("album", {}).get("name", "")),
-        "album_id": song.get("album", {}).get("id"),
-        "cover": song.get("album", {}).get("picUrl", ""),
-        "publish_time": format_timestamp(song.get("album", {}).get("publishTime")),
+        "artist": _clean(", ".join(a["name"] for a in song.get("artists") or [])),
+        "album": _clean(album.get("name", "")),
+        "album_id": album.get("id"),
+        "cover": album.get("picUrl", ""),
+        "publish_time": format_timestamp(album.get("publishTime")),
         "duration": _fmt_duration(song.get("duration")),
         "track_no": _first_number(song.get("no")),
         "cd_no": _first_number(song.get("cd")),
@@ -228,8 +231,8 @@ def get_playlist_details(playlist_id: int) -> dict:
     # Map tracks to standard format
     tracks = []
     for t in full_tracks:
-        ar = t.get("ar", [])
-        al = t.get("al", {})
+        ar = t.get("ar") or []
+        al = t.get("al") or {}
         tracks.append(
             {
                 "id": t["id"],
@@ -303,9 +306,9 @@ def search(q: str, limit: int = 30, offset: int = 0) -> dict:
             {
                 "id": s["id"],
                 "title": s["name"],
-                "artist": ", ".join(a["name"] for a in s.get("ar", [])),
-                "album": s.get("al", {}).get("name", ""),
-                "cover": s.get("al", {}).get("picUrl", ""),
+                "artist": ", ".join(a["name"] for a in s.get("ar") or []),
+                "album": (s.get("al") or {}).get("name", ""),
+                "cover": (s.get("al") or {}).get("picUrl", ""),
                 "publish_time": format_timestamp(s.get("publishTime")),
                 "duration": _fmt_duration(s.get("dt")),
             }
