@@ -79,7 +79,8 @@ def sync_checkpoint_tracks(
     # Notify for album/playlist
     if dl_type in ("album", "playlist") and has_changes:
         for tid in sorted(new_ids):
-            title = current_tracks.get(tid, current_tracks.get(int(tid), "?"))
+            # current_tracks 的键恒为 str，int(tid) 那一路永远取不到值
+            title = current_tracks.get(tid, "?")
             info(f"  {dl_type} 新增曲目：{title}（ID {tid}）")
         for tid in sorted(removed_ids):
             info(f"  {dl_type} 曲目已移除：ID {tid}")

@@ -303,8 +303,9 @@ def download_song(
     # 完整路径折行会把路径断在中间，复制不出来
     parts = []
     if music_path:
-        label = music_type.upper() if music_type else ""
-        parts.append(f'{label} → "{Path(music_path).name}"')
+        name = Path(music_path).name
+        # 类型为空时不留 "→ " 前缀，否则行首多一个空格
+        parts.append(f'{music_type.upper()} → "{name}"' if music_type else f'"{name}"')
     for p in lyric_paths:
         parts.append(f'LRC → "{Path(p).name}"')
     if cover_path:

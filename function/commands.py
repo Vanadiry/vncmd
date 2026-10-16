@@ -268,8 +268,6 @@ def cmd_cookie(args: argparse.Namespace) -> None:
     _write_cookie(args.value.strip())
     success("Cookie 已保存")
 
-    from function.api import get_song_url
-
     info("正在检查 Cookie 权限，请稍候...")
     try:
         url = get_song_url(2056952623)
