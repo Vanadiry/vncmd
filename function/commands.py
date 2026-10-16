@@ -2,6 +2,7 @@ import argparse
 import os
 import shutil
 import sys
+from pathlib import Path
 
 from rich.markup import escape
 
@@ -19,6 +20,8 @@ from function.config import (
     COOKIE_FILE,
     QUALITY_MAP,
     VNCMD_HOME,
+    get_cache_dir,
+    get_cache_ttl,
     get_download_content,
     get_quality,
     resolve_output_dir,
@@ -280,11 +283,36 @@ def cmd_cookie(args: argparse.Namespace) -> None:
     sys.exit(1)
 
 
+def cmd_cache(args: argparse.Namespace) -> None:
+    """查看或清理本地缓存。"""
+    root = Path(get_cache_dir())
+    if not root.is_dir():
+        info('"缓存目录不存在，无需处理"')
+        return
+
+    songs = sorted((root / "song").glob("*")) if (root / "song").is_dir() else []
+    files = [f for f in root.rglob("*") if f.is_file()]
+    size = sum(f.stat().st_size for f in files)
+
+    if args.stats or not args.clear:
+        ttl = get_cache_ttl()
+        console.print(f'缓存目录："{abbrev_home(root)}"')
+        console.print(f"占用：{size / 1024 / 1024:.1f} MB，共 {len(files)} 个文件")
+        console.print(f"曲目：{len(songs)} 首")
+        console.print(f"有效期：{'永不过期' if ttl == 0 else f'{ttl} 天'}")
+
+    if args.clear:
+        shutil.rmtree(root)
+        success(f'"已清空缓存，释放 {size / 1024 / 1024:.1f} MB"')
+    else:
+        console.print()
+        info('"用 vncmd cache --clear 清空缓存"')
+
+
 def cmd_check(args: argparse.Namespace) -> None:
     """Check audio file integrity."""
     import concurrent.futures
     from concurrent.futures import ThreadPoolExecutor
-    from pathlib import Path
 
     from function.checker import check_audio, has_ffmpeg
 

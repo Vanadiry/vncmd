@@ -3,6 +3,7 @@ import sys
 
 from function.commands import (
     cmd_album,
+    cmd_cache,
     cmd_check,
     cmd_cookie,
     cmd_init,
@@ -86,6 +87,10 @@ def main() -> None:
     p_check = sub.add_parser("check", help="检查音频文件完整性")
     p_check.add_argument("path", help="文件或目录路径")
 
+    p_cache = sub.add_parser("cache", help="查看或清理本地缓存")
+    p_cache.add_argument("--stats", action="store_true", help="显示占用与条目数")
+    p_cache.add_argument("--clear", action="store_true", help="清空缓存目录")
+
     p_search = sub.add_parser("search", help="搜索曲目")
     p_search.add_argument("query", help="搜索关键词")
     p_search.add_argument(
@@ -148,6 +153,7 @@ def main() -> None:
         "init": cmd_init,
         "cookie": cmd_cookie,
         "check": cmd_check,
+        "cache": cmd_cache,
         "search": cmd_search,
         "song": cmd_song,
         "album": cmd_album,

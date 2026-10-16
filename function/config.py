@@ -26,6 +26,8 @@ def acquire_lock() -> None:
         sys.exit(1)
 
 
+DEFAULT_CACHE_TTL = 3
+
 QUALITY_MAP = {
     "128": 128000,
     "192": 192000,
@@ -133,6 +135,9 @@ def validate_config(quiet: bool = False) -> None:
         errors.append("[cache] enabled 缺失")
     if not cc.get("dir"):
         errors.append("[cache] dir 缺失或为空")
+    ttl = cc.get("ttl", DEFAULT_CACHE_TTL)
+    if not isinstance(ttl, int) or isinstance(ttl, bool) or ttl < 0:
+        errors.append("[cache] ttl 不为非负整数")
 
     # [display]
     # 整段缺失时按默认值算，升级旧配置不至于报错，类型写错仍要拦下
@@ -222,6 +227,11 @@ def get_credit_scan_lines() -> int:
 
 def get_credit_prefixes() -> list[str]:
     return _get_cfg()["download"]["lyric"]["credit_prefixes"]
+
+
+def get_cache_ttl() -> int:
+    # 旧配置没有这一项时按默认值算，升级不至于报错
+    return _get_cfg().get("cache", {}).get("ttl", DEFAULT_CACHE_TTL)
 
 
 def get_cache_dir() -> str:

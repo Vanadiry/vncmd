@@ -38,6 +38,8 @@ save_quality = "0"
 enabled = true
 # 绝对路径，或相对于 VNCMD_HOME 的路径
 dir = "cache"
+# 缓存有效期，单位为天，0 表示永不过期
+ttl = 3
 
 [display]
 # 艺术家字段里的虚拟歌姬按代表色着色
