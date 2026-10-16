@@ -77,6 +77,10 @@ from function.output import (
 
 _move_lock = Lock()
 
+# 标签嵌入的重试次数，与批量下载的重试次数互相独立：
+# 这里重试的是一次纯粹的标签写入，比重新下载一首便宜得多
+_EMBED_ATTEMPTS = 3
+
 # Ctrl+C 后让 worker 停止取新曲目，已经在下的这首跑完为止
 _cancelled = Event()
 
@@ -91,6 +95,25 @@ def _move_unique(temp_path: str, base: str, ext: str, directory: str) -> str:
         target = resolve_path(base, ext, directory)
         shutil.move(temp_path, target)
     return target
+
+
+def _embed_with_retry(fn, *args) -> str:
+    """嵌入元数据，失败后重试若干次，返回最后一次的错误说明或空串
+
+    标签对音乐库很关键，值得再试几次：并发下的磁盘争用是偶发的，
+    重试就能成；而eyed3 读不出某些 mp3 属于确定性失败，重试无果但
+    代价只是几十毫秒。
+    """
+    last = ""
+    for attempt in range(1, _EMBED_ATTEMPTS + 1):
+        try:
+            fn(*args)
+            return ""
+        except Exception as e:
+            last = f"{type(e).__name__}: {e}"
+            if attempt < _EMBED_ATTEMPTS:
+                time.sleep(0.3 * attempt)
+    return last
 
 
 def _discard_temp(paths: list[str]) -> None:
@@ -281,7 +304,8 @@ def download_song(
             embed_result = process_lyrics(lyric_text, tlyric_text, embed_mode, song_id)
             embed_lyric = "\n".join(embed_result.values())
 
-        embed_metadata(
+        embed_err = _embed_with_retry(
+            embed_metadata,
             temp_music_path,
             music_type,
             embed_cover_data,
@@ -296,6 +320,14 @@ def download_song(
             cd_no,
             composer,
         )
+        if embed_err:
+            # 音频本身过了校验，标签嵌不上不该把整首判为下载失败，
+            # 否则用户看到失败会重试，白白重下一遍。但重试过仍要出声告知，
+            # 静默降级会让人以为标签已经嵌好
+            warning(
+                f"「{song_title} - {song_artist}」元数据嵌入失败"
+                f"（已重试 {_EMBED_ATTEMPTS} 次），本次不带标签：{embed_err}"
+            )
 
     # --- Save lyrics to temp ---
     if want_lyrics and lyric_text and not skip_lrc:
