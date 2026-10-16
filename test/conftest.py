@@ -2,6 +2,8 @@ import os
 import shutil
 import sys
 import tempfile
+import time
+from contextlib import contextmanager
 from pathlib import Path
 
 import pytest
@@ -18,6 +20,41 @@ sys.path.insert(0, str(PROJECT_ROOT))
 PLAYLIST_ID = 17647459371
 SONG_ID = 22699098
 ALBUM_ID = 123388631
+
+# 网易云给的是毫秒，这个值在 UTC 下是 2011-09-01 08:00:00，UTC+8 下是 16:00:00
+SAMPLE_MS = 1314864000000
+
+
+if hasattr(time, "tzset"):
+
+    @contextmanager
+    def as_tz(name):
+        """Temporarily pin the process timezone, restoring it afterwards
+
+        发行时间走的是 time.localtime，本地时区是有意为之的行为。
+        但断言若直接写死某个时刻的墙上时间，等于把作者本机的时区
+        当成了常量：写测试时是 UTC+8，换到 UTC 的 CI runner 上就成了
+        08:00:00。断言前钉住时区，既有确定值又真正验证了换算本身。
+
+        改了 TZ 必须调 tzset，否则 C 库不会重新读取。
+        """
+        old = os.environ.get("TZ")
+        os.environ["TZ"] = name
+        time.tzset()
+        try:
+            yield
+        finally:
+            if old is None:
+                os.environ.pop("TZ", None)
+            else:
+                os.environ["TZ"] = old
+            time.tzset()
+
+else:  # pragma: no cover - 仅 Windows 会走到
+
+    @contextmanager
+    def as_tz(_name):
+        yield
 
 
 def pytest_configure(config):

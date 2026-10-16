@@ -1,6 +1,7 @@
 import pytest
 
 from function.api import _clean, _normalize_song
+from test.conftest import as_tz
 
 BASE = {"id": 1, "name": "歌", "duration": 1000}
 
@@ -46,15 +47,17 @@ def test_缺键与值为null结果一致():
 
 
 def test_字段齐全时照常取出():
-    r = _norm(
-        ar=[{"name": "人"}],
-        al={"name": "专", "id": 9, "picUrl": "u", "publishTime": 1314864000000},
-    )
-    assert r["artist"] == "人"
-    assert r["album"] == "专"
-    assert r["album_id"] == 9
-    assert r["cover"] == "u"
-    assert r["publish_time"] == "2011-09-01 16:00:00"
+    # 发行时间是 _normalize_song 内部转的，时区必须罩住整个调用而不是只罩断言
+    with as_tz("Asia/Shanghai"):
+        r = _norm(
+            ar=[{"name": "人"}],
+            al={"name": "专", "id": 9, "picUrl": "u", "publishTime": 1314864000000},
+        )
+        assert r["artist"] == "人"
+        assert r["album"] == "专"
+        assert r["album_id"] == 9
+        assert r["cover"] == "u"
+        assert r["publish_time"] == "2011-09-01 16:00:00"
 
 
 def test_零宽字符被清掉():

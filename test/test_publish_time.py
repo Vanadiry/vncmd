@@ -1,12 +1,27 @@
 from function import api as api_mod
+from test.conftest import SAMPLE_MS, as_tz
+
+SHANGHAI_STR = "2011-09-01 16:00:00"
 
 
 def test_毫秒时间戳转本地时间字符串():
-    assert api_mod._fmt_publish_time(1314864000000) == "2011-09-01 16:00:00"
+    with as_tz("Asia/Shanghai"):
+        assert api_mod._fmt_publish_time(SAMPLE_MS) == SHANGHAI_STR
+
+
+def test_同一时间戳在不同时区下结果不同():
+    """钉时区这个前提本身要成立，否则下面那些断言等于什么都没验"""
+    with as_tz("Asia/Shanghai"):
+        cn = api_mod._fmt_publish_time(SAMPLE_MS)
+    with as_tz("UTC"):
+        utc = api_mod._fmt_publish_time(SAMPLE_MS)
+    assert cn == SHANGHAI_STR
+    assert utc == "2011-09-01 08:00:00"
 
 
 def test_零时间戳():
-    assert api_mod._fmt_publish_time(0) == "1970-01-01 08:00:00"
+    with as_tz("Asia/Shanghai"):
+        assert api_mod._fmt_publish_time(0) == "1970-01-01 08:00:00"
 
 
 def test_拿不到时间戳返回空串():
@@ -16,9 +31,10 @@ def test_拿不到时间戳返回空串():
 
 def test_按毫秒解释():
     # 网易云给的是毫秒，当秒解释会把 2011 年的日期落到 1970 年 1 月中旬
-    ms = api_mod._fmt_publish_time(1314864000000)
-    sec = api_mod._fmt_publish_time(1314864000)
-    assert ms == "2011-09-01 16:00:00"
+    with as_tz("Asia/Shanghai"):
+        ms = api_mod._fmt_publish_time(SAMPLE_MS)
+        sec = api_mod._fmt_publish_time(1314864000)
+    assert ms == SHANGHAI_STR
     assert sec != ms
 
 
