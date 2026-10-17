@@ -199,15 +199,27 @@ class TestDefaultsStayInSync:
     def test_文档写的与help一致(self):
         """两边写的那个数都指面板，不是 parser 的 limit。
 
-        早先这里断言的是文档里那句「返回数量，默认 10」的字面，
-        现在措辞改了要跟着改，所以改成把数字取出来比，
-        免得下次只是重写句子就红。
+        早先断言的是文档里那句「返回数量，默认 10」的字面，
+        那个短语被挪进表格后就找不到了，而数字一个字没变。
+        所以改成读 --limit 那一行的「默认」列：要防的是数字漂移，
+        不是文档的措辞与排版。
         """
         import re
 
-        hit = re.search(r"默认 (\d+)", self._doc("search.md"))
-        assert hit, "文档里找不到面板默认条数"
-        assert int(hit.group(1)) == 10
+        row = next(
+            (
+                line
+                for line in self._doc("search.md").splitlines()
+                if line.startswith("| `--limit")
+            ),
+            None,
+        )
+        assert row, "文档的 search.md 里没有 --limit 那一行"
+        cells = [c.strip() for c in row.split("|")]
+        assert len(cells) > 4, f"那一行没有「默认」列：{row}"
+        hit = re.search(r"\d+", cells[3])
+        assert hit, f"「默认」列里没有数字：{cells[3]}"
+        assert int(hit.group()) == 10
 
     def test_help文本与面板默认值一致(self, capsys):
         """help 里写死一个数字，改了面板默认值忘了改它就会对不上
