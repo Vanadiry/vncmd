@@ -267,6 +267,25 @@ def build_parser() -> _ArgumentParser:
         action="store_true",
         help="与 -d 配合时，仅下载上次拉取后新增的曲目",
     )
+    # --json 只配纯读视图：四个动作的结果都是文件，不是数据。
+    # --limit/--offset 同样只切 JSON，纯读面板暂时没有曲目表，
+    # 给了不报错也不生效 —— 曲目表做完就自动接上了
+    _add_json_arg(p_tracker)
+    p_tracker.add_argument(
+        "--limit",
+        "-n",
+        type=int,
+        default=None,
+        metavar="N",
+        help="最多给出曲目数（只作用于 --json 的输出）",
+    )
+    p_tracker.add_argument(
+        "--offset",
+        type=int,
+        default=0,
+        metavar="N",
+        help="起始序号，从 0 计（只作用于 --json 的输出）",
+    )
     _add_quality_arg(p_tracker)
     _add_output_arg(p_tracker)
 

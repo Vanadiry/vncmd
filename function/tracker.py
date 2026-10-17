@@ -17,6 +17,7 @@ from function.api import (
     get_playlist_details,
     get_song_details,
 )
+from function.commands import _dump_json
 from function.config import (
     QUALITY_MAP,
     VNCMD_HOME,
@@ -99,22 +100,34 @@ def create_tracker(name: str) -> None:
     info("请编辑 settings.toml 添加需要跟踪的曲目/歌单/专辑 ID。")
 
 
-def load_songs_db(name: str) -> list[dict]:
-    """读曲目库，主文件坏了退回 backup_db 留下的那份
+def load_songs_db_full(name: str) -> dict:
+    """读整个曲目库文件，含 updated_at
 
-    这里不能像缓存那样读不出来就当空：曲目库是用户攒下来的，
-    返回空列表会被后续同步当成「没有需要下载的曲目」，等于静默清空。
+    与 load_songs_db 同一个文件、同一个备份退回路径，只是不把 updated_at 丢掉 ——
+    那是判断数据有多旧的唯一依据，纯读面板与 --json 都要它。
+    面板与 JSON 都从这里取，不重新组装，两者不会漂。
     """
     path = _songs_path(name)
     if not path.exists():
-        return []
+        return {"updated_at": "", "songs": []}
     data = read_json_safe(path, None, what="曲目库")
     if data is None:
         bak = path.with_name(f"{path.name}.bak")
         data = read_json_safe(bak, None, what="曲目库备份")
         if data is not None:
             warning(f"已改用备份：{bak}")
-    return data.get("songs", []) if isinstance(data, dict) else []
+    if not isinstance(data, dict):
+        return {"updated_at": "", "songs": []}
+    return {"updated_at": data.get("updated_at", ""), "songs": data.get("songs", [])}
+
+
+def load_songs_db(name: str) -> list[dict]:
+    """读曲目库，主文件坏了退回 backup_db 留下的那份
+
+    这里不能像缓存那样读不出来就当空：曲目库是用户攒下来的，
+    返回空列表会被后续同步当成「没有需要下载的曲目」，等于静默清空。
+    """
+    return load_songs_db_full(name)["songs"]
 
 
 def backup_db(name: str) -> None:
@@ -166,7 +179,7 @@ def load_diff(name: str) -> dict:
     return data if isinstance(data, dict) else empty
 
 
-def show_tracker(name: str) -> None:
+def show_tracker(name: str, updated_at: str = "") -> None:
     settings = load_settings(name)
     songs = load_songs_db(name)
 
@@ -180,6 +193,11 @@ def show_tracker(name: str) -> None:
     header.append(f"{name}\n", style="bold bright_white")
     header.append("描述：", style="dim")
     header.append(f"{settings['description']}", style="yellow")
+    # 曲目表还没做，而「这库是什么时候拉的」恰恰只能从这里看出来：
+    # 一个三个月没更新的库，面板上与刚建的一样，看不出该不该再 --fetch
+    if updated_at:
+        header.append("\n更新于：", style="dim")
+        header.append(f"{updated_at}", style="green")
     console.print(Panel(header, border_style="cyan", box=box.ROUNDED))
 
     if settings["sources"]:
@@ -196,6 +214,29 @@ def show_tracker(name: str) -> None:
         info("尚未配置来源，请编辑 settings.toml 添加来源。")
 
     console.print(f"  已缓存曲目：[green]{len(songs)}[/]")
+
+
+def tracker_payload(settings: dict, db: dict, args: argparse.Namespace) -> dict:
+    """纯读视图的 JSON 形状
+
+    信封与 song、album、playlist 一致，不用裸的 {"updated_at", "songs"} ——
+    那样切分页只能在外面套一层，返回形状也会与另外三个命令不一样，
+    会让人以为这文件是某个命令的输出。
+
+    songs 直接取 songs.json，不重新组装，面板与 JSON 出自同一份。
+    切片按 4.1 那条统一规则：显式给了 limit 或 offset 才切。
+    """
+    songs = db["songs"]
+    if args.limit is not None or args.offset:
+        end = args.offset + args.limit if args.limit else None
+        songs = songs[args.offset : end]
+    return {
+        "tracker": {
+            "updated_at": db["updated_at"],
+            "sources": settings["sources"],
+            "songs": songs,
+        }
+    }
 
 
 def fetch_all_songs(settings: dict) -> tuple[dict[str, dict], list[dict]]:
@@ -469,10 +510,16 @@ def download_diff(name: str, quality: int, output_dir: str) -> None:
 def cmd_tracker(args: argparse.Namespace) -> None:
     name = args.name
 
+    # 四个动作全是动作，结果是文件而不是数据，所以都不接受 --json。
+    # 与其给一份没人会读的动作结果 JSON，不如说清它只管纯读视图。
+    # 检查放在最前面：放到 tracker 存在性判断之后的话，
+    # 用户会先被问「是否创建 tracker」，才发现自己的参数写错了
+    if args.json and (args.fetch or args.fetch_auto or args.download):
+        error("--json 只用于纯读视图，与 --fetch、-d 不能同时使用")
+        sys.exit(2)
+
     # --diff 只是 -d 的修饰，单独给它在代码里落不到任何分支，
     # 什么都不做也没有提示。与其静默，不如说清它要配合 -d。
-    # 这个检查放在最前面：放到 tracker 存在性判断之后的话，
-    # 用户会先被问「是否创建 tracker」，才发现自己的参数写错了
     if args.diff and not args.download:
         error("--diff 需要配合 -d 使用，只下载上次拉取后新增的曲目")
         sys.exit(2)
@@ -535,4 +582,9 @@ def cmd_tracker(args: argparse.Namespace) -> None:
             download_tracker(name, quality, output_dir)
 
     else:
-        show_tracker(name)
+        db = load_songs_db_full(name)
+        # 四个动作结果都是文件，纯读视图的结果是数据，所以只有这里给 --json
+        if args.json:
+            _dump_json(tracker_payload(load_settings(name), db, args))
+            return
+        show_tracker(name, db["updated_at"])

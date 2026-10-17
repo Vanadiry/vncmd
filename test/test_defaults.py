@@ -107,7 +107,14 @@ class TestDiffNeedsDownload:
     def test_单独给diff报错(self):
         from function.tracker import cmd_tracker
 
-        args = argparse.Namespace(name="like", diff=True, download=False)
+        args = argparse.Namespace(
+            name="like",
+            diff=True,
+            download=False,
+            json=False,
+            fetch=False,
+            fetch_auto=False,
+        )
         with pytest.raises(SystemExit) as exc:
             cmd_tracker(args)
         assert exc.value.code == 2
@@ -115,7 +122,14 @@ class TestDiffNeedsDownload:
     def test_提示要说清要配合d(self, capsys):
         from function.tracker import cmd_tracker
 
-        args = argparse.Namespace(name="like", diff=True, download=False)
+        args = argparse.Namespace(
+            name="like",
+            diff=True,
+            download=False,
+            json=False,
+            fetch=False,
+            fetch_auto=False,
+        )
         with pytest.raises(SystemExit):
             cmd_tracker(args)
         out = capsys.readouterr().err
@@ -136,7 +150,14 @@ class TestDiffNeedsDownload:
         monkeypatch.setattr(
             tracker.questionary, "confirm", lambda *a, **k: FakeConfirm()
         )
-        args = argparse.Namespace(name="一个不存在的名字", diff=True, download=False)
+        args = argparse.Namespace(
+            name="一个不存在的名字",
+            diff=True,
+            download=False,
+            json=False,
+            fetch=False,
+            fetch_auto=False,
+        )
         with pytest.raises(SystemExit):
             tracker.cmd_tracker(args)
         assert not asked, "参数写错时不该先去问要不要创建 tracker"
@@ -158,6 +179,7 @@ class TestDiffNeedsDownload:
             name="like",
             diff=True,
             download=True,
+            json=False,
             fetch=False,
             fetch_auto=False,
             quality=None,
