@@ -1,5 +1,7 @@
 import argparse
 import sys
+from importlib.metadata import PackageNotFoundError
+from importlib.metadata import version as _pkg_version
 
 from function.commands import (
     announce_account,
@@ -38,6 +40,21 @@ class _ArgumentParser(argparse.ArgumentParser):
             default=argparse.SUPPRESS,
             help="显示此帮助信息并退出",
         )
+
+
+def _version_string() -> str:
+    """版本从已安装的包元数据读，不从 pyproject.toml 读
+
+    前者是「我现在实际在跑哪个版本」，后者是「源码树声称是哪个」。
+    开发时用可编辑安装，两者可能漂移，那时打印后者等于报了个不实的版本。
+
+    装成非包的形式直接跑源码时会抛 PackageNotFoundError，
+    打印一个 unknown 比抛栈好。
+    """
+    try:
+        return f"vncmd {_pkg_version('vncmd')}"
+    except PackageNotFoundError:
+        return "vncmd unknown"
 
 
 def _add_quality_arg(parser: object) -> None:
@@ -95,6 +112,18 @@ def build_parser() -> _ArgumentParser:
     parser = _ArgumentParser(
         prog="vncmd",
         description="网易云音乐 CLI — 搜索、预览与下载",
+    )
+    # 打印完立刻退出，早于 acquire_lock、validate_config 与账号播报，
+    # 所以全新安装、没有配置、没有 Cookie、断网都能正常打印。
+    # 走 argparse 原生的 version 动作，它直接写 sys.stdout，
+    # 不经过 rich，于是没有 ANSI 也没有把方括号当标记的风险，
+    # CI 拿 `vncmd --version` 的输出比对时不用先剥颜色。
+    parser.add_argument(
+        "-V",
+        "--version",
+        action="version",
+        version=_version_string(),
+        help="显示版本号并退出",
     )
     sub = parser.add_subparsers(
         dest="command", help="可用命令", parser_class=_ArgumentParser
