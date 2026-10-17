@@ -18,9 +18,24 @@ READY = {
     "size": 30000000,
     "md5": "aaa",
     "fee": 0,
+    "payed": 1,
+    "code": 200,
     "expi": 1200,
 }
-BLOCKED = {"id": 2, "url": None, "level": None, "br": 0, "size": 0, "fee": 1}
+# 实测（id 477933827）的失败条目不是「只剩 fee 一个有值」：
+# code=404 与 payed=0 都在，而 code 才是最直接的答案
+BLOCKED = {
+    "id": 2,
+    "url": None,
+    "level": None,
+    "br": 0,
+    "size": 0,
+    "md5": None,
+    "fee": 0,
+    "payed": 0,
+    "code": 404,
+    "expi": 1200,
+}
 
 
 def tracks(n, start=1):
@@ -192,8 +207,10 @@ class Test批量取链接:
             "br": 0,
             "size": 0,
             "md5": "",
-            "fee": 1,
-            "expi": 0,
+            "fee": 0,
+            "payed": 0,
+            "code": 404,
+            "expi": 1200,
         }
 
     def test_按id合并而不是按顺序(self, monkeypatch, capsys):
@@ -221,6 +238,8 @@ class Test批量取链接:
             "size",
             "md5",
             "fee",
+            "payed",
+            "code",
             "expi",
         }
 
@@ -267,6 +286,67 @@ class Test先切再取链接:
         commands.cmd_album(ns())
         parsed(capsys)
         assert two_urls == [[1, 2, 3]]
+
+
+class Test失败条目带原因:
+    """code 与 payed 是判断「为什么拿不到」那两个字段"""
+
+    def test_失败时带上code(self, monkeypatch, capsys, two_urls):
+        """实测 id 477933827 回的是 code=404，比 fee=0 有用得多"""
+        monkeypatch.setattr(commands, "get_album_details", lambda _i: album())
+        commands.cmd_album(ns())
+        data, _out, _err = parsed(capsys)
+        assert data["album"]["tracks"][1]["download"]["code"] == 404
+
+    def test_成功时带上code(self, monkeypatch, capsys, two_urls):
+        monkeypatch.setattr(commands, "get_album_details", lambda _i: album())
+        commands.cmd_album(ns())
+        data, _out, _err = parsed(capsys)
+        assert data["album"]["tracks"][0]["download"]["code"] == 200
+
+    def test_带payed(self, monkeypatch, capsys, two_urls):
+        """payed 能分「买了」与「没买」，而 fee 不一定分得清"""
+        monkeypatch.setattr(commands, "get_album_details", lambda _i: album())
+        commands.cmd_album(ns())
+        data, _out, _err = parsed(capsys)
+        entry = data["album"]["tracks"][1]["download"]
+        assert entry["payed"] == 0
+
+    def test_接口没返回id时code是0不是崩(self, monkeypatch, capsys):
+        """整个 id 都没在响应里时补空条目，不能因此抛异常"""
+        monkeypatch.setattr(commands, "get_album_details", lambda _i: album())
+        monkeypatch.setattr(commands, "fetch_player_urls", lambda ids, quality=None: {})
+        commands.cmd_album(ns())
+        data, _out, _err = parsed(capsys)
+        entry = data["album"]["tracks"][0]["download"]
+        assert entry["code"] == 0
+        assert entry["payed"] == 0
+        assert entry["url"] == ""
+
+    def test_付费但未购时payed与code都在(self, monkeypatch, capsys):
+        """这类最容易靠 payed 判断，而早先那个「七个字段」把它丢了"""
+        paid_not_owned = {
+            "id": 1,
+            "url": None,
+            "level": None,
+            "br": 0,
+            "size": 0,
+            "md5": None,
+            "fee": 1,
+            "payed": 0,
+            "code": 404,
+            "expi": 1200,
+        }
+        monkeypatch.setattr(commands, "get_album_details", lambda _i: album())
+        monkeypatch.setattr(
+            commands,
+            "fetch_player_urls",
+            lambda ids, quality=None: {1: paid_not_owned},
+        )
+        commands.cmd_album(ns())
+        data, _out, _err = parsed(capsys)
+        entry = data["album"]["tracks"][0]["download"]
+        assert entry["fee"] == 1 and entry["payed"] == 0 and entry["code"] == 404
 
 
 class Test拿不到的报法:

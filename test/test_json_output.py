@@ -306,6 +306,8 @@ class Test与dlink同给:
             "md5": "abc",
             "expi": 1200,
             "fee": 0,
+            "payed": 1,
+            "code": 200,
         }
         monkeypatch.setattr(commands, "get_song_details", lambda _i: SONG)
         monkeypatch.setattr(

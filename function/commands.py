@@ -140,6 +140,11 @@ def _download_entry(info: dict) -> dict:
 
     形状固定，取不到时也照样给全，只是值为空 —— 键一直在，脚本就能用
     .download.url 判断，而不用先问键在不在。
+
+    ``code`` 与 ``payed`` 是判断「为什么拿不到」那两个字段。早先以为失败条目
+    只剩 fee 一个有值的，实测（2026-10-17，id 477933827）不是那样：
+    ``code=404``、``payed=0`` 都在。它们是接口自己给的结论，不是我们猜的 ——
+    与「没依据就不下结论」那条不冲突，恰恰是因为有依据才给。
     """
     return {
         "url": info.get("url") or "",
@@ -148,6 +153,8 @@ def _download_entry(info: dict) -> dict:
         "size": info.get("size") or 0,
         "md5": info.get("md5") or "",
         "fee": info.get("fee"),
+        "payed": info.get("payed", 0),
+        "code": info.get("code", 0),
         "expi": info.get("expi") or 0,
     }
 
