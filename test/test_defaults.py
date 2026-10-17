@@ -189,6 +189,6 @@ class TestDefaultsStayInSync:
         with pytest.raises(SystemExit):
             _parse(["search", "--help"])
         out = capsys.readouterr().out
-        hit = re.search(r"最大结果数（默认：(\d+)）", out)
+        hit = re.search(r"最大结果数，\d+-\d+（默认：(\d+)）", out)
         assert hit, f"help 里找不到默认值的说明：{out}"
         assert int(hit.group(1)) == _parse(["search", "x"]).limit

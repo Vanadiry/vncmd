@@ -163,8 +163,18 @@ def build_parser() -> _ArgumentParser:
 
     p_search = sub.add_parser("search", help="搜索曲目")
     p_search.add_argument("query", help="搜索关键词")
+    # choices 而不是 clamp：服务端 limit 超过 100 直接回 code 400，
+    # 而那句 {"code": 400} 对用户毫无意义。报错比静默截断诚实。
+    # 校验交给一个自定义 type 而不用 choices —— choices 会把 1 到 100
+    # 全列进用法那行，报错时更是刷出 100 个数字。
+    # 顺带补下限：limit=0 在服务端是合法的但拿不到东西，无意义
     p_search.add_argument(
-        "--limit", "-n", type=int, default=10, help="最大结果数（默认：10）"
+        "--limit",
+        "-n",
+        type=_search_limit,
+        default=10,
+        metavar="N",
+        help=f"最大结果数，1-{_SEARCH_LIMIT_MAX}（默认：10）",
     )
     p_search.add_argument("--offset", type=int, default=0, help="分页偏移量")
     # search 没有下载动作，不存在互斥问题
@@ -232,6 +242,24 @@ def build_parser() -> _ArgumentParser:
 # check 纯本地干活，联网对它没有意义，输出还可能给脚本读。
 # --help 在 parse_args 内部已退出，也走不到这里
 _NO_ACCOUNT_REPORT = {"init", "cookie", "cache", "check"}
+
+# 搜索接口的单次上限，实测 100 能过而 101 直接回 {'code': 400}
+_SEARCH_LIMIT_MAX = 100
+
+
+def _search_limit(raw: str) -> int:
+    """把 --limit 限制在服务端接受的范围，报错用中文而不是 invalid choice"""
+    try:
+        value = int(raw)
+    except ValueError:
+        raise argparse.ArgumentTypeError(f"取回条数须为整数，给的是 {raw!r}") from None
+    if not 1 <= value <= _SEARCH_LIMIT_MAX:
+        # offset 只在超上限时才是出路，「要 0 条」提它就是错的
+        hint = "。更多结果用 --offset 分页取得" if value > _SEARCH_LIMIT_MAX else ""
+        raise argparse.ArgumentTypeError(
+            f"取回条数须在 1 至 {_SEARCH_LIMIT_MAX} 之间，给的是 {value}{hint}"
+        )
+    return value
 
 
 def _reject_json_download(args: argparse.Namespace) -> None:
