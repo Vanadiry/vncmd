@@ -28,6 +28,7 @@ from function.config import (
 from function.downloader import download_song_batch
 from function.jsonstore import read_json_safe, write_json_atomic
 from function.output import (
+    _artist_text,
     _range_suffix,
     console,
     err_console,
@@ -209,7 +210,12 @@ def _display_songs(songs: list[dict], offset: int) -> None:
     table.add_column("艺术家", style="bright_white", ratio=3, overflow="fold")
     for i, s in enumerate(songs, offset + 1):
         table.add_row(
-            str(i), str(s["id"]), escape(s.get("title", "")), s.get("artist", "")
+            str(i),
+            str(s["id"]),
+            escape(s.get("title", "")),
+            # 走 _artist_text 才有虚拟歌手的代表色，与另外三张曲目表一致。
+            # 直接给字符串就只有 bright_white，初音ミク与普通歌手长得一样
+            _artist_text(s.get("artist", ""), "bright_white"),
         )
     console.print(table)
 

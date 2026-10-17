@@ -334,6 +334,70 @@ class Test路径缩写:
         assert "--init" in err and "vncmd init" not in err
 
 
+class Test艺术家着色:
+    def _rendered(self, monkeypatch, songs):
+        import io
+
+        buf = io.StringIO()
+        monkeypatch.setattr(
+            tracker,
+            "console",
+            Console(file=buf, force_terminal=True, width=120, color_system="truecolor"),
+        )
+        tracker._display_songs(songs, 0)
+        return buf.getvalue()
+
+    def _artist_cell(self, text):
+        """取第一条数据行的艺术家那一格
+
+        要跳过表头：表头第四格是「艺术家」三个字，
+        早先没跳过，抓到的是它，于是断言恒假。
+        """
+        for line in text.splitlines():
+            if not line.startswith("│"):
+                continue
+            cells = line.split("│")
+            if len(cells) <= 4:
+                continue
+            cell = cells[4]
+            if "艺术家" in cell or not cell.strip():
+                continue
+            return cell
+        return ""
+
+    def test_虚拟歌手有代表色(self, monkeypatch):
+        """早先那列给的是裸字符串，初音ミク与普通歌手长得一样"""
+        out = self._rendered(
+            monkeypatch, [{"id": 1, "title": "A", "artist": "なきそ, 初音ミク"}]
+        )
+        cell = self._artist_cell(out)
+        assert "38;2;" in cell, f"没有代表色：{cell!r}"
+        assert "\x1b[97m" in cell, "其余部分该保持白字"
+
+    def test_普通歌手仍是白字(self, monkeypatch):
+        out = self._rendered(
+            monkeypatch, [{"id": 1, "title": "A", "artist": "杉森雅和"}]
+        )
+        cell = self._artist_cell(out)
+        assert "38;2;" not in cell, f"普通歌手不该有代表色：{cell!r}"
+
+    def test_关掉着色后全是白字(self, monkeypatch):
+        # patch 的是 output 模块里那个名字：_artist_text 早就把
+        # is_virtual_singer_color 绑到自己模块的命名空间了，
+        # patch config_mod 那个不改变已绑定的引用
+        monkeypatch.setattr("function.output.is_virtual_singer_color", lambda: False)
+        out = self._rendered(
+            monkeypatch, [{"id": 1, "title": "A", "artist": "なきそ, 初音ミク"}]
+        )
+        cell = self._artist_cell(out)
+        assert "38;2;" not in cell, cell
+
+    def test_artist为空也不炸(self, monkeypatch):
+        """老条目没有 artist 键，早先 fill 测试挖过这个"""
+        out = self._rendered(monkeypatch, [{"id": 1, "title": "A"}])
+        assert out.strip()
+
+
 class Test曲目表宽度:
     def test_曲目表占满终端(self, ready, monkeypatch, capsys):
         """另外三个命令的曲目表都有 expand=True，这张也得有"""
