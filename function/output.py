@@ -14,6 +14,12 @@ from function.vocals import colorize
 
 console = Console()
 
+# 诊断走 stderr，stdout 只留给命令的结果。
+# 重定向到文件时诊断混在里面等于噪声，而进度条与「正在检查…」这类提示
+# 对管道里的消费者本来就没有意义。顺带 `vncmd search xxx > r.txt` 之后
+# 不用再 `grep '│'` 去剔边框
+err_console = Console(stderr=True)
+
 
 def abbrev_home(path) -> str:
     """把用户主目录那段替换成 ~，路径太长时能省下十几个字符"""
@@ -368,7 +374,7 @@ ICON_WARN = "[yellow]⚠[/]"
 
 def _print_status(icon, msg):
     for line in msg.splitlines():
-        console.print(f"{icon} {escape(line)}")
+        err_console.print(f"{icon} {escape(line)}")
 
 
 def success(msg: str) -> None:

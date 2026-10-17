@@ -34,7 +34,7 @@ def test_非latin1的值被跳过而不是截断(session, capsys):
 
 def test_跳过时会出声(session, capsys):
     session("MUSIC_U=你好世界")
-    out = capsys.readouterr().out
+    out = capsys.readouterr().err
     assert "非 latin-1" in out
     # 要指明是哪个 Cookie，否则用户不知道该改哪一条
     assert "MUSIC_U" in out

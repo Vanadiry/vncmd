@@ -113,7 +113,7 @@ def test_info_json不是合法JSON时按未命中处理(cached, capsys):
     cache_mod.put_song(6, {"title": "x"})
     (cache_mod._song_dir(6) / "info.json").write_text("{坏", encoding="utf-8")
     assert cache_mod.get_song(6) is None
-    assert "已损坏" in capsys.readouterr().out
+    assert "已损坏" in capsys.readouterr().err
 
 
 def test_缓存文件损坏后能自愈(cached):

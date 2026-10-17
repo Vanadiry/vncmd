@@ -27,6 +27,7 @@ from function.downloader import download_song_batch
 from function.jsonstore import read_json_safe, write_json_atomic
 from function.output import (
     console,
+    err_console,
     error,
     info,
     success,
@@ -499,10 +500,10 @@ def cmd_tracker(args: argparse.Namespace) -> None:
         fresh, removed = fetch_all_songs(settings)
 
         if removed:
-            console.print()
+            err_console.print()
             warning(f"检测到 {len(removed)} 首已下架曲目（不包含在 diff 中）：")
             for r in removed:
-                console.print(
+                err_console.print(
                     f"    [dim]{r['id']}[/]  [red]{escape(r['title'])}[/]"
                     f"  [dim]— {escape(r['artist'])}  ·  {escape(r['album'])}[/]"
                 )

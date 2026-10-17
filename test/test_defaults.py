@@ -113,7 +113,7 @@ class TestDiffNeedsDownload:
         args = argparse.Namespace(name="like", diff=True, download=False)
         with pytest.raises(SystemExit):
             cmd_tracker(args)
-        out = capsys.readouterr().out
+        out = capsys.readouterr().err
         assert "-d" in out, "只说「需要配合」却不说配合什么，等于没说"
 
     def test_检查在询问创建tracker之前(self, monkeypatch):

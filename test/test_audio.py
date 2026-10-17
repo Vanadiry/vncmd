@@ -27,7 +27,7 @@ class TestGetTypeFromUrl:
     def test_未知扩展名保留原样(self, capsys):
         # 归成 mp3 会产出错扩展名的文件，改成保留真实扩展名并出声
         assert get_type_from_url("http://test.vanadiry.com/t.xyz") == "xyz"
-        assert "未预期的音频格式" in capsys.readouterr().out
+        assert "未预期的音频格式" in capsys.readouterr().err
 
     def test_末段不是扩展名时归mp3(self, capsys):
         assert get_type_from_url("http://test.vanadiry.com/abcdef") == "mp3"

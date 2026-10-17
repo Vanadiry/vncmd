@@ -161,9 +161,9 @@ def validate_config(quiet: bool = False) -> None:
 
 
 def _die(errors: list[str]) -> None:
-    from function.output import console, error
+    from function.output import err_console, error
 
-    console.print("[red]配置验证失败：[/]")
+    err_console.print("[red]配置验证失败：[/]")
     for e in errors:
         error(e)
     sys.exit(1)

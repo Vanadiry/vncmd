@@ -24,6 +24,7 @@ from function.api import HEADERS
 from function.audio import looks_like_audio
 from function.config import get_curl_arg, get_downloader
 from function.image import detect_format
+from function.output import err_console
 
 _dl_session = None
 
@@ -174,7 +175,7 @@ def _run_curl(url, path, have, total, label, progress, task_id):
                     lambda n: progress.update(task_id, advance=n),
                     start=have,
                 )
-            elif sys.stdout.isatty():
+            elif sys.stderr.isatty():
                 with Progress(
                     "[progress.description]{task.description}",
                     BarColumn(),
@@ -182,6 +183,7 @@ def _run_curl(url, path, have, total, label, progress, task_id):
                     TransferSpeedColumn(),
                     TimeRemainingColumn(),
                     transient=True,
+                    console=err_console,
                 ) as p:
                     task = p.add_task(escape(label[:40]), total=total or None)
                     _wait_curl(
@@ -298,7 +300,7 @@ def _fetch_audio_builtin(
                 _drain(
                     path, stream, mode, lambda n: progress.update(task_id, advance=n)
                 )
-            elif sys.stdout.isatty():
+            elif sys.stderr.isatty():
                 with Progress(
                     "[progress.description]{task.description}",
                     BarColumn(),
@@ -306,6 +308,7 @@ def _fetch_audio_builtin(
                     TransferSpeedColumn(),
                     TimeRemainingColumn(),
                     transient=True,
+                    console=err_console,
                 ) as p:
                     # 同 _progress_desc，未转义的歌名含 [Live] 会让进度条抛 MarkupError
                     task = p.add_task(escape(label[:40]), total=total or None)

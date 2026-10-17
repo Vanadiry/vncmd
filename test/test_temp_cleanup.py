@@ -198,7 +198,7 @@ class TestEmbedFailureDegrades:
         root, digest, calls = wired
         monkeypatch.setattr(downloader, "embed_metadata", self._failing(calls))
         self._run(root, digest, 16)
-        out = capsys.readouterr().out
+        out = capsys.readouterr().err
         assert "元数据嵌入失败" in out
         assert str(downloader._EMBED_ATTEMPTS) in out, "要说明重试过几次"
 

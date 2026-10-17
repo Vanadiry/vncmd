@@ -71,6 +71,7 @@ from function.metadata import embed as embed_metadata
 from function.output import (
     abbrev_home,
     console,
+    err_console,
     error,
     info,
     success,
@@ -497,7 +498,7 @@ def download_song_batch(
                 info("发现未完成的下载，但曲目列表已变更，将以更新后的列表继续。")
             else:
                 info("发现未完成的下载，将从中断处继续。")
-            console.print()
+            err_console.print()
             pending_set = set(pending_ids)
             selected = [t for t in selected if str(t["id"]) in pending_set]
         else:
@@ -527,7 +528,7 @@ def download_song_batch(
         BarColumn(),
         TextColumn("[progress.percentage]{task.percentage:>3.0f}%"),
         TimeRemainingColumn(),
-        console=console,
+        console=err_console,
     )
     slots = []
     # 槽位数与提交的 worker 数必须一致，多提交的 worker 取到任务后
@@ -704,14 +705,14 @@ def download_song_batch(
     if interrupted:
         left = total - success_count - fail_count
         info(f"已中断，完成 {success_count + fail_count} 首，剩余 {left} 首未下载")
-        console.print("再次下载会从断点继续")
+        info("再次下载会从断点继续")
         # 解释器退出时会 join 掉所有 worker，正在下的歌可能还要几十秒，
         # 这里直接结束进程，不再等待
         sys.stdout.flush()
         sys.stderr.flush()
         os._exit(130)
 
-    console.print()
+    err_console.print()
     parts = []
     if success_count:
         parts.append(f"[green]{success_count} 成功[/]")
@@ -721,9 +722,9 @@ def download_song_batch(
         parts.append(f"[red]{fail_count} 失败[/]")
     else:
         parts.append("[dim]0 失败[/]")
-    console.print(f"完成：{'，'.join(parts)}")
+    err_console.print(f"完成：{'，'.join(parts)}")
     if fail_ids:
-        console.print(f"失败 ID：{', '.join(str(i) for i in fail_ids)}")
+        err_console.print(f"失败 ID：{', '.join(str(i) for i in fail_ids)}")
     return success_count, fail_count, session_dir
 
 

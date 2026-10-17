@@ -195,7 +195,7 @@ class TestAccountOnDisk:
         count = _responder(monkeypatch, {"code": 200, "account": {"vipType": 11}})
         assert api.get_account_info()["vip"] is True
         assert count() == 1
-        assert "损坏" in capsys.readouterr().out, "坏文件要出声，别静默重查"
+        assert "损坏" in capsys.readouterr().err, "坏文件要出声，别静默重查"
 
 
 class TestAccountCheckFailed:
@@ -425,7 +425,8 @@ class TestAnnounceSkips:
 
 
 def _cap(capsys):
-    return capsys.readouterr().out
+    """账号播报与降级提示都是状态而非数据，一律走 stderr"""
+    return capsys.readouterr().err
 
 
 class TestExpectedLevel:

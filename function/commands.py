@@ -48,6 +48,7 @@ from function.output import (
     display_playlist,
     display_search_results,
     display_song_detail,
+    err_console,
     error,
     info,
     success,
@@ -215,11 +216,12 @@ def cmd_playlist(args: argparse.Namespace) -> None:
     display_playlist(pl, max_tracks=args.limit or 10)
 
     removed = pl.get("removed_tracks", [])
+    # 明细跟在 warning 的标题下面，两边都进 stderr
     if removed:
-        console.print()
+        err_console.print()
         warning(f"此歌单中有 {len(removed)} 首已下架曲目：")
         for r in removed:
-            console.print(
+            err_console.print(
                 f"    [dim]{r['id']}[/]  [red]{escape(r['title'])}[/]"
                 f"  [dim]— {escape(r['artist'])}  ·  {escape(r['album'])}[/]"
             )
@@ -376,7 +378,7 @@ def cmd_cache(args: argparse.Namespace) -> None:
         shutil.rmtree(root)
         success(f'"已清空缓存，释放 {size / 1024 / 1024:.1f} MB"')
     else:
-        console.print()
+        err_console.print()
         info('"用 vncmd cache --clear 清空缓存"')
 
 

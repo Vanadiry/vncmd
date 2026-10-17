@@ -36,26 +36,26 @@ def run_cookie(tmp_path, monkeypatch):
 class TestCookieOutcomes:
     def test_一切正常退出零(self, run_cookie, capsys):
         assert run_cookie({"logged_in": True, "vip": True, "vip_type": 11}) == 0
-        assert "Cookie 有效" in capsys.readouterr().out
+        assert "Cookie 有效" in capsys.readouterr().err
 
     def test_无会员仍算成功(self, run_cookie, capsys):
         """无会员的 Cookie 能用，只是拿不到高音质，
         判成失败会让脚本以为没设成功"""
         code = run_cookie({"logged_in": True, "vip": False, "vip_type": 0})
         assert code == 0, "无会员不应判为失败"
-        out = capsys.readouterr().out
+        out = capsys.readouterr().err
         assert "有效" in out
         assert "VIP" in out
 
     def test_未登录退出非零(self, run_cookie, capsys):
         assert run_cookie({"logged_in": False, "vip": False, "vip_type": 0}) == 1
-        out = capsys.readouterr().out
+        out = capsys.readouterr().err
         assert "失效" in out or "无效" in out
 
     def test_检查失败单独一个退出码(self, run_cookie, capsys):
         """「查不成」与「查出无效」要分开，脚本才分辨得出"""
         assert run_cookie(None) == 2
-        assert "检查失败" in capsys.readouterr().out
+        assert "检查失败" in capsys.readouterr().err
 
     def test_四种结局的退出码互不相同(self, run_cookie):
         codes = {
@@ -68,7 +68,7 @@ class TestCookieOutcomes:
 
     def test_未登录与无会员的说法不能混(self, run_cookie, capsys):
         run_cookie({"logged_in": False, "vip": False, "vip_type": 0})
-        assert "VIP" not in capsys.readouterr().out
+        assert "VIP" not in capsys.readouterr().err
 
 
 class TestCookieIsWrittenFirst:

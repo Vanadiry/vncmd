@@ -13,7 +13,7 @@ from function.commands import (
     cmd_song,
 )
 from function.config import QUALITY_MAP, acquire_lock, validate_config
-from function.output import console
+from function.output import err_console
 from function.tracker import cmd_tracker
 
 
@@ -225,8 +225,8 @@ def main() -> None:
         handler(args)
     except KeyboardInterrupt:
         # 下载循环自己处理并给出明细，这里兜住其余阶段的中断
-        console.print()
-        console.print("[yellow]已中断[/]")
+        err_console.print()
+        err_console.print("[yellow]已中断[/]")
         sys.exit(130)
 
 
