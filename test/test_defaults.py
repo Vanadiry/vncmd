@@ -83,22 +83,25 @@ class TestMutuallyExclusive:
     @pytest.mark.parametrize(
         "argv",
         [
-            ["-f", "--fetch-auto"],
             ["-f", "-d"],
-            ["--fetch-auto", "-d"],
-            ["-f", "--fetch-auto", "-d"],
+            ["-f", "--auto-accept", "-d"],
+            ["-f", "--auto-accept", "--force"],
+            ["-f", "-d", "--auto-accept", "--force"],
         ],
     )
-    def test_tracker的三个顶层动作互斥(self, argv):
+    def test_tracker的顶层动作与两个修饰互斥(self, argv):
         """命令里是 if / elif / else，同给时前面的分支静默吃掉后面的"""
         with pytest.raises(SystemExit) as exc:
             self._parse(["tracker", "like", *argv])
         assert exc.value.code == 2
 
-    @pytest.mark.parametrize("flag", [["-f"], ["--fetch-auto"], ["-d"], []])
+    @pytest.mark.parametrize(
+        "flag", [["-f"], ["-f", "--auto-accept"], ["-f", "--force"], ["-d"], []]
+    )
     def test_tracker单独用各动作都行(self, flag):
         args = self._parse(["tracker", "like", *flag])
-        assert not (args.fetch and args.fetch_auto)
+        assert not (args.fetch and args.download)
+        assert not (args.auto_accept and args.force)
 
 
 class TestDiffNeedsDownload:
@@ -113,7 +116,8 @@ class TestDiffNeedsDownload:
             download=False,
             json=False,
             fetch=False,
-            fetch_auto=False,
+            auto_accept=False,
+            force=False,
         )
         with pytest.raises(SystemExit) as exc:
             cmd_tracker(args)
@@ -128,7 +132,8 @@ class TestDiffNeedsDownload:
             download=False,
             json=False,
             fetch=False,
-            fetch_auto=False,
+            auto_accept=False,
+            force=False,
         )
         with pytest.raises(SystemExit):
             cmd_tracker(args)
@@ -156,7 +161,8 @@ class TestDiffNeedsDownload:
             download=False,
             json=False,
             fetch=False,
-            fetch_auto=False,
+            auto_accept=False,
+            force=False,
         )
         with pytest.raises(SystemExit):
             tracker.cmd_tracker(args)
@@ -181,7 +187,8 @@ class TestDiffNeedsDownload:
             download=True,
             json=False,
             fetch=False,
-            fetch_auto=False,
+            auto_accept=False,
+            force=False,
             quality=None,
             output=None,
         )

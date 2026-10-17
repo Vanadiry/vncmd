@@ -253,12 +253,23 @@ def build_parser() -> _ArgumentParser:
         help="拉取并对比，交互式解决冲突",
     )
     grp_tracker.add_argument(
-        "--fetch-auto",
-        action="store_true",
-        help="拉取并自动同步，无需交互",
-    )
-    grp_tracker.add_argument(
         "--download", "-d", action="store_true", help="下载所有已缓存曲目"
+    )
+    # 两个都是 --fetch 的修饰，不是独立动作，所以不进互斥组：
+    # 依赖关系 argparse 表达不了，单独给时由 cmd_tracker 报错
+    grp_fetch = p_tracker.add_mutually_exclusive_group()
+    grp_fetch.add_argument(
+        "--auto-accept",
+        action="store_true",
+        help="配 --fetch 时自动接受全部变更，无需交互",
+    )
+    grp_fetch.add_argument(
+        "--force",
+        action="store_true",
+        help=(
+            "配 --fetch 时无条件覆盖 songs.json。"
+            "diff.json 有变化才更新，连续两次会顶掉前一个备份"
+        ),
     )
     # --diff 不是独立动作而是 -d 的修饰，所以不进互斥组：
     # 依赖关系 argparse 表达不了，单独给时由 cmd_tracker 报错

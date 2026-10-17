@@ -16,7 +16,8 @@ def ns(**kw):
     base = {
         "name": "like",
         "fetch": False,
-        "fetch_auto": False,
+        "auto_accept": False,
+        "force": False,
         "download": False,
         "diff": False,
         "json": False,

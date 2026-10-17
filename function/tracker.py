@@ -516,6 +516,27 @@ def _format_song_choice(s: dict) -> str:
     return f"{s.get('title', '?')}（ID: {s['id']}）"
 
 
+def _apply_force(name: str, fresh: dict, comparison: dict) -> None:
+    """无条件覆盖 songs.json，diff.json 有变化才更新
+
+    两个文件的时间戳从此不同步，而这是对的：一个是当前状态，
+    一个是上次变更的快照 —— 覆盖之后「上次变了什么」就再也拿不回来了，
+    所以那次快照必须留住。
+
+    它与两个 resolve 恰恰相反：那两个「无变更就什么都不动」，
+    而这里恰恰要写库 —— compare_songs 只比 title，
+    artist 变了不算 changed，两个 resolve 都会把它静默丢掉。
+    """
+    save_songs_db(name, list(fresh.values()))
+    success(f"已用上游覆盖 {len(fresh)} 首曲目")
+
+    if any(comparison[k] for k in ("added", "removed", "changed")):
+        save_diff(name, comparison)
+    else:
+        # 「覆盖了但 diff 没变」用户看不到，不说就以为 diff 已经是新的了
+        info("本次未检测到变更，diff 记录保持上次的内容")
+
+
 def download_tracker(name: str, quality: int, output_dir: str) -> None:
     songs = load_songs_db(name)
     if not songs:
@@ -596,19 +617,24 @@ def download_diff(name: str, quality: int, output_dir: str) -> None:
 def cmd_tracker(args: argparse.Namespace) -> None:
     name = args.name
 
+    # 两个修饰都是 --fetch 的修饰，单独给在代码里落不到任何分支。
+    # 什么都不做也没有提示，与其静默，不如说清它要配合什么。
+    # 检查放在最前面：放到 tracker 存在性判断之后的话，
+    # 用户会先被问「是否创建 tracker」，才发现自己的参数写错了
+    if (args.auto_accept or args.force) and not args.fetch:
+        which = "--auto-accept" if args.auto_accept else "--force"
+        error(f"{which} 需要配合 --fetch 使用，它是拉取的修饰而非独立动作")
+        sys.exit(2)
+
     # --json 配 --diff 是合法组合：读本地 diff.json，给的是数据不是动作。
     # 其余动作的结果都是文件，给一份没人会读的动作结果 JSON，
     # 不如说清它只管纯读视图。
-    # 检查放在最前面：放到 tracker 存在性判断之后的话，
-    # 用户会先被问「是否创建 tracker」，才发现自己的参数写错了
-    if args.json and not args.diff and (args.fetch or args.fetch_auto or args.download):
+    if args.json and not args.diff and (args.fetch or args.download):
         error("--json 只用于纯读视图，与 --fetch、-d 不能同时使用")
         sys.exit(2)
 
     # --diff 是 -d 或 --json 的修饰，单独给它在代码里落不到任何分支，
     # 什么都不做也没有提示。与其静默，不如说清它要配合什么。
-    # 检查放在最前面：放到 tracker 存在性判断之后的话，
-    # 用户会先被问「是否创建 tracker」，才发现自己的参数写错了
     if args.diff and not (args.download or args.json):
         error("--diff 需要配合 -d 或 --json 使用，只看上次拉取后的变更")
         sys.exit(2)
@@ -626,7 +652,7 @@ def cmd_tracker(args: argparse.Namespace) -> None:
             info("已取消。")
         return
 
-    if args.fetch or args.fetch_auto:
+    if args.fetch:
         settings = load_settings(name)
         if not settings["sources"]:
             error("未配置来源，请先编辑 settings.toml 添加来源。")
@@ -652,15 +678,20 @@ def cmd_tracker(args: argparse.Namespace) -> None:
         cached = load_songs_db(name)
         comparison = compare_songs(fresh, cached)
 
-        if args.fetch_auto:
+        if args.force:
+            _apply_force(name, fresh, comparison)
+        elif args.auto_accept:
             resolved = auto_resolve(comparison, cached, fresh)
+            if resolved is not None:
+                save_songs_db(name, resolved)
+                save_diff(name, comparison)
+                success(f"已保存 {len(resolved)} 首曲目到数据库。")
         else:
             resolved = resolve_conflicts(comparison, cached, fresh)
-
-        if resolved is not None:
-            save_songs_db(name, resolved)
-            save_diff(name, comparison)
-            success(f"已保存 {len(resolved)} 首曲目到数据库。")
+            if resolved is not None:
+                save_songs_db(name, resolved)
+                save_diff(name, comparison)
+                success(f"已保存 {len(resolved)} 首曲目到数据库。")
 
     elif args.download:
         quality = QUALITY_MAP[args.quality] if args.quality else get_quality()

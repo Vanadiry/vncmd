@@ -30,7 +30,8 @@ def ns(**kw):
     base = {
         "name": "like",
         "fetch": False,
-        "fetch_auto": False,
+        "auto_accept": False,
+        "force": False,
         "download": False,
         "diff": False,
         "json": False,
@@ -59,9 +60,7 @@ def parsed(capsys):
 
 
 class Test动作与json互斥:
-    @pytest.mark.parametrize(
-        "action", [{"fetch": True}, {"fetch_auto": True}, {"download": True}]
-    )
+    @pytest.mark.parametrize("action", [{"fetch": True}, {"download": True}])
     def test_动作配json报错(self, ready, capsys, action):
         """动作的结果是文件，给一份没人读的 JSON 不如说清它只管纯读视图"""
         with pytest.raises(SystemExit) as exc:
