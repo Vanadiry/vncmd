@@ -343,7 +343,9 @@ def search(q: str, limit: int = 10, offset: int = 0) -> dict:
     )
     data = resp.json()
     if data.get("code") != 200:
-        raise ValueError(f"搜索失败：{data}")
+        # 只给接口返回的东西，不在这里加「搜索失败」的前缀：
+        # 调用方 cmd_search 还会包一层，两边都写就成了「搜索失败：搜索失败：…」
+        raise ValueError(str(data))
 
     songs = []
     for s in data.get("result", {}).get("songs", []):
