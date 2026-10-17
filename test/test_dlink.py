@@ -292,7 +292,10 @@ class TestRawFetch:
         class Resp:
             @staticmethod
             def json():
-                return {"code": 200, "data": [{"fee": 1, "payed": 0, "code": -110}]}
+                return {
+                    "code": 200,
+                    "data": [{"id": SONG_ID, "fee": 1, "payed": 0, "code": -110}],
+                }
 
         class Session:
             def get(self, *_a, **_k):

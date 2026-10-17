@@ -114,6 +114,15 @@ def _add_list_args(parser: object) -> None:
     )
 
 
+def _add_dlink_arg(parser: object, help_text: str) -> None:
+    """加 --dlink
+
+    help 分命令给：单曲打面板，一批曲目给 JSON。
+    同一个字母在两种形态下不写清楚，从 song 过来的用户会在 album 上撞报错。
+    """
+    parser.add_argument("--dlink", "-u", action="store_true", help=help_text)
+
+
 def _add_download_args(parser: object, download_group: object = None) -> None:
     """Add download-related args to a parser.
 
@@ -201,9 +210,7 @@ def build_parser() -> _ArgumentParser:
     # 早先这里是 `args.dlink and not args.download`，两者同给时 --dlink 被
     # 静默丢弃，用户以为两个开关叠加了，实际上什么都没发生
     grp_song = p_song.add_mutually_exclusive_group()
-    grp_song.add_argument(
-        "--dlink", "-u", action="store_true", help="显示下载链接与音质、费用等详情"
-    )
+    _add_dlink_arg(grp_song, "显示下载链接与音质、费用等详情")
     _add_json_arg(p_song)
     _add_download_args(p_song, download_group=grp_song)
     p_song.add_argument("--lyrics", "-l", action="store_true", help="显示歌词")
@@ -213,12 +220,14 @@ def build_parser() -> _ArgumentParser:
     p_al.add_argument("id", type=int, help="专辑 ID")
     _add_list_args(p_al)
     _add_json_arg(p_al)
+    _add_dlink_arg(p_al, "取下载链接（需配合 --json）")
     _add_download_args(p_al)
 
     p_pl = sub.add_parser("playlist", help="预览或下载歌单")
     p_pl.add_argument("id", type=int, help="歌单 ID")
     _add_list_args(p_pl)
     _add_json_arg(p_pl)
+    _add_dlink_arg(p_pl, "取下载链接（需配合 --json）")
     _add_download_args(p_pl)
 
     p_tracker = sub.add_parser("tracker", help="追踪音乐来源变更并批量下载")

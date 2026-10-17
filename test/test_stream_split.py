@@ -155,6 +155,7 @@ class Test下架明细跟警告同流:
                 id=1,
                 limit=10,
                 offset=0,
+                dlink=False,
                 download=False,
                 json=False,
                 quality=None,

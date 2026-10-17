@@ -13,6 +13,7 @@ from function.api import (
     account_needs_check,
     account_stamp,
     fetch_player_url,
+    fetch_player_urls,
     get_account_info,
     get_album_details,
     get_audio_source,
@@ -131,6 +132,41 @@ def cmd_search(args: argparse.Namespace) -> None:
     )
 
 
+def _download_entry(info: dict) -> dict:
+    """从 player/url 的原始条目里挑出脚本要用的字段
+
+    原始响应有三十多个字段，一半是 null，其中 freeTrialPrivilege 之类与取
+    链接无关。批量时每条都带全套，一个 529 首的歌单能撑出十几万字。
+
+    形状固定，取不到时也照样给全，只是值为空 —— 键一直在，脚本就能用
+    .download.url 判断，而不用先问键在不在。
+    """
+    return {
+        "url": info.get("url") or "",
+        "level": info.get("level"),
+        "br": info.get("br") or 0,
+        "size": info.get("size") or 0,
+        "md5": info.get("md5") or "",
+        "fee": info.get("fee"),
+        "expi": info.get("expi") or 0,
+    }
+
+
+def _attach_downloads(tracks: list[dict], quality: int) -> int:
+    """给每条曲目补上 download 键，返回拿不到链接的条数
+
+    原地改 tracks：曲目条目已经在那份列表里，复制一份会让 JSON 多一层壳。
+    """
+    urls = fetch_player_urls([t["id"] for t in tracks], quality)
+    missing = 0
+    for t in tracks:
+        entry = _download_entry(urls.get(t["id"], {}))
+        t["download"] = entry
+        if not entry["url"]:
+            missing += 1
+    return missing
+
+
 def _dump_json(payload: dict) -> None:
     """把结构化结果写到 stdout 并结束这条命令
 
@@ -158,8 +194,9 @@ def cmd_song(args: argparse.Namespace) -> None:
         # --dlink 与 --json 互补而非冲突：元数据与下载信息一次拿全，
         # 后面 --link 要的就是这个组合
         if args.dlink:
-            payload["download"] = fetch_player_url(
-                args.id, quality=_resolve_quality(args)
+            # 收窄成那七个字段，与 album、playlist 的批量同形
+            payload["download"] = _download_entry(
+                fetch_player_url(args.id, quality=_resolve_quality(args))
             )
         _dump_json(payload)
         return
@@ -231,8 +268,45 @@ def cmd_song(args: argparse.Namespace) -> None:
         error(msg)
 
 
+def _require_json_for_dlink(args: argparse.Namespace) -> None:
+    """album 与 playlist 的 --dlink 只在 --json 下有意义
+
+    单曲的 --dlink 打面板，而一批曲目的链接是数据 —— 专辑打 500 个面板没人读。
+    放在联网之前查，与 tracker 的 --diff 不配 -d 同样处理：
+    让用户在拿到几百首曲目之后才发现参数写错了。
+    """
+    if args.dlink and not args.json:
+        error("--dlink 需要配合 --json 使用：批量链接是数据，面板读不完")
+        sys.exit(2)
+
+
+def _json_payload(args: argparse.Namespace, source: dict) -> dict:
+    """按 4.1 那条规则切出要输出的曲目，并按需补上下载链接
+
+    顺序是「先切再取链接」：反过来会为没要的那几百首发一次请求，
+    而 stderr 报的还是「529 首中 1 首拿不到」，那个 1 大概率不在用户要的
+    那几条里，比例也被无关的条目稀释了。
+    """
+    tracks = source["tracks"]
+    if args.limit is not None or args.offset:
+        tracks = _slice(tracks, args.offset, args.limit)
+
+    payload = dict(source)
+    payload["tracks"] = tracks
+
+    if args.dlink:
+        missing = _attach_downloads(tracks, _resolve_quality(args))
+        if missing:
+            # 只给数量。不按 fee 分类：FEE_NEED 只映射了 1 与 4，
+            # 而实测里 fee=8 出现在三分之一的曲目上，没有任何依据说明它是什么。
+            # 分类出来大概率是错的解释，比不给更糟
+            warning(f"{missing} 首拿不到链接")
+    return payload
+
+
 def cmd_album(args: argparse.Namespace) -> None:
     """Preview or download an album."""
+    _require_json_for_dlink(args)
     try:
         al = get_album_details(args.id)
     except Exception as e:
@@ -240,13 +314,9 @@ def cmd_album(args: argparse.Namespace) -> None:
         sys.exit(1)
 
     # 面板只显示一段，JSON 给的是完整曲目表：
-    # 表格给人看要截断免得刷屏，脚本要数据就得齐。
-    # 显式给了 limit 或 offset 才切片，没给就是全量
+    # 表格给人看要截断免得刷屏，脚本要数据就得齐
     if args.json:
-        payload = dict(al)
-        if args.limit is not None or args.offset:
-            payload["tracks"] = _slice(al["tracks"], args.offset, args.limit)
-        _dump_json({"album": payload})
+        _dump_json({"album": _json_payload(args, al)})
         return
 
     display_album(al, max_tracks=args.limit or 10, offset=args.offset)
@@ -271,6 +341,7 @@ def cmd_album(args: argparse.Namespace) -> None:
 
 def cmd_playlist(args: argparse.Namespace) -> None:
     """Preview or download a playlist."""
+    _require_json_for_dlink(args)
     try:
         pl = get_playlist_details(args.id)
     except Exception as e:
@@ -279,10 +350,7 @@ def cmd_playlist(args: argparse.Namespace) -> None:
 
     # 同 album：面板截断，JSON 给全量
     if args.json:
-        payload = dict(pl)
-        if args.limit is not None or args.offset:
-            payload["tracks"] = _slice(pl["tracks"], args.offset, args.limit)
-        _dump_json({"playlist": payload})
+        _dump_json({"playlist": _json_payload(args, pl)})
         return
 
     display_playlist(pl, max_tracks=args.limit or 10, offset=args.offset)

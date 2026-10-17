@@ -231,6 +231,7 @@ class Test下载也吃切片:
             id=1,
             limit=5,
             offset=100,
+            dlink=False,
             download=True,
             json=False,
             quality=None,

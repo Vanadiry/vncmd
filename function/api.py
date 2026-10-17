@@ -415,17 +415,35 @@ class AudioSource:
         self.level = level
 
 
+def fetch_player_urls(
+    song_ids: list[int], quality: int | None = None
+) -> dict[int, dict]:
+    """批量取 player/url 的原始条目，按 id 索引
+
+    响应里每条都带自己的 id，所以缺哪几条、下架哪几条都能对上，
+    不靠顺序猜。取不到的 id 不在这份结果里，由调用方补空条目 ——
+    否则「接口没返回这条」与「返回了但 url 为空」会混成一种。
+
+    一次发全部 id 不分批：实测 529 个一次 0.83 秒且全部返回。
+    （早先记过「一次超过 500 个会返回 0 条」，那是撞上限流时的空响应，
+    被当成了长度限制 —— 与这次实测矛盾，按实测来。）
+    """
+    if not song_ids:
+        return {}
+    br = quality if quality else 2147483647
+    ids = ",".join(str(sid) for sid in song_ids)
+    url = f"{_BASE_URL}/api/song/enhance/player/url?ids=[{ids}]&br={br}"
+    data = _get_session().get(url, timeout=15).json()
+    return {item["id"]: item for item in (data.get("data") or []) if item.get("id")}
+
+
 def fetch_player_url(song_id: int, quality: int | None = None) -> dict:
     """取 player/url 的原始条目
 
     取不到链接时也返回，fee 与 payed 这些判定权限要用的字段照样在里面，
     所以判断为什么下不了不必再发一次请求。
     """
-    br = quality if quality else 2147483647
-    url = f"{_BASE_URL}/api/song/enhance/player/url?ids=[{song_id}]&br={br}"
-    data = _get_session().get(url, timeout=15).json()
-    items = data.get("data") or []
-    return items[0] if items else {}
+    return fetch_player_urls([song_id], quality).get(song_id, {})
 
 
 def get_audio_source(song_id: int, quality: int | None = None) -> AudioSource | None:
