@@ -265,7 +265,7 @@ def build_parser() -> _ArgumentParser:
     p_tracker.add_argument(
         "--diff",
         action="store_true",
-        help="与 -d 配合时，仅下载上次拉取后新增的曲目",
+        help="上次 --fetch 记下的变更，不联网。配 -d 下载新增的，配 --json 输出三类",
     )
     # --json 只配纯读视图：四个动作的结果都是文件，不是数据。
     # --limit/--offset 同样只切 JSON，纯读面板暂时没有曲目表，

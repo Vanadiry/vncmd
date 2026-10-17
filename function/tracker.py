@@ -473,12 +473,43 @@ def download_tracker(name: str, quality: int, output_dir: str) -> None:
     download_song_batch(songs, quality, output_dir, dl_type="tracker", dl_id=name)
 
 
+def _diff_note(diff: dict) -> str:
+    """把 removed 与 changed 写成一个文件的正文
+
+    两类都是「变了但不用下载」的，放一个文件里，跑一次 --diff 只拿一个。
+    分开两个文件的话，用户得自己记得上次那个还在不在。
+    """
+    parts = []
+    removed = diff.get("removed", [])
+    changed = diff.get("changed", [])
+    if removed:
+        lines = "\n".join(f"{s['id']}  {s['title']}" for s in removed)
+        parts.append(f"以下曲目已从 Tracker 中移除（{len(removed)} 首）：\n{lines}")
+    if changed:
+        lines = "\n".join(
+            f"{s['id']}  {s['title_old']} -> {s['title_new']}" for s in changed
+        )
+        parts.append(f"以下曲目标题已变更（{len(changed)} 首）：\n{lines}")
+    return "\n\n".join(parts) + "\n"
+
+
+def diff_payload(name: str) -> dict:
+    """上次 --fetch 记下的差异，直接取 diff.json 不重新组装
+
+    与 -d --diff 读到的是同一份数据、同一套三类，一致是理由：
+    --json 在别的命令上是「换成机器可读」，不是「换一批数据」。
+
+    读的是上次 --fetch 时的结论，不是「现在相对 sources 的差异」——
+    后者要联网，那是 --fetch 的事。不联网也正是这个途径的价值所在。
+    """
+    return load_diff(name)
+
+
 def download_diff(name: str, quality: int, output_dir: str) -> None:
     diff = load_diff(name)
     added = diff.get("added", [])
-    removed = diff.get("removed", [])
 
-    if not added and not removed:
+    if not added and not diff.get("removed") and not diff.get("changed"):
         info("未找到 diff，请先执行 --fetch。")
         return
 
@@ -493,35 +524,41 @@ def download_diff(name: str, quality: int, output_dir: str) -> None:
         note_dir = Path(session_dir)
     else:
         success("没有需要下载的新曲目。")
-        # 没有新增就没有下载会话，removed.txt 落在输出目录本身
+        # 没有新增就没有下载会话，changed.txt 落在输出目录本身
         note_dir = Path(output_dir)
         note_dir.mkdir(parents=True, exist_ok=True)
 
-    if removed:
-        lines = [f"{s['id']}  {s['title']}" for s in removed]
-        removed_path = note_dir / "removed.txt"
-        removed_path.write_text(
-            "以下曲目已从 Tracker 中移除：\n" + "\n".join(lines) + "\n",
-            encoding="utf-8",
-        )
-        info(f"{len(removed)} 首曲目已移除，详见 {removed_path}")
+    # changed 原来一次都没读，改了标题的曲目被整个丢掉了
+    note = _diff_note(diff)
+    if note.strip():
+        note_path = note_dir / "changed.txt"
+        note_path.write_text(note, encoding="utf-8")
+        parts = []
+        if diff.get("removed"):
+            parts.append(f"{len(diff['removed'])} 首已移除")
+        if diff.get("changed"):
+            parts.append(f"{len(diff['changed'])} 首标题变更")
+        info(f"{'、'.join(parts)}，详见 {note_path}")
 
 
 def cmd_tracker(args: argparse.Namespace) -> None:
     name = args.name
 
-    # 四个动作全是动作，结果是文件而不是数据，所以都不接受 --json。
-    # 与其给一份没人会读的动作结果 JSON，不如说清它只管纯读视图。
+    # --json 配 --diff 是合法组合：读本地 diff.json，给的是数据不是动作。
+    # 其余动作的结果都是文件，给一份没人会读的动作结果 JSON，
+    # 不如说清它只管纯读视图。
     # 检查放在最前面：放到 tracker 存在性判断之后的话，
     # 用户会先被问「是否创建 tracker」，才发现自己的参数写错了
-    if args.json and (args.fetch or args.fetch_auto or args.download):
+    if args.json and not args.diff and (args.fetch or args.fetch_auto or args.download):
         error("--json 只用于纯读视图，与 --fetch、-d 不能同时使用")
         sys.exit(2)
 
-    # --diff 只是 -d 的修饰，单独给它在代码里落不到任何分支，
-    # 什么都不做也没有提示。与其静默，不如说清它要配合 -d。
-    if args.diff and not args.download:
-        error("--diff 需要配合 -d 使用，只下载上次拉取后新增的曲目")
+    # --diff 是 -d 或 --json 的修饰，单独给它在代码里落不到任何分支，
+    # 什么都不做也没有提示。与其静默，不如说清它要配合什么。
+    # 检查放在最前面：放到 tracker 存在性判断之后的话，
+    # 用户会先被问「是否创建 tracker」，才发现自己的参数写错了
+    if args.diff and not (args.download or args.json):
+        error("--diff 需要配合 -d 或 --json 使用，只看上次拉取后的变更")
         sys.exit(2)
 
     validate_name(name)
@@ -582,9 +619,14 @@ def cmd_tracker(args: argparse.Namespace) -> None:
             download_tracker(name, quality, output_dir)
 
     else:
-        db = load_songs_db_full(name)
         # 四个动作结果都是文件，纯读视图的结果是数据，所以只有这里给 --json
         if args.json:
+            if args.diff:
+                # 与 -d --diff 读同一份 diff.json、同样的三类，
+                # 用户拿它生成的链接与 -d --diff 下的完全一致
+                _dump_json({"tracker": {"diff": diff_payload(name)}})
+                return
+            db = load_songs_db_full(name)
             _dump_json(tracker_payload(load_settings(name), db, args))
             return
-        show_tracker(name, db["updated_at"])
+        show_tracker(name, load_songs_db_full(name)["updated_at"])
