@@ -5,7 +5,11 @@ from function.cache import put_raw_lyrics
 
 _TIMESTAMP_RE = re.compile(r"^\[(\d{2}):(\d{2})[:.](\d{2,3})\](.*)")
 _META_RE = re.compile(r"^\[(ti|ar|al|offset|length|re|ve):")
-_CREDIT_RE_TEMPLATE = r"^\[\d{2}:\d{2}[:.]\d{2,3}\]\s*%s\s*:\s*(.+)$"
+# 分隔符要同时认半角与全角：中文歌词里「作曲：XX」比「作曲:XX」常见得多，
+# 而只认半角会让这些行被当成普通歌词 —— 裁不掉、作曲人也抽不出来，
+# 抽不出作曲人时 extract_credits 会退而抓第一行credit，于是把编曲的人
+# 写进 composer 字段（实测「NEVER feat. Evil Neuro」就是这样错的）
+_CREDIT_RE_TEMPLATE = r"^\[\d{2}:\d{2}[:.]\d{2,3}\]\s*%s\s*[:：]\s*(.+)$"
 _PURE_MUSIC_RE = re.compile(r"纯音乐[，,]请欣赏")
 
 
@@ -103,7 +107,9 @@ def is_pure_credits(text: str, prefixes: list[str] | None = None) -> bool:
     roles = set(prefixes)
     for _, content, _ in parsed:
         for role in roles:
-            if re.match(rf"^\s*{re.escape(role)}\s*:", content):
+            # 与 _CREDIT_RE_TEMPLATE 一样要认全角，
+            # 否则全角写法的 credit 行在这里会被判成歌词
+            if re.match(rf"^\s*{re.escape(role)}\s*[:：]", content):
                 break
         else:
             return False
