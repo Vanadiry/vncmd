@@ -21,6 +21,7 @@ from function.commands import _dump_json
 from function.config import (
     QUALITY_MAP,
     VNCMD_HOME,
+    abbrev_home,
     get_quality,
     resolve_output_dir,
 )
@@ -180,29 +181,33 @@ def load_diff(name: str) -> dict:
     return data if isinstance(data, dict) else empty
 
 
-def _display_songs(songs: list[dict], max_tracks: int, offset: int) -> None:
+def _display_songs(songs: list[dict], offset: int) -> None:
     """已缓存曲目的表
 
-    与 album、playlist 的曲目表同一套做法：标题右侧带区间、序号报绝对序号。
-    分母用可切片的条数而不是 len(songs.json) 里的总数，
-    同一个口径才看得出这次看的是第几首到第几首。
+    与 album、playlist 的曲目表同一套做法：序号报绝对序号、占满终端宽度。
+    区间不再给这张表，而是放在上面那个面板的标题里 ——
+    与「歌单详情 - 819104208 - 101-200/298」同一个位置、同一个读法。
+
+    传进来的已经是切好的那几条，所以序号要从 offset 起算。
     """
     from rich import box
     from rich.table import Table
 
-    total = len(songs)
-    shown = songs[offset : offset + max_tracks]
-
-    # 标题单独一行而不是交给 Table 的 title：那张表只有四列，
-    # Table 会把标题折到表格那么宽，「超出范围（共 200 首）」会被折成两行
-    console.print(f"[bold]已缓存曲目 - {_range_suffix(offset, len(shown), total)}[/]")
-
-    table = Table(box=box.ROUNDED, show_header=True, header_style="bold cyan")
+    # expand 与另外三个命令的曲目表一致：都是曲目表，都该占满终端。
+    # 下面的来源表故意不给 expand —— 三列固定内容，拉到 150 列会散成一片空白
+    table = Table(
+        box=box.ROUNDED,
+        show_header=True,
+        header_style="bold cyan",
+        expand=True,
+    )
     table.add_column("#", style="dim")
     table.add_column("ID", style="dim")
-    table.add_column("标题", style="bright_white", overflow="fold")
-    table.add_column("艺术家", style="bright_white", overflow="fold")
-    for i, s in enumerate(shown, offset + 1):
+    # ratio 与另外三个命令一致：4:3 是标题与艺术家的退让顺序，
+    # 没有它时最长那列会通吃，标题能被压到三个汉字宽
+    table.add_column("标题", style="bright_white", ratio=4, overflow="fold")
+    table.add_column("艺术家", style="bright_white", ratio=3, overflow="fold")
+    for i, s in enumerate(songs, offset + 1):
         table.add_row(
             str(i), str(s["id"]), escape(s.get("title", "")), s.get("artist", "")
         )
@@ -217,38 +222,44 @@ def show_tracker(
 
     from rich import box
     from rich.panel import Panel
-    from rich.table import Table
     from rich.text import Text
 
+    total = len(songs)
+    shown = songs[offset : offset + max_tracks]
+
+    # 三行一行一项，不再挤成「描述：X  |  曲目数：N」：
+    # 现在有三项了，竖线分隔会让最长的一项被折行挤掉
     header = Text()
-    header.append("Tracker：", style="bold")
-    header.append(f"{name}\n", style="bold bright_white")
     header.append("描述：", style="dim")
-    header.append(f"{settings['description']}", style="yellow")
-    # 曲目表还没做，而「这库是什么时候拉的」恰恰只能从这里看出来：
-    # 一个三个月没更新的库，面板上与刚建的一样，看不出该不该再 --fetch
-    if updated_at:
-        header.append("\n更新于：", style="dim")
-        header.append(f"{updated_at}", style="green")
-    console.print(Panel(header, border_style="cyan", box=box.ROUNDED))
+    header.append(f"{settings['description']}\n", style="yellow")
+    # 这库是什么时候拉的只能从这里看出来：三个月没更新的库，
+    # 曲目表上与刚拉的完全一样
+    header.append("更新于：", style="dim")
+    header.append(f"{updated_at}\n", style="green")
+    header.append("已缓存曲目：", style="dim")
+    header.append(f"{total}\n", style="green")
+    # 只给路径不给来源列表：来源是用户自己写的，每次跑一遍没有新信息，
+    # 而 529 首的歌单一屏放不下。路径给了，要看或改直接开那个文件
+    header.append("设置：", style="dim")
+    header.append(abbrev_home(_settings_path(name)), style="green")
+    if not settings["sources"]:
+        # 一个来源都没配时那行路径是死的，得说清为什么
+        header.append("\n", style="dim")
+        header.append("尚未配置来源，请编辑 settings.toml 添加来源。", style="yellow")
 
-    if settings["sources"]:
-        table = Table(box=box.ROUNDED, show_header=True, header_style="bold cyan")
-        table.add_column("#", style="dim", width=4)
-        table.add_column("类型", style="green", width=12)
-        table.add_column("ID", style="bright_white")
-        for i, src in enumerate(settings["sources"], 1):
-            table.add_row(
-                str(i), src["type"], ", ".join(str(sid) for sid in src["ids"])
-            )
-        console.print(table)
-    else:
-        info("尚未配置来源，请编辑 settings.toml 添加来源。")
+    # 区间跟着曲目表走，所以放在它的面板标题上 —— 与「歌单详情」同一位置
+    suffix = _range_suffix(offset, len(shown), total)
+    console.print(
+        Panel(
+            header,
+            title=f"[bold]Tracker - {name} - {suffix}[/]",
+            border_style="cyan",
+            box=box.ROUNDED,
+        )
+    )
 
-    console.print(f"  已缓存曲目：[green]{len(songs)}[/]")
-
-    if songs:
-        _display_songs(songs, max_tracks, offset)
+    if shown:
+        _display_songs(shown, offset)
 
 
 def tracker_payload(settings: dict, db: dict, args: argparse.Namespace) -> dict:

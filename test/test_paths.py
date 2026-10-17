@@ -6,7 +6,7 @@ from rich.console import Console
 from rich.markup import escape
 from rich.text import Text
 
-from function.output import abbrev_home
+from function.config import abbrev_home
 
 
 def test_家目录缩写为波浪号(monkeypatch):

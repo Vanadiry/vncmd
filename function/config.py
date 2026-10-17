@@ -7,6 +7,22 @@ from filelock import FileLock, Timeout
 
 from function._defaults import CONFIG_TOML
 
+
+def abbrev_home(path) -> str:
+    """把用户主目录那段替换成 ~，路径太长时能省下十几个字符
+
+    住在这里而不是 output.py，是因为 config.py 自己也要用（首次运行的提示、
+    解析失败），而 output.py 从这一层导入，反过来会成环。
+    """
+    text = str(path)
+    home = str(Path.home())
+    if text == home:
+        return "~"
+    if text.startswith(home + os.sep):
+        return "~" + text[len(home) :]
+    return text
+
+
 VNCMD_HOME = Path(os.environ.get("VNCMD_HOME", "~/.vSoft/vncmd")).expanduser()
 CONFIG_FILE = VNCMD_HOME / "config.toml"
 COOKIE_FILE = VNCMD_HOME / "cookie"
@@ -56,13 +72,15 @@ def validate_config(quiet: bool = False) -> None:
         VNCMD_HOME.mkdir(parents=True, exist_ok=True)
         CONFIG_FILE.write_text(CONFIG_TOML, encoding="utf-8")
         if not quiet:
-            print(f"未能找到配置文件，已创建：{CONFIG_FILE}", file=sys.stderr)
-            print("首次运行？请执行 vncmd init 以获取更多信息", file=sys.stderr)
+            print(
+                f"未能找到配置文件，已创建：{abbrev_home(CONFIG_FILE)}", file=sys.stderr
+            )
+            print("首次运行？请执行 vncmd --init 以获取更多信息", file=sys.stderr)
 
     try:
         cfg = load_config()
     except Exception as e:
-        _die([f"解析 {CONFIG_FILE} 失败：{e}"])
+        _die([f"解析 {abbrev_home(CONFIG_FILE)} 失败：{e}"])
         return
 
     global _cfg

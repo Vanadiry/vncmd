@@ -6,7 +6,9 @@
 """
 
 import argparse
+import contextlib
 import json
+from pathlib import Path
 
 import pytest
 from rich.console import Console
@@ -113,11 +115,287 @@ class TestArtist入库:
         assert captured["songs"][0]["artist"] == "A"
 
 
+class Test面板给设置路径:
+    def test_路径用波浪号(self, ready, monkeypatch, capsys):
+        """设置、init、cache 三处都是同一个写法"""
+        monkeypatch.setattr(
+            tracker, "_settings_path", lambda n: Path("/Users/tester/.vSoft/x.toml")
+        )
+        monkeypatch.setattr(
+            tracker, "abbrev_home", lambda p: str(p).replace("/Users/tester", "~")
+        )
+        tracker.cmd_tracker(ns(limit=3))
+        assert "~/.vSoft/x.toml" in capsys.readouterr().out
+
+
+class Test路径缩写:
+    """路径一律写成 ~ 开头：设置、init、cache、tracker 面板同一个写法"""
+
+    def _home(self, tmp_path):
+        home = tmp_path / "home"
+        home.mkdir()
+        return home
+
+    def test_init的路径都走缩写(self, monkeypatch, capsys, tmp_path):
+        """只断言输出不含真实主目录路径，不断言它调没调 abbrev_home。
+
+        早先这里把 abbrev_home 整个 monkeypatch 掉了，于是代码走不走它都一样，
+        撤掉调用测试照样绿 —— 断言得落在输出上，不是落在调用上。
+
+        下面几行只报文件名（不重复 VNCMD_HOME 那行），所以这个环境下
+        唯一该带路径的是粘贴 Cookie 那句操作指引。
+        """
+        from function import commands as commands_mod
+
+        home = self._home(tmp_path)
+        base = home / ".vSoft" / "vncmd"
+        monkeypatch.setattr(commands_mod, "VNCMD_HOME", base)
+        monkeypatch.setattr(commands_mod, "CONFIG_FILE", base / "config.toml")
+        monkeypatch.setattr(commands_mod, "COOKIE_FILE", base / "cookie")
+        monkeypatch.setattr(
+            commands_mod,
+            "abbrev_home",
+            lambda p: str(p).replace(str(home), "~"),
+        )
+        monkeypatch.setattr(commands_mod.shutil, "which", lambda n: None)
+        monkeypatch.setattr(commands_mod, "validate_config", lambda quiet=False: None)
+        commands_mod.cmd_init(ns())
+        out = capsys.readouterr().out
+        assert "VNCMD_HOME: ~/.vSoft/vncmd" in out, out
+
+    def test_下面几行不重复路径(self, monkeypatch, capsys, tmp_path):
+        """上面已经给过 VNCMD_HOME，同一屏里再写一遍是重复"""
+        from function import commands as commands_mod
+
+        home = self._home(tmp_path)
+        base = home / ".vSoft" / "vncmd"
+        base.mkdir(parents=True)
+        (base / "config.toml").write_text("x = 1\n", encoding="utf-8")
+        (base / "cookie").write_text("", encoding="utf-8")
+        monkeypatch.setattr(commands_mod, "VNCMD_HOME", base)
+        monkeypatch.setattr(commands_mod, "CONFIG_FILE", base / "config.toml")
+        monkeypatch.setattr(commands_mod, "COOKIE_FILE", base / "cookie")
+        monkeypatch.setattr(
+            commands_mod,
+            "abbrev_home",
+            lambda p: str(p).replace(str(home), "~"),
+        )
+        monkeypatch.setattr(commands_mod.shutil, "which", lambda n: None)
+        commands_mod.cmd_init(ns())
+        out = capsys.readouterr().out
+        assert "存在 config.toml" in out, out
+        assert "存在 cookie" in out, out
+        assert "存在 ~/.vSoft" not in out, f"存在那两行不该带路径：{out}"
+        # VNCMD_HOME 那一行仍要给全，它是唯一说出位置的地方
+        assert out.count("~/.vSoft/vncmd") == 1, f"路径只该出现一次：{out}"
+
+    def test_新建时也只报文件名(self, monkeypatch, capsys, tmp_path):
+        from function import commands as commands_mod
+
+        home = self._home(tmp_path)
+        base = home / ".vSoft" / "vncmd"
+        monkeypatch.setattr(commands_mod, "VNCMD_HOME", base)
+        monkeypatch.setattr(commands_mod, "CONFIG_FILE", base / "config.toml")
+        monkeypatch.setattr(commands_mod, "COOKIE_FILE", base / "cookie")
+        monkeypatch.setattr(
+            commands_mod,
+            "abbrev_home",
+            lambda p: str(p).replace(str(home), "~"),
+        )
+        monkeypatch.setattr(commands_mod.shutil, "which", lambda n: None)
+        monkeypatch.setattr(commands_mod, "validate_config", lambda quiet=False: None)
+        commands_mod.cmd_init(ns())
+        got = capsys.readouterr()
+        # success 走 stderr，「存在」走 stdout，两条流都要看 ——
+        # 早先只读 stdout，于是「已创建」那两行怎么写都测不到
+        assert "已创建 config.toml" in got.err, got
+        assert "已创建 cookie" in got.err, got
+        assert "已创建" not in got.out, "已创建那两行该在诊断流里"
+
+    def test_cookie那句带上了用途(self, monkeypatch, capsys, tmp_path):
+        """空文件对新人毫无意义，得说清粘什么进去有什么好处"""
+        from function import commands as commands_mod
+
+        home = self._home(tmp_path)
+        base = home / ".vSoft" / "vncmd"
+        monkeypatch.setattr(commands_mod, "VNCMD_HOME", base)
+        monkeypatch.setattr(commands_mod, "CONFIG_FILE", base / "config.toml")
+        monkeypatch.setattr(commands_mod, "COOKIE_FILE", base / "cookie")
+        monkeypatch.setattr(
+            commands_mod,
+            "abbrev_home",
+            lambda p: str(p).replace(str(home), "~"),
+        )
+        monkeypatch.setattr(commands_mod.shutil, "which", lambda n: None)
+        monkeypatch.setattr(commands_mod, "validate_config", lambda quiet=False: None)
+        commands_mod.cmd_init(ns())
+        err = capsys.readouterr().err
+        assert "VIP" in err and "高音质" in err, err
+
+    def test_cookie那句不再单起一行(self, monkeypatch, capsys, tmp_path):
+        """位置由上面 VNCMD_HOME 那行给出，不再重复一遍路径"""
+        from function import commands as commands_mod
+
+        home = self._home(tmp_path)
+        base = home / ".vSoft" / "vncmd"
+        monkeypatch.setattr(commands_mod, "VNCMD_HOME", base)
+        monkeypatch.setattr(commands_mod, "CONFIG_FILE", base / "config.toml")
+        monkeypatch.setattr(commands_mod, "COOKIE_FILE", base / "cookie")
+        monkeypatch.setattr(
+            commands_mod,
+            "abbrev_home",
+            lambda p: str(p).replace(str(home), "~"),
+        )
+        monkeypatch.setattr(commands_mod.shutil, "which", lambda n: None)
+        monkeypatch.setattr(commands_mod, "validate_config", lambda quiet=False: None)
+        commands_mod.cmd_init(ns())
+        got = capsys.readouterr()
+        assert "粘贴" in got.err, got
+        assert "粘贴到 ~/.vSoft" not in got.err, f"路径不该重复一遍：{got.err}"
+        assert "粘贴到" not in got.out, got
+
+    def test_tracker面板的路径也走缩写(self, ready, monkeypatch, capsys, tmp_path):
+        """面板那行与 init 同一个写法"""
+        home = self._home(tmp_path)
+        monkeypatch.setattr(
+            tracker, "_settings_path", lambda n: home / ".vSoft/vncmd/t/settings.toml"
+        )
+        monkeypatch.setattr(
+            tracker, "abbrev_home", lambda p: str(p).replace(str(home), "~")
+        )
+        tracker.cmd_tracker(ns(limit=2))
+        out = capsys.readouterr().out
+        assert str(home) not in out, f"路径该缩写成 ~ 开头：{out}"
+
+    def test_首次运行的提示也给缩写(self, monkeypatch, capsys, tmp_path):
+        from function import config as config_mod
+
+        home = self._home(tmp_path)
+        monkeypatch.setattr(config_mod, "VNCMD_HOME", home / ".vSoft" / "vncmd")
+        monkeypatch.setattr(
+            config_mod, "CONFIG_FILE", home / ".vSoft" / "vncmd" / "config.toml"
+        )
+        monkeypatch.setattr(config_mod, "load_config", dict)
+        monkeypatch.setattr(
+            config_mod, "abbrev_home", lambda p: str(p).replace(str(home), "~")
+        )
+        monkeypatch.setattr(
+            config_mod, "Path", type("P", (), {"home": staticmethod(lambda: home)})
+        )
+        # _die 走 sys.exit，那是 BaseException，suppress(Exception) 拦不住
+        with contextlib.suppress(BaseException):
+            config_mod.validate_config(quiet=False)
+        err = capsys.readouterr().err
+        assert "~/.vSoft/vncmd/config.toml" in err, err
+        assert str(home) not in err, f"路径该缩写成 ~ 开头：{err}"
+
+    def test_解析失败的提示也给缩写(self, monkeypatch, capsys, tmp_path):
+        from function import config as config_mod
+
+        home = self._home(tmp_path)
+
+        def boom():
+            raise ValueError("坏了")
+
+        monkeypatch.setattr(config_mod, "VNCMD_HOME", home / ".vSoft" / "vncmd")
+        monkeypatch.setattr(
+            config_mod, "CONFIG_FILE", home / ".vSoft" / "vncmd" / "config.toml"
+        )
+        monkeypatch.setattr(config_mod, "load_config", boom)
+        monkeypatch.setattr(
+            config_mod, "abbrev_home", lambda p: str(p).replace(str(home), "~")
+        )
+        monkeypatch.setattr(
+            config_mod, "Path", type("P", (), {"home": staticmethod(lambda: home)})
+        )
+        with contextlib.suppress(BaseException):
+            config_mod.validate_config(quiet=True)
+        assert "~/.vSoft/vncmd/config.toml" in capsys.readouterr().err
+
+    def test_提示里的命令名是新的(self, monkeypatch, capsys, tmp_path):
+        """命令从 vncmd init 改成 vncmd --init，提示里写旧的会让人敲错"""
+        from function import config as config_mod
+
+        home = self._home(tmp_path)
+        monkeypatch.setattr(config_mod, "VNCMD_HOME", home / ".vSoft" / "vncmd")
+        monkeypatch.setattr(
+            config_mod, "CONFIG_FILE", home / ".vSoft" / "vncmd" / "config.toml"
+        )
+        monkeypatch.setattr(config_mod, "load_config", dict)
+        monkeypatch.setattr(config_mod, "abbrev_home", lambda p: str(p))
+        monkeypatch.setattr(
+            config_mod, "Path", type("P", (), {"home": staticmethod(lambda: home)})
+        )
+        # _die 走 sys.exit，那是 BaseException，suppress(Exception) 拦不住
+        with contextlib.suppress(BaseException):
+            config_mod.validate_config(quiet=False)
+        err = capsys.readouterr().err
+        assert "--init" in err and "vncmd init" not in err
+
+
+class Test曲目表宽度:
+    def test_曲目表占满终端(self, ready, monkeypatch, capsys):
+        """另外三个命令的曲目表都有 expand=True，这张也得有"""
+        monkeypatch.setattr(tracker, "console", Console(width=150))
+        tracker.cmd_tracker(ns(limit=3))
+        out = capsys.readouterr().out
+        songs_rows = [ln for ln in out.splitlines() if ln.startswith("│ 1 │")]
+        assert songs_rows, "没有曲目行"
+        assert max(len(ln) for ln in songs_rows) >= 140, "曲目表没占满终端宽度"
+
+    def test_标题与艺术家有ratio(self, ready, monkeypatch, capsys):
+        """4:3 是退让顺序。没有它时最长那列通吃，标题能被压到三个汉字宽。
+
+        只量宽度测不出来 —— expand=True 时两列照样撑满，
+        得直接量那两列各自占多少格。
+        """
+        from rich.table import Table
+
+        monkeypatch.setattr(tracker, "console", Console(width=100))
+        captured = {}
+        real = Table
+
+        def spy(*a, **kw):
+            t = real(*a, **kw)
+            captured["t"] = t
+            return t
+
+        monkeypatch.setattr("rich.table.Table", spy)
+        songs = [{"id": i, "title": "x" * 60, "artist": "y"} for i in range(3)]
+        tracker._display_songs(songs, 0)
+        cols = {c.header: c for c in captured["t"].columns}
+        assert cols["标题"].ratio == 4
+        assert cols["艺术家"].ratio == 3
+
+
 class Test曲目表:
     @pytest.fixture(autouse=True)
     def wide(self, monkeypatch):
         """宽度固定，否则 rich 把标题折行，断言的字符串就断了"""
         monkeypatch.setattr(tracker, "console", Console(width=200))
+
+    def test_面板带已缓存曲目数(self, ready, capsys):
+        """总数在面板里，不必再在表格下面单起一行"""
+        tracker.cmd_tracker(ns(limit=3))
+        assert "已缓存曲目：200" in capsys.readouterr().out
+
+    def test_面板给设置文件的路径(self, ready, capsys):
+        """来源是用户自己写的，每次列一遍没有新信息，而 529 首一屏放不下。
+
+        给路径就够：要看或改直接开那个文件。
+        """
+        tracker.cmd_tracker(ns(limit=3))
+        out = capsys.readouterr().out
+        assert "settings.toml" in out
+        assert "819104208" not in out, "来源列表不该再出现在面板上"
+
+    def test_没配来源时说清(self, ready, monkeypatch, capsys):
+        """一个来源都没配时那行路径是死的，得说清为什么"""
+        monkeypatch.setattr(
+            tracker, "load_settings", lambda n: {"description": "d", "sources": []}
+        )
+        tracker.cmd_tracker(ns(limit=3))
+        assert "尚未配置来源" in capsys.readouterr().out
 
     def test_四列(self, ready, capsys):
         tracker.cmd_tracker(ns())

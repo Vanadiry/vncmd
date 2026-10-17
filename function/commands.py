@@ -30,6 +30,7 @@ from function.config import (
     COOKIE_FILE,
     QUALITY_MAP,
     VNCMD_HOME,
+    abbrev_home,
     get_cache_dir,
     get_cache_ttl,
     get_download_content,
@@ -43,7 +44,6 @@ from function.downloader import (
     make_session_dir,
 )
 from function.output import (
-    abbrev_home,
     console,
     display_album,
     display_download_detail,
@@ -425,21 +425,29 @@ def cmd_init(args: argparse.Namespace) -> None:
     v = sys.version_info
     console.print(f"  Python {v.major}.{v.minor}.{v.micro}")
 
-    console.print(f"  VNCMD_HOME: {VNCMD_HOME}")
+    # 路径一律走 abbrev_home，主目录那段替成 ~：
+    # 设置、tracker 面板、cache 都用同一个写法，
+    # 而 VNCMD_HOME 是环境变量换出来的，展开写会是一长串
+    console.print(f"  VNCMD_HOME: {abbrev_home(VNCMD_HOME)}")
     VNCMD_HOME.mkdir(parents=True, exist_ok=True)
 
+    # 这几行一律只报文件名，不带路径：上面已经给过 VNCMD_HOME 了，
+    # 同一屏里把同一段路径写两遍是重复
     if CONFIG_FILE.exists():
-        console.print("  [dim]存在 config.toml[/]")
+        console.print(f"  [dim]存在 {CONFIG_FILE.name}[/]")
     else:
         validate_config(quiet=True)
-        success("已创建 config.toml")
+        success(f"已创建 {CONFIG_FILE.name}")
 
     if COOKIE_FILE.exists():
-        console.print("  [dim]存在 cookie[/]")
+        console.print(f"  [dim]存在 {COOKIE_FILE.name}[/]")
     else:
         _write_cookie("")
-        success("已创建空 cookie 文件")
-        console.print(f"  [dim]将 Cookie 粘贴到 {COOKIE_FILE} 以使用 VIP/高音质模式[/]")
+        # 同一句话里说清位置与用途，不再单起一行重复路径
+        success(
+            f"已创建 {COOKIE_FILE.name}，"
+            "粘贴登录 Cookie 到该文件即可下载 VIP 与高音质歌曲"
+        )
 
     # Check system dependencies
     missing = []

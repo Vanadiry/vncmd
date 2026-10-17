@@ -40,6 +40,7 @@ from function.checkpoint import (
     sync_checkpoint_tracks,
 )
 from function.config import (
+    abbrev_home,
     get_auto_trim,
     get_check_enabled,
     get_concurrency,
@@ -69,7 +70,6 @@ from function.lyrics import (
 )
 from function.metadata import embed as embed_metadata
 from function.output import (
-    abbrev_home,
     console,
     err_console,
     error,

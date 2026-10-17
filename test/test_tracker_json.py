@@ -148,13 +148,15 @@ class Test面板显示更新时间:
         out = capsys.readouterr().out
         assert "2026-10-01T00:00:00Z" in out
 
-    def test_没有更新时间就不给那一行(self, ready, monkeypatch, capsys):
+    def test_没有更新时间也给那一行(self, ready, monkeypatch, capsys):
+        """更新于固定占一行，不随有没有值增删 ——
+        面板高度随数据变，看起来像是出错了"""
         monkeypatch.setattr(
             tracker, "load_songs_db_full", lambda name: db(updated_at="")
         )
         tracker.cmd_tracker(ns(json=False))
         out = capsys.readouterr().out
-        assert "更新于" not in out
+        assert "更新于" in out
 
 
 class Test读整个库:
