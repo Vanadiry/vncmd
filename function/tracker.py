@@ -27,6 +27,7 @@ from function.config import (
 from function.downloader import download_song_batch
 from function.jsonstore import read_json_safe, write_json_atomic
 from function.output import (
+    _range_suffix,
     console,
     err_console,
     error,
@@ -179,7 +180,38 @@ def load_diff(name: str) -> dict:
     return data if isinstance(data, dict) else empty
 
 
-def show_tracker(name: str, updated_at: str = "") -> None:
+def _display_songs(songs: list[dict], max_tracks: int, offset: int) -> None:
+    """已缓存曲目的表
+
+    与 album、playlist 的曲目表同一套做法：标题右侧带区间、序号报绝对序号。
+    分母用可切片的条数而不是 len(songs.json) 里的总数，
+    同一个口径才看得出这次看的是第几首到第几首。
+    """
+    from rich import box
+    from rich.table import Table
+
+    total = len(songs)
+    shown = songs[offset : offset + max_tracks]
+
+    # 标题单独一行而不是交给 Table 的 title：那张表只有四列，
+    # Table 会把标题折到表格那么宽，「超出范围（共 200 首）」会被折成两行
+    console.print(f"[bold]已缓存曲目 - {_range_suffix(offset, len(shown), total)}[/]")
+
+    table = Table(box=box.ROUNDED, show_header=True, header_style="bold cyan")
+    table.add_column("#", style="dim")
+    table.add_column("ID", style="dim")
+    table.add_column("标题", style="bright_white", overflow="fold")
+    table.add_column("艺术家", style="bright_white", overflow="fold")
+    for i, s in enumerate(shown, offset + 1):
+        table.add_row(
+            str(i), str(s["id"]), escape(s.get("title", "")), s.get("artist", "")
+        )
+    console.print(table)
+
+
+def show_tracker(
+    name: str, updated_at: str = "", max_tracks: int = 10, offset: int = 0
+) -> None:
     settings = load_settings(name)
     songs = load_songs_db(name)
 
@@ -214,6 +246,9 @@ def show_tracker(name: str, updated_at: str = "") -> None:
         info("尚未配置来源，请编辑 settings.toml 添加来源。")
 
     console.print(f"  已缓存曲目：[green]{len(songs)}[/]")
+
+    if songs:
+        _display_songs(songs, max_tracks, offset)
 
 
 def tracker_payload(settings: dict, db: dict, args: argparse.Namespace) -> dict:
@@ -277,6 +312,9 @@ def fetch_all_songs(settings: dict) -> tuple[dict[str, dict], list[dict]]:
         entry = {
             "id": data["id"],
             "title": data["title"],
+            # 老条目没这个键，留空而不是回退到现查 API：
+            # 529 首是 6 个批次，明显不划算，下次 --fetch 自然补齐
+            "artist": data.get("artist", ""),
         }
         if len(data["sources"]) > 1:
             entry["at"] = data["sources"]
@@ -295,6 +333,9 @@ def _add_to_raw(raw: dict, track: dict, src_type: str, src_id: int) -> None:
         raw[sid] = {
             "id": sid,
             "title": track["title"],
+            # 三种来源都已经在 track 里解析过 artist 了，
+            # 这里只是没往下带 —— removed 那条一直在用 rt.get("artist", "")
+            "artist": track.get("artist", ""),
             "sources": [source_ref],
         }
 
@@ -629,4 +670,9 @@ def cmd_tracker(args: argparse.Namespace) -> None:
             db = load_songs_db_full(name)
             _dump_json(tracker_payload(load_settings(name), db, args))
             return
-        show_tracker(name, load_songs_db_full(name)["updated_at"])
+        show_tracker(
+            name,
+            load_songs_db_full(name)["updated_at"],
+            max_tracks=args.limit or 10,
+            offset=args.offset,
+        )

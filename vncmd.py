@@ -267,9 +267,7 @@ def build_parser() -> _ArgumentParser:
         action="store_true",
         help="上次 --fetch 记下的变更，不联网。配 -d 下载新增的，配 --json 输出三类",
     )
-    # --json 只配纯读视图：四个动作的结果都是文件，不是数据。
-    # --limit/--offset 同样只切 JSON，纯读面板暂时没有曲目表，
-    # 给了不报错也不生效 —— 曲目表做完就自动接上了
+    # --json 只配纯读视图：四个动作的结果都是文件，不是数据
     _add_json_arg(p_tracker)
     p_tracker.add_argument(
         "--limit",
@@ -277,14 +275,10 @@ def build_parser() -> _ArgumentParser:
         type=int,
         default=None,
         metavar="N",
-        help="最多给出曲目数（只作用于 --json 的输出）",
+        help="最多处理曲目数（默认：面板 10，JSON 全部）",
     )
     p_tracker.add_argument(
-        "--offset",
-        type=int,
-        default=0,
-        metavar="N",
-        help="起始序号，从 0 计（只作用于 --json 的输出）",
+        "--offset", type=int, default=0, metavar="N", help="起始序号，从 0 计"
     )
     _add_quality_arg(p_tracker)
     _add_output_arg(p_tracker)
