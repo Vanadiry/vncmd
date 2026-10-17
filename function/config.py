@@ -170,9 +170,9 @@ def validate_config(quiet: bool = False) -> None:
 
     # [display]
     # 整段缺失时按默认值算，升级旧配置不至于报错，类型写错仍要拦下
-    vsc = cfg.get("display", {}).get("virtual_singer_color", True)
-    if not isinstance(vsc, bool):
-        errors.append("[display] virtual_singer_color 不为布尔值")
+    artist_color = cfg.get("display", {}).get("artist_color", True)
+    if not isinstance(artist_color, bool):
+        errors.append("[display] artist_color 不为布尔值")
 
     if errors:
         _die(errors)
@@ -296,9 +296,9 @@ def is_cache_enabled() -> bool:
     return _get_cfg()["cache"]["enabled"]
 
 
-def is_virtual_singer_color() -> bool:
+def is_artist_color() -> bool:
     # 配置段缺失时保持默认开启
-    return _get_cfg().get("display", {}).get("virtual_singer_color", True)
+    return _get_cfg().get("display", {}).get("artist_color", True)
 
 
 def show_config() -> str:

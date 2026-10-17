@@ -154,7 +154,7 @@ class TestColumnStyle:
 
     def test_关掉着色后全是白字(self, monkeypatch):
         """配置项关掉时两列都退回白字，不该再有别的颜色"""
-        monkeypatch.setattr(output, "is_virtual_singer_color", lambda: False)
+        monkeypatch.setattr(output, "is_artist_color", lambda: False)
         text = _ansi(MIXED_ARTIST)
         assert "\x1b[97m" in text
         assert "38;2;57;197;187" not in text

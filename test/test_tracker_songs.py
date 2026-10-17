@@ -129,6 +129,110 @@ class Test面板给设置路径:
         assert "~/.vSoft/x.toml" in capsys.readouterr().out
 
 
+# 一份只含必需键的配置，测试在上面改某个键
+_MINIMAL_CFG = """\
+[download]
+dir = ""
+filename_format = "10"
+content = "012"
+concurrency = 4
+check = true
+downloader = "builtin"
+curl_arg = ""
+
+[download.song]
+quality = "999"
+parse_credits = false
+
+[download.lyric]
+embed_mode = "0"
+save_mode = "0"
+auto_trim = false
+credit_scan_lines = 10
+credit_prefixes = []
+
+[download.cover]
+embed_quality = "0"
+save_quality = "0"
+
+[cache]
+enabled = true
+dir = "cache"
+ttl = 3
+
+"""
+
+
+class TestArtistColor改名:
+    def test_配置键是artist_color(self):
+        """表里不只 Vocaloid（37 个名字里 25 个是 PIAPRO 系），
+        所以 virtual_singer_color 既不准也不通用"""
+        from function._defaults import CONFIG_TOML
+
+        assert "artist_color = true" in CONFIG_TOML
+        assert "virtual_singer_color" not in CONFIG_TOML
+
+    def test_getter叫is_artist_color(self):
+        from function.config import is_artist_color
+
+        assert callable(is_artist_color)
+
+    def test_旧名已经不存在(self):
+        from function import config as config_mod
+
+        assert not hasattr(config_mod, "is_virtual_singer_color")
+
+    def test_注释不再说虚拟歌姬(self):
+        """表里 37 个名字只有 12 个是 Vocaloid，25 个是 PIAPRO 系"""
+        from function._defaults import CONFIG_TOML
+
+        line = next(ln for ln in CONFIG_TOML.splitlines() if "代表色着色" in ln)
+        assert "虚拟歌姬" not in CONFIG_TOML, line
+
+    def test_类型错报的是新键名(self, monkeypatch, tmp_path):
+        """报旧键名的话，用户会去 config.toml 里找一个不存在的项"""
+        from function import config as config_mod
+
+        # 走真的 load_config：校验在读文件之后，换掉 _get_cfg 就绕过了
+        cfg = tmp_path / "config.toml"
+        cfg.write_text(_MINIMAL_CFG + '[display]\nartist_color = "yes"\n', "utf-8")
+        monkeypatch.setattr(config_mod, "CONFIG_FILE", cfg)
+        caught = []
+        monkeypatch.setattr(config_mod, "_die", lambda lines: caught.extend(lines))
+        config_mod.validate_config(quiet=True)
+        assert any("artist_color" in ln for ln in caught), caught
+        assert not any("virtual_singer" in ln for ln in caught), caught
+
+    def test_旧键名会被当成未知键放行(self, monkeypatch, tmp_path):
+        """validate_config 只检查认识的键、从不拒绝多余的
+
+        所以旧配置里的 virtual_singer_color 会静默失效 ——
+        这是项目没发版才付得起的代价，不是 bug。
+        """
+        from function import config as config_mod
+
+        cfg = tmp_path / "config.toml"
+        cfg.write_text(
+            _MINIMAL_CFG + "[display]\nvirtual_singer_color = false\n", "utf-8"
+        )
+        monkeypatch.setattr(config_mod, "CONFIG_FILE", cfg)
+        caught = []
+        monkeypatch.setattr(config_mod, "_die", lambda lines: caught.extend(lines))
+        config_mod.validate_config(quiet=True)
+        assert not caught, caught
+
+    def test_两个歌词模式各说各的(self):
+        """embed_mode=2 是仅原文，save_mode=2 是分离文件，两件事
+
+        曾把这两行合并成一段共用说明，合并之后「嵌入只能写一个歌词字段」
+        那层因果丢了，读者会以为 embed_mode=2 也是分开两个文件。
+        """
+        from function._defaults import CONFIG_TOML
+
+        assert "# 嵌入歌词模式：0=交错，1=合并，2=仅原文" in CONFIG_TOML
+        assert "# 独立歌词文件模式：0=交错，1=合并，2=分离文件" in CONFIG_TOML
+
+
 class Test路径缩写:
     """路径一律写成 ~ 开头：设置、init、cache、tracker 面板同一个写法"""
 
@@ -383,9 +487,9 @@ class Test艺术家着色:
 
     def test_关掉着色后全是白字(self, monkeypatch):
         # patch 的是 output 模块里那个名字：_artist_text 早就把
-        # is_virtual_singer_color 绑到自己模块的命名空间了，
+        # is_artist_color 绑到自己模块的命名空间了，
         # patch config_mod 那个不改变已绑定的引用
-        monkeypatch.setattr("function.output.is_virtual_singer_color", lambda: False)
+        monkeypatch.setattr("function.output.is_artist_color", lambda: False)
         out = self._rendered(
             monkeypatch, [{"id": 1, "title": "A", "artist": "なきそ, 初音ミク"}]
         )

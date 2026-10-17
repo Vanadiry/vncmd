@@ -6,7 +6,7 @@ from rich.panel import Panel
 from rich.table import Table
 from rich.text import Text
 
-from function.config import is_virtual_singer_color
+from function.config import is_artist_color
 from function.vocals import colorize
 
 console = Console()
@@ -19,9 +19,13 @@ err_console = Console(stderr=True)
 
 
 def _artist_text(artist: str, base_style: str) -> Text:
-    """把艺术家串拼成 Text，命中代表色的片段换成自己的颜色"""
+    """把艺术家串拼成 Text，命中代表色的片段换成自己的颜色
+
+    表里不只 Vocaloid，PIAPRO 系（星乃一歌、宵崎奏、日野森雫等）也在内，
+    所以配置项叫 artist_color 而不叫 virtual_singer_color。
+    """
     text = Text()
-    if is_virtual_singer_color():
+    if is_artist_color():
         for chunk, color in colorize(artist):
             text.append(chunk, style=color or base_style)
     else:

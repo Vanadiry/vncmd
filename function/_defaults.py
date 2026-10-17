@@ -4,7 +4,7 @@ CONFIG_TOML = """\
 dir = ""
 # 文件名格式：10=曲目-艺术家，01=艺术家-曲目，1=仅曲目
 filename_format = "10"
-# 下载内容：0=音频，1=歌词，2=封面（如 012=全部，12=歌词和封面）
+# 下载内容：0=音频，1=歌词，2=封面，允许自由组合（如 01=音频和歌词，2=仅封面...）
 content = "012"
 # 并发下载数：1-16（默认 4）
 concurrency = 4
@@ -48,8 +48,8 @@ dir = "cache"
 ttl = 3
 
 [display]
-# 艺术家字段里的虚拟歌姬按代表色着色
-virtual_singer_color = true
+# 艺术家按各自代表色着色
+artist_color = true
 """
 
 TRACKER_SETTINGS_TOML = """\
