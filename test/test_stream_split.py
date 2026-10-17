@@ -152,7 +152,12 @@ class Test下架明细跟警告同流:
         )
         commands.cmd_playlist(
             argparse.Namespace(
-                id=1, limit=10, download=False, quality=None, output=None
+                id=1,
+                limit=10,
+                download=False,
+                json=False,
+                quality=None,
+                output=None,
             )
         )
         out, err = capsys.readouterr()

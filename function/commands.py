@@ -1,4 +1,5 @@
 import argparse
+import json
 import os
 import shutil
 import sys
@@ -93,6 +94,14 @@ def cmd_search(args: argparse.Namespace) -> None:
         error(f"搜索失败：{e}")
         sys.exit(1)
 
+    # JSON 模式下一条都没有也是合法结果，输出 {"total": 0, "songs": []}。
+    # 空 stdout 加退出码 0 会让脚本分不清「没搜到」与「跑挂了」。
+    # 权限判定也不进去：它跟着账号变，同一条命令对不同用户给不同结果，
+    # 进了稳定输出就没法缓存也没法 diff。要判的脚本自己调 permission_verdict
+    if args.json:
+        _dump_json({"search": result})
+        return
+
     if not result["songs"]:
         warning("未找到结果。")
         return
@@ -103,6 +112,18 @@ def cmd_search(args: argparse.Namespace) -> None:
     display_search_results(args.query, result["songs"], result["total"], blocked)
 
 
+def _dump_json(payload: dict) -> None:
+    """把结构化结果写到 stdout 并结束这条命令
+
+    用裸 print 而不是 console.print：rich 会把方括号当样式标记解析，
+    而「[Live] 这类标注」这种歌名在本项目里是常事，走 rich 会被吃掉一段
+    或者整个抛错。脚本读的东西不经任何渲染层。
+
+    ensure_ascii=False 让中文原样输出，缩进两格让 `> file` 之后还能 diff。
+    """
+    print(json.dumps(payload, ensure_ascii=False, indent=2))
+
+
 def cmd_song(args: argparse.Namespace) -> None:
     """Preview or download a single song."""
     try:
@@ -110,6 +131,19 @@ def cmd_song(args: argparse.Namespace) -> None:
     except Exception as e:
         error(f"获取曲目详情失败：{e}")
         sys.exit(1)
+
+    # 取不到详情时上面已经 error 加 exit 了，stdout 到这里一定是空的，
+    # 所以失败时管道里拿到空输出、退出码非零，不需要再输出 {"error": ...}
+    if args.json:
+        payload = {"song": song}
+        # --dlink 与 --json 互补而非冲突：元数据与下载信息一次拿全，
+        # 后面 --link 要的就是这个组合
+        if args.dlink:
+            payload["download"] = fetch_player_url(
+                args.id, quality=_resolve_quality(args)
+            )
+        _dump_json(payload)
+        return
 
     # --dlink 自己会给一个辨认用的标题，不必再打完整详情卡
     if not args.dlink:
@@ -186,6 +220,12 @@ def cmd_album(args: argparse.Namespace) -> None:
         error(f"获取专辑失败：{e}")
         sys.exit(1)
 
+    # 面板只显示前 limit 首，JSON 给的是完整曲目表：
+    # 表格给人看要截断免得刷屏，脚本要数据就得齐
+    if args.json:
+        _dump_json({"album": al})
+        return
+
     display_album(al, max_tracks=args.limit or 10)
 
     if not args.download:
@@ -212,6 +252,11 @@ def cmd_playlist(args: argparse.Namespace) -> None:
     except Exception as e:
         error(f"获取歌单失败：{e}")
         sys.exit(1)
+
+    # 同 album：面板截断，JSON 给全量
+    if args.json:
+        _dump_json({"playlist": pl})
+        return
 
     display_playlist(pl, max_tracks=args.limit or 10)
 

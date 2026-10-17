@@ -15,7 +15,7 @@ from function.commands import (
     cmd_song,
 )
 from function.config import QUALITY_MAP, acquire_lock, validate_config
-from function.output import err_console
+from function.output import err_console, error
 from function.tracker import cmd_tracker
 
 
@@ -70,6 +70,21 @@ def _add_quality_arg(parser: object) -> None:
 def _add_output_arg(parser: object) -> None:
     parser.add_argument(
         "--output", "-o", default=None, help="输出目录（默认：使用配置）"
+    )
+
+
+def _add_json_arg(parser: object) -> None:
+    """给命令加上 --json
+
+    刻意不进任何互斥组：需要的是「--download 与 --dlink 互斥、与 --json 也互斥，
+    而 --dlink 与 --json 不互斥」。argparse 的互斥组是等价关系，
+    --download 只能属于一个组，表达不出这种非传递的排除。
+    那一条交给 main 里的 _reject_json_download 手写。
+    """
+    parser.add_argument(
+        "--json",
+        action="store_true",
+        help="以 JSON 输出结果并退出，供脚本读取",
     )
 
 
@@ -152,6 +167,8 @@ def build_parser() -> _ArgumentParser:
         "--limit", "-n", type=int, default=10, help="最大结果数（默认：10）"
     )
     p_search.add_argument("--offset", type=int, default=0, help="分页偏移量")
+    # search 没有下载动作，不存在互斥问题
+    _add_json_arg(p_search)
 
     p_song = sub.add_parser("song", help="预览或下载单曲")
     p_song.add_argument("id", type=int, help="曲目 ID")
@@ -162,16 +179,19 @@ def build_parser() -> _ArgumentParser:
     grp_song.add_argument(
         "--dlink", "-u", action="store_true", help="显示下载链接与音质、费用等详情"
     )
+    _add_json_arg(p_song)
     _add_download_args(p_song, download_group=grp_song)
     p_song.add_argument("--lyrics", "-l", action="store_true", help="显示歌词")
     p_song.add_argument("--tlyric", action="store_true", help="显示翻译歌词")
 
     p_al = sub.add_parser("album", help="预览或下载专辑")
     p_al.add_argument("id", type=int, help="专辑 ID")
+    _add_json_arg(p_al)
     _add_download_args(p_al, batch=True)
 
     p_pl = sub.add_parser("playlist", help="预览或下载歌单")
     p_pl.add_argument("id", type=int, help="歌单 ID")
+    _add_json_arg(p_pl)
     _add_download_args(p_pl, batch=True)
 
     p_tracker = sub.add_parser("tracker", help="追踪音乐来源变更并批量下载")
@@ -214,6 +234,19 @@ def build_parser() -> _ArgumentParser:
 _NO_ACCOUNT_REPORT = {"init", "cookie", "cache", "check"}
 
 
+def _reject_json_download(args: argparse.Namespace) -> None:
+    """--json 与 --download 互斥
+
+    argparse 表达不了：需要的是 --download 与 --dlink 互斥、与 --json 也互斥，
+    而 --dlink 与 --json 不互斥（两者互补，一起给最有用）。互斥组是等价关系，
+    --download 只能进一个组，所以这一条只能手写。退出码取 2，与 argparse
+    用法错误保持一致，脚本分「用法错」与「跑失败」时不用多记一种。
+    """
+    if getattr(args, "json", False) and getattr(args, "download", False):
+        error("--json 与 --download 互斥：--json 输出结构化数据，--download 落盘")
+        sys.exit(2)
+
+
 def main() -> None:
     parser = build_parser()
     args = parser.parse_args()
@@ -222,6 +255,8 @@ def main() -> None:
     if args.command is None:
         parser.print_help()
         sys.exit(0)
+
+    _reject_json_download(args)
 
     acquire_lock()
 
