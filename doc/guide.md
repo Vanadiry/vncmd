@@ -18,7 +18,7 @@
 | `tracker <名称>` | 新建/查看 Tracker |
 | `cookie "..."` | 写入 Cookie |
 | `cookie --check` | 不写文件，只检查当前 Cookie 状态 |
-| `check "目录/文件"` | 检查音频数据完整性 |
+| `tool check "目录/文件"` | 检查音频数据完整性 |
 
 对于 `song/playlist/album` 的参数：
 
@@ -38,7 +38,7 @@
 ## 完整性检查
 
 如果你的系统中安装 ffmpeg 和 flac 库，那么程序会自动在下载完毕后检查音频的完整性。  
-你可以使用 `vncmd check "目录/文件"` 来检查其他目录下的音频。
+你可以使用 `vncmd tool check "目录/文件"` 来检查其他目录下的音频。
 
 支持格式：mp3、flac、m4a、wav、ogg、opus、wma、ape。  
 

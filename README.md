@@ -24,7 +24,7 @@
 ```bash
 pip install vncmd
 uv tool install vncmd # 如果你使用 uv，推荐用此
-vncmd init
+vncmd --init
 ```
 
 初次使用，请至少阅读[详细指南](doc/guide.md)。
@@ -55,7 +55,7 @@ vncmd tracker my-list          # 新建/查看Tracker
 vncmd tracker my-list -f       # 交互式更新
 
 # 音频完整性检查
-vncmd check ~/Music
+vncmd tool check ~/Music
 ```
 
 ## 二进制

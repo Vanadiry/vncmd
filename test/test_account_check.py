@@ -382,13 +382,92 @@ class TestAccountNeedsCheck:
         assert api.account_needs_check() is False, "查过之后不该再预告"
 
 
+class Test命令改名后的分派:
+    """--init 与 tool check 各走各的路径，都要真的跑到对应的 handler"""
+
+    def _run(self, monkeypatch, argv):
+        import vncmd
+
+        ran = []
+        monkeypatch.setattr(vncmd, "acquire_lock", lambda: None)
+        monkeypatch.setattr(vncmd, "validate_config", lambda: None)
+        monkeypatch.setattr(vncmd, "announce_account", lambda: None)
+        monkeypatch.setattr(vncmd, "cmd_init", lambda _a: ran.append("init"))
+        monkeypatch.setattr(vncmd, "cmd_check", lambda _a: ran.append("check"))
+        monkeypatch.setattr(vncmd, "cmd_cache", lambda _a: ran.append("cache"))
+        monkeypatch.setattr(sys, "argv", ["vncmd", *argv])
+        vncmd.main()
+        return ran
+
+    def test_init走的是顶层开关(self, monkeypatch):
+        """它不再是子命令，所以没有 args.command，靠 args.init 认"""
+        assert self._run(monkeypatch, ["--init"]) == ["init"]
+
+    def test_init不走validate_config(self, monkeypatch):
+        """当初它是独立命令时也跳过校验，换成开关后不能丢"""
+        import vncmd
+
+        calls = []
+        monkeypatch.setattr(vncmd, "acquire_lock", lambda: None)
+        monkeypatch.setattr(vncmd, "cmd_init", lambda _a: calls.append("init"))
+        monkeypatch.setattr(
+            vncmd, "validate_config", lambda: pytest.fail("init 不该校验配置")
+        )
+        monkeypatch.setattr(sys, "argv", ["vncmd", "--init"])
+        vncmd.main()
+        assert calls == ["init"]
+
+    def test_init后面接命令时init优先(self, monkeypatch):
+        """`vncmd --init song 1` 走 init。给了两个动作不该只做一个"""
+        assert self._run(monkeypatch, ["--init", "song", "1"]) == ["init"]
+
+    def test_tool_check真的调到cmd_check(self, monkeypatch):
+        """分派表写错时它会落到 print_help 静默退出，没有报错"""
+        assert self._run(monkeypatch, ["tool", "check", "/tmp"]) == ["check"]
+
+    def test_tool_cache真的调到cmd_cache(self, monkeypatch):
+        assert self._run(monkeypatch, ["tool", "cache", "--stats"]) == ["cache"]
+
+    def test_提示里的命令名要跟着改(self, monkeypatch, capsys, tmp_path):
+        """写死旧命令名的话，用户照着敲会得到一个不存在的命令"""
+        import argparse
+
+        from function import commands as commands_mod
+
+        # 目录必须真存在，否则 cmd_cache 在开头就报「缓存目录不存在」，
+        # 走不到那行提示 —— 早先只给了路径没建目录，断言恒假
+        (tmp_path / "cache").mkdir()
+        monkeypatch.setattr(
+            commands_mod, "get_cache_dir", lambda: str(tmp_path / "cache")
+        )
+        monkeypatch.setattr(commands_mod, "abbrev_home", lambda p: str(p))
+        commands_mod.cmd_cache(argparse.Namespace(stats=False, clear=False))
+        assert "vncmd tool cache --clear" in capsys.readouterr().err
+
+    def test_tool不给子命令时报用法错(self, monkeypatch):
+        """打一份顶层帮助像是敲错了：敲的是 tool，回的却是整个应用的帮助"""
+        import vncmd
+
+        monkeypatch.setattr(vncmd, "acquire_lock", lambda: None)
+        monkeypatch.setattr(sys, "argv", ["vncmd", "tool"])
+        with pytest.raises(SystemExit) as exc:
+            vncmd.main()
+        assert exc.value.code == 2
+
+
 class TestAnnounceSkips:
     def test_这几条命令不查(self):
-        """cache --clear 刚清完缓存又被自动写回来就白清了；
-        check 纯本地干活，联网对它没有意义"""
+        """cookie 自己要查账号；tool 下的都不联网：
+        cache --clear 刚清完缓存又被自动写回来就白清了，check 纯本地干活。
+
+        cache 移进 tool 之后不再单独出现在这个集合里 ——
+        顶层命令名只有一个 tool，是否播报由它一个名字决定。
+        init 不在这个集合里：它已经不是命令而是顶层的 --init，
+        在 main 里查 args.init 就收掉了，走不到这一步。
+        """
         from vncmd import _NO_ACCOUNT_REPORT
 
-        assert set(_NO_ACCOUNT_REPORT) == {"init", "cookie", "cache", "check"}
+        assert set(_NO_ACCOUNT_REPORT) == {"cookie", "tool"}
 
     def test_下载与浏览类的命令要查(self):
         from vncmd import _NO_ACCOUNT_REPORT
@@ -403,6 +482,7 @@ class TestAnnounceSkips:
         calls = {"n": 0}
         monkeypatch.setattr(vncmd, "acquire_lock", lambda: None)
         monkeypatch.setattr(vncmd, "validate_config", lambda: None)
+        monkeypatch.setattr(vncmd, "cmd_init", lambda _a: None)
         monkeypatch.setattr(
             vncmd, "announce_account", lambda: calls.__setitem__("n", calls["n"] + 1)
         )
@@ -412,13 +492,13 @@ class TestAnnounceSkips:
         vncmd.main()
         return calls["n"]
 
-    def test_check不联网查(self, monkeypatch, tmp_path):
+    def test_tool_check不联网查(self, monkeypatch, tmp_path):
         """纯本地操作，多一次请求就是白等一次网络"""
-        assert self._run_main(monkeypatch, ["check", str(tmp_path)]) == 0
+        assert self._run_main(monkeypatch, ["tool", "check", str(tmp_path)]) == 0
 
     def test_cache不联网查(self, monkeypatch):
         """--clear 刚清完缓存又被自动写回来就白清了"""
-        assert self._run_main(monkeypatch, ["cache", "--stats"]) == 0
+        assert self._run_main(monkeypatch, ["tool", "cache", "--stats"]) == 0
 
     def test_song要查(self, monkeypatch):
         assert self._run_main(monkeypatch, ["song", "1"]) == 1

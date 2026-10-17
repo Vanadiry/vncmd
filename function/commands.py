@@ -520,7 +520,8 @@ def cmd_cache(args: argparse.Namespace) -> None:
         success(f'"已清空缓存，释放 {size / 1024 / 1024:.1f} MB"')
     else:
         err_console.print()
-        info('"用 vncmd cache --clear 清空缓存"')
+        # 命令名跟 parser 一起改的，写错会让用户照着敲出一个不存在的命令
+        info('"用 vncmd tool cache --clear 清空缓存"')
 
 
 def cmd_check(args: argparse.Namespace) -> None:

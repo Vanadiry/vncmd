@@ -168,7 +168,11 @@ def build_parser() -> _ArgumentParser:
         dest="command", help="可用命令", parser_class=_ArgumentParser
     )
 
-    sub.add_parser("init", help="初始化 vncmd 并写入默认配置")
+    # init 不是对某个对象的操作，是一次性的本机初始化，
+    # 与 --version 同类：跑完就没有后续动作了，所以给成顶层开关
+    parser.add_argument(
+        "--init", action="store_true", help="初始化 vncmd 并写入默认配置"
+    )
 
     p_cookie = sub.add_parser("cookie", help="设置 Cookie")
     grp_cookie = p_cookie.add_mutually_exclusive_group()
@@ -178,12 +182,18 @@ def build_parser() -> _ArgumentParser:
         "--check", action="store_true", help="不写文件，只检查当前 Cookie 状态"
     )
 
-    p_check = sub.add_parser("check", help="检查音频文件完整性")
-    p_check.add_argument("path", help="文件或目录路径")
-
-    p_cache = sub.add_parser("cache", help="查看或清理本地缓存")
-    p_cache.add_argument("--stats", action="store_true", help="显示占用与条目数")
-    p_cache.add_argument("--clear", action="store_true", help="清空缓存目录")
+    # tool 下装的是实用工具，与 search/song/album 那种直接取东西的不是一类。
+    # 子命令 required：不给时让 argparse 报用法错，而不是打一份顶层帮助 ——
+    # 用户敲了 tool 却看到整个应用的帮助，像是敲错了
+    p_tool = sub.add_parser("tool", help="实用工具")
+    tool_sub = p_tool.add_subparsers(
+        dest="tool", help="可用工具", required=True, parser_class=_ArgumentParser
+    )
+    p_tool_check = tool_sub.add_parser("check", help="检查音频文件完整性")
+    p_tool_check.add_argument("path", help="文件或目录路径")
+    p_tool_cache = tool_sub.add_parser("cache", help="查看或清理本地缓存")
+    p_tool_cache.add_argument("--stats", action="store_true", help="显示占用与条目数")
+    p_tool_cache.add_argument("--clear", action="store_true", help="清空缓存目录")
 
     p_search = sub.add_parser("search", help="搜索曲目")
     p_search.add_argument("query", help="搜索关键词")
@@ -263,11 +273,12 @@ def build_parser() -> _ArgumentParser:
     return parser
 
 
-# 这几条不查账号状态：init 还没配置好，cookie 自己要查，
-# cache --clear 刚清完缓存又被自动写回来就白清了，
-# check 纯本地干活，联网对它没有意义，输出还可能给脚本读。
+# 这几条不查账号状态：cookie 自己要查，
+# tool 下的都不联网 —— cache --clear 刚清完缓存又被自动写回来就白清了，
+# check 纯本地干活，而输出还可能给脚本读。
+# --init 在 main 里就收掉了，走不到这一步。
 # --help 在 parse_args 内部已退出，也走不到这里
-_NO_ACCOUNT_REPORT = {"init", "cookie", "cache", "check"}
+_NO_ACCOUNT_REPORT = {"cookie", "tool"}
 
 
 def _search_limit(raw: str) -> int:
@@ -302,6 +313,14 @@ def main() -> None:
     parser = build_parser()
     args = parser.parse_args()
 
+    # --init 在这里就收掉：它没有后续动作，不该走到命令分派。
+    # 放在 validate_config 之前，与当初它是独立命令时一样 ——
+    # 那时候 args.command 就是 "init"，而这里 args.command 是 None
+    if args.init:
+        acquire_lock()
+        cmd_init(args)
+        return
+
     # 只看帮助时不碰配置与锁，--help 在 parse_args 内部就已退出
     if args.command is None:
         parser.print_help()
@@ -311,8 +330,7 @@ def main() -> None:
 
     acquire_lock()
 
-    if args.command != "init":
-        validate_config()
+    validate_config()
 
     # 播报账号状态。放这里而不是下载前，是因为它必须在取链接之前，
     # 付费歌拿不到链接会直接退出，等到落盘那一步就永远等不到这条提示了
@@ -320,15 +338,18 @@ def main() -> None:
         announce_account()
 
     dispatch = {
-        "init": cmd_init,
         "cookie": cmd_cookie,
-        "check": cmd_check,
-        "cache": cmd_cache,
         "search": cmd_search,
         "song": cmd_song,
         "album": cmd_album,
         "playlist": cmd_playlist,
         "tracker": cmd_tracker,
+        # tool 下装的是第二层分派：顶层命令名都叫 tool，
+        # 都读 args.tool 才知道实际要跑哪个
+        "tool": {
+            "check": cmd_check,
+            "cache": cmd_cache,
+        }.get(getattr(args, "tool", None)),
     }
 
     handler = dispatch.get(args.command)
