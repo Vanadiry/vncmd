@@ -102,7 +102,7 @@ def _ansi(tracks, width=140, **kwargs):
     output.console = Console(
         file=buf, force_terminal=True, width=width, color_system="truecolor"
     )
-    output._display_track_table(tracks, len(tracks), **kwargs)
+    output._display_track_table(tracks, **kwargs)
     output.console = Console()
     return buf.getvalue()
 

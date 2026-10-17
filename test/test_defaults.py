@@ -7,6 +7,7 @@
 """
 
 import argparse
+import unittest.mock
 from pathlib import Path
 
 import pytest
@@ -21,8 +22,12 @@ def _parse(argv):
 
 
 class TestSearchLimit:
-    def test_不给参数时是十(self):
-        assert _parse(["search", "x"]).limit == 10
+    def test_不给参数时是None(self):
+        """None 表示「用户没说」，面板默认的 10 由 cmd_search 决定。
+
+        写成 10 就分不清用户是显式给了 10 还是没给，而 --json 要的是全量。
+        """
+        assert _parse(["search", "x"]).limit is None
 
     def test_短选项照旧(self):
         assert _parse(["search", "x", "-n", "5"]).limit == 5
@@ -163,26 +168,52 @@ class TestDiffNeedsDownload:
 
 
 class TestDefaultsStayInSync:
-    """parser、api 签名、文档三处的默认值必须一致"""
+    """parser 用的默认值、help 里写的、文档里写的，三处必须一致"""
 
     def _doc(self, name):
         return (ROOT / "doc" / name).read_text(encoding="utf-8")
 
-    def test_api签名的默认值与parser一致(self):
-        import inspect
+    def test_cmd_search传给接口的条数永远合法(self):
+        """parser 的默认值改成 None 之后，「10」只活在 cmd_search 里了
 
-        from function.api import search
+        早先这里断言的是 api.search 签名的默认值与 parser 一致。
+        那个前提是两边共用一个 10，现在没有了 —— api 的 10 是给直接调它的人
+        的兜底，生产代码里 cmd_search 每次都显式传值。
+        真正要防的是传出去的值越界，那正是服务端会回 code 400 的地方。
+        """
+        import function.commands as commands
+        from function.api import SEARCH_LIMIT_MAX
 
-        sig = inspect.signature(search)
-        assert sig.parameters["limit"].default == _parse(["search", "x"]).limit
+        for json_flag in (False, True):
+            for limit in (None, 1, 50, SEARCH_LIMIT_MAX):
+                ns = argparse.Namespace(
+                    query="x", limit=limit, offset=0, json=json_flag
+                )
+                with unittest.mock.patch.object(
+                    commands, "search", return_value={"songs": [], "total": 0}
+                ) as fake:
+                    commands.cmd_search(ns)
+                sent = fake.call_args.kwargs["limit"]
+                assert 1 <= sent <= SEARCH_LIMIT_MAX, (json_flag, limit, sent)
 
-    def test_文档写的与parser一致(self):
-        assert "返回数量，默认 10" in self._doc("search.md")
+    def test_文档写的与help一致(self):
+        """两边写的那个数都指面板，不是 parser 的 limit。
 
-    def test_help文本与实际默认值一致(self, capsys):
-        """help 里写死一个数字，改了默认值忘了改它就会对不上
+        早先这里断言的是文档里那句「返回数量，默认 10」的字面，
+        现在措辞改了要跟着改，所以改成把数字取出来比，
+        免得下次只是重写句子就红。
+        """
+        import re
 
-        顶层 help 不含子命令的参数说明，所以要走 search --help
+        hit = re.search(r"默认 (\d+)", self._doc("search.md"))
+        assert hit, "文档里找不到面板默认条数"
+        assert int(hit.group(1)) == 10
+
+    def test_help文本与面板默认值一致(self, capsys):
+        """help 里写死一个数字，改了面板默认值忘了改它就会对不上
+
+        断言的对象不再是 parser 的 limit（它是 None，表示「用户没说」），
+        而是面板那条分支实际取的数 —— help 描述的是面板。
         """
         import re
 
@@ -191,4 +222,4 @@ class TestDefaultsStayInSync:
         out = capsys.readouterr().out
         hit = re.search(r"最大结果数，\d+-\d+（默认：(\d+)）", out)
         assert hit, f"help 里找不到默认值的说明：{out}"
-        assert int(hit.group(1)) == _parse(["search", "x"]).limit
+        assert int(hit.group(1)) == 10

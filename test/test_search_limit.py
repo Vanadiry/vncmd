@@ -6,7 +6,8 @@
 
 import pytest
 
-from vncmd import _SEARCH_LIMIT_MAX, _search_limit, build_parser
+from function.api import SEARCH_LIMIT_MAX
+from vncmd import _search_limit, build_parser
 
 
 def parse(limit):
@@ -34,10 +35,14 @@ class Test合法值:
 
     def test_上限就是实测的那个数(self):
         """实测 100 能过而 101 回 code 400，这个数是量出来的不是猜的"""
-        assert _SEARCH_LIMIT_MAX == 100
+        assert SEARCH_LIMIT_MAX == 100
 
-    def test_不给时默认10(self):
-        assert build_parser().parse_args(["search", "初音"]).limit == 10
+    def test_不给时是None而不是10(self):
+        """None 表示「用户没说」，面板默认 10 由 cmd_search 决定。
+
+        写成 10 就分不清用户是显式给了 10 还是没给，而 --json 要的是全量。
+        """
+        assert build_parser().parse_args(["search", "初音"]).limit is None
 
 
 class Test越界:

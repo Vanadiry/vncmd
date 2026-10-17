@@ -20,6 +20,7 @@ class Test搜索失败:
 
         它加前缀的话，cmd_search 那边再包一层就成了叠词。
         """
+
         class FakeResp:
             def json(self):
                 return {"code": 400}

@@ -154,6 +154,7 @@ class Test下架明细跟警告同流:
             argparse.Namespace(
                 id=1,
                 limit=10,
+                offset=0,
                 download=False,
                 json=False,
                 quality=None,

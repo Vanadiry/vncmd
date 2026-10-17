@@ -424,6 +424,20 @@ def download_song(
     return True, "\n".join(lines), music_path
 
 
+def _select_batch(
+    tracks: list[dict], offset: int, limit: int | None
+) -> tuple[list[dict], int]:
+    """按 offset 与 limit 挑出本次要下的曲目
+
+    单独抽出来是为了让测试能直接量到「切出来的」与「记进断点的」是两批：
+    早先那段逻辑埋在 download_song_batch 中间，测它要驱动整个下载流程。
+    """
+    if not (offset or limit):
+        return tracks, 0
+    end = offset + limit if limit else None
+    return tracks[offset:end], offset
+
+
 def download_song_batch(
     tracks: list[dict],
     quality: int,
@@ -431,20 +445,23 @@ def download_song_batch(
     dl_type: str | None = None,
     dl_id: str | None = None,
     limit: int | None = None,
+    offset: int = 0,
     run_check: bool | None = None,
     use_curl: bool | None = None,
 ) -> tuple[int, int, str]:
     """Download a batch of songs with progress display and summary.
 
-    Each track dict must have at least 'id'.  If 'artist' is missing,
+    Each track dict must at least have 'id'.  If 'artist' is missing,
     ``get_song_details()`` is called to resolve full metadata from the API.
 
     When ``dl_type`` and ``dl_id`` are provided, resume/checkpoint is enabled:
     progress is persisted to ``cache/download/<type>_<id>.json`` and
     already-downloaded tracks are skipped on re-run.
 
-    ``limit`` 只截断本次下载的曲目，断点仍记录全部曲目，
-    否则全量下过之后再限数量会把其余曲目判成已移除并删掉
+    ``limit`` 与 ``offset`` 只截断本次下载的曲目，断点仍记录全部曲目，
+    否则全量下过之后再限数量会把其余曲目判成已移除并删掉。
+    断点按专辑或歌单记、不按这一次的切片记，那是既有行为：
+    要改成任务级另算一步
 
     Returns ``(success_count, fail_count, session_dir)``.
     """
@@ -484,12 +501,13 @@ def download_song_batch(
             temp.mkdir()
 
     # --- Sync checkpoint tracks & filter to pending ---
-    selected = tracks
-    if limit and limit < len(tracks):
-        # 断点记全量曲目，只截断本次要下的部分，
-        # 否则全量下过之后再 -n 1 会把其余曲目判成已移除并删掉
-        info(f"只下载前 {limit} 首，剩余 {len(tracks) - limit} 首下次继续")
-        selected = tracks[:limit]
+    selected, offset = _select_batch(tracks, offset, limit)
+    if len(selected) < len(tracks):
+        # limit 给得比曲目还多时切出来还是全量，不必报「剩余 0 首」
+        info(
+            f"只下载第 {offset + 1} 至 {offset + len(selected)} 首，"
+            f"剩余 {len(tracks) - len(selected)} 首下次继续"
+        )
     if dl_type is not None and dl_id is not None:
         track_map = {str(t["id"]): t.get("title", "?") for t in tracks}
         if is_resuming:

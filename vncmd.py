@@ -3,6 +3,7 @@ import sys
 from importlib.metadata import PackageNotFoundError
 from importlib.metadata import version as _pkg_version
 
+from function.api import SEARCH_LIMIT_MAX
 from function.commands import (
     announce_account,
     cmd_album,
@@ -88,14 +89,36 @@ def _add_json_arg(parser: object) -> None:
     )
 
 
-def _add_download_args(
-    parser: object, batch: bool = False, download_group: object = None
-) -> None:
+def _add_list_args(parser: object) -> None:
+    """给有曲目表的命令加 --limit 与 --offset
+
+    --limit 同时管面板条数、JSON 条数与下载条数，所以不放进
+    _add_download_args —— 它早就不是只管下载的开关了。
+    default 为 None 是为了让「用户显式给了」与「没给」分得开：
+    没给时面板取前 10 条，--json 与下载取全量。song 只有一首，不加。
+    """
+    parser.add_argument(
+        "--limit",
+        "-n",
+        type=int,
+        default=None,
+        metavar="N",
+        help="最多处理曲目数（默认：面板 10，JSON 与下载全部）",
+    )
+    parser.add_argument(
+        "--offset",
+        type=int,
+        default=0,
+        metavar="N",
+        help="起始序号，从 0 计",
+    )
+
+
+def _add_download_args(parser: object, download_group: object = None) -> None:
     """Add download-related args to a parser.
 
     download_group 非空时把 --download 放进那个互斥组。
-    单曲的 --dlink 是查看数据，与 --download 是两种动作，两者互斥；
-    专辑与歌单没有查看链接的开关，所以照旧直接加在 parser 上。
+    单曲的 --dlink 是查看数据，与 --download 是两种动作，两者互斥。
     """
     add = download_group.add_argument if download_group else parser.add_argument
     add("--download", "-d", action="store_true", help="下载而非仅预览")
@@ -113,14 +136,6 @@ def _add_download_args(
     )
     _add_quality_arg(parser)
     _add_output_arg(parser)
-    if batch:
-        parser.add_argument(
-            "--limit",
-            "-n",
-            type=int,
-            default=None,
-            help="最多下载曲目数（默认：全部）",
-        )
 
 
 def build_parser() -> _ArgumentParser:
@@ -172,9 +187,9 @@ def build_parser() -> _ArgumentParser:
         "--limit",
         "-n",
         type=_search_limit,
-        default=10,
+        default=None,
         metavar="N",
-        help=f"最大结果数，1-{_SEARCH_LIMIT_MAX}（默认：10）",
+        help=f"最大结果数，1-{SEARCH_LIMIT_MAX}（默认：10）",
     )
     p_search.add_argument("--offset", type=int, default=0, help="分页偏移量")
     # search 没有下载动作，不存在互斥问题
@@ -196,13 +211,15 @@ def build_parser() -> _ArgumentParser:
 
     p_al = sub.add_parser("album", help="预览或下载专辑")
     p_al.add_argument("id", type=int, help="专辑 ID")
+    _add_list_args(p_al)
     _add_json_arg(p_al)
-    _add_download_args(p_al, batch=True)
+    _add_download_args(p_al)
 
     p_pl = sub.add_parser("playlist", help="预览或下载歌单")
     p_pl.add_argument("id", type=int, help="歌单 ID")
+    _add_list_args(p_pl)
     _add_json_arg(p_pl)
-    _add_download_args(p_pl, batch=True)
+    _add_download_args(p_pl)
 
     p_tracker = sub.add_parser("tracker", help="追踪音乐来源变更并批量下载")
     p_tracker.add_argument("name", help="Tracker 名称")
@@ -243,9 +260,6 @@ def build_parser() -> _ArgumentParser:
 # --help 在 parse_args 内部已退出，也走不到这里
 _NO_ACCOUNT_REPORT = {"init", "cookie", "cache", "check"}
 
-# 搜索接口的单次上限，实测 100 能过而 101 直接回 {'code': 400}
-_SEARCH_LIMIT_MAX = 100
-
 
 def _search_limit(raw: str) -> int:
     """把 --limit 限制在服务端接受的范围，报错用中文而不是 invalid choice"""
@@ -253,11 +267,11 @@ def _search_limit(raw: str) -> int:
         value = int(raw)
     except ValueError:
         raise argparse.ArgumentTypeError(f"取回条数须为整数，给的是 {raw!r}") from None
-    if not 1 <= value <= _SEARCH_LIMIT_MAX:
+    if not 1 <= value <= SEARCH_LIMIT_MAX:
         # offset 只在超上限时才是出路，「要 0 条」提它就是错的
-        hint = "。更多结果用 --offset 分页取得" if value > _SEARCH_LIMIT_MAX else ""
+        hint = "。更多结果用 --offset 分页取得" if value > SEARCH_LIMIT_MAX else ""
         raise argparse.ArgumentTypeError(
-            f"取回条数须在 1 至 {_SEARCH_LIMIT_MAX} 之间，给的是 {value}{hint}"
+            f"取回条数须在 1 至 {SEARCH_LIMIT_MAX} 之间，给的是 {value}{hint}"
         )
     return value
 

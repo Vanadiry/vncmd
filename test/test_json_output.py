@@ -65,6 +65,7 @@ def ns(**kw):
         "check": None,
         "curl": None,
         "limit": None,
+        "offset": 0,
     }
     base.update(kw)
     return argparse.Namespace(**base)
@@ -135,19 +136,38 @@ class TestJSON模式不画表格:
 
 
 class TestJSON给全量而面板截断:
-    def test_album忽略limit(self, monkeypatch, capsys):
+    def test_album没给limit时给全量(self, monkeypatch, capsys):
         """表格给人看要截断免得刷屏，脚本要数据就得齐"""
         many = {**ALBUM, "tracks": [dict(TRACKS[0], id=i) for i in range(12)]}
         monkeypatch.setattr(commands, "get_album_details", lambda _i: many)
-        commands.cmd_album(ns(json=True, limit=2))
+        commands.cmd_album(ns(json=True, limit=None, offset=0))
         data, _out, _err = parsed(capsys)
-        assert len(data["album"]["tracks"]) == 12, "JSON 要给全量，不能跟着 limit 截"
+        assert len(data["album"]["tracks"]) == 12, "JSON 要给全量，不能自己截"
 
-    def test_面板模式仍然截断(self, monkeypatch, capsys):
-        """对照：不是把截断整体去掉了，只是 JSON 不截"""
+    def test_album显式给了limit就按给的切(self, monkeypatch, capsys):
+        """显式给了 limit 与 offset 就按给的切，与面板同一套规则。
+
+        早先这里断言 JSON 无视 limit，那是 --limit 只有一个含义时的行为。
+        用户为脚本写死一个 limit 却拿不到那么多条，比截断更难排查。
+        """
         many = {**ALBUM, "tracks": [dict(TRACKS[0], id=i) for i in range(12)]}
         monkeypatch.setattr(commands, "get_album_details", lambda _i: many)
-        commands.cmd_album(ns(json=False, limit=2))
+        commands.cmd_album(ns(json=True, limit=3, offset=0))
+        data, _out, _err = parsed(capsys)
+        assert len(data["album"]["tracks"]) == 3
+
+    def test_album_offset只给offset时切到末尾(self, monkeypatch, capsys):
+        many = {**ALBUM, "tracks": [dict(TRACKS[0], id=i) for i in range(12)]}
+        monkeypatch.setattr(commands, "get_album_details", lambda _i: many)
+        commands.cmd_album(ns(json=True, limit=None, offset=10))
+        data, _out, _err = parsed(capsys)
+        assert [t["id"] for t in data["album"]["tracks"]] == [10, 11]
+
+    def test_面板模式仍然截断(self, monkeypatch, capsys):
+        """对照：不是把截断整体去掉了，只是没给 limit 时 JSON 不截"""
+        many = {**ALBUM, "tracks": [dict(TRACKS[0], id=i) for i in range(12)]}
+        monkeypatch.setattr(commands, "get_album_details", lambda _i: many)
+        commands.cmd_album(ns(json=False, limit=2, offset=0))
         out = capsys.readouterr().out
         assert out.count("鏡音レンの暴走") <= 2
 

@@ -9,6 +9,7 @@ from pathlib import Path
 from rich.markup import escape
 
 from function.api import (
+    SEARCH_LIMIT_MAX,
     account_needs_check,
     account_stamp,
     fetch_player_url,
@@ -63,6 +64,16 @@ def _resolve_quality(args: argparse.Namespace) -> int:
     return get_quality()
 
 
+def _slice(tracks: list[dict], offset: int, limit: int | None) -> list[dict]:
+    """按 offset 与 limit 取一段，limit 为 None 时取到末尾
+
+    album 与 playlist 的分页是纯本地切片：曲目表一次就全给下来了，
+    offset 只是在这份列表上换个起点，不发请求。
+    """
+    end = offset + limit if limit else None
+    return tracks[offset:end]
+
+
 def _download_tracks(
     tracks: list[dict],
     quality: int,
@@ -70,6 +81,7 @@ def _download_tracks(
     dl_type: str | None = None,
     dl_id: str | None = None,
     limit: int | None = None,
+    offset: int = 0,
     run_check: bool | None = None,
     use_curl: bool | None = None,
 ) -> None:
@@ -81,6 +93,7 @@ def _download_tracks(
         dl_type=dl_type,
         dl_id=dl_id,
         limit=limit,
+        offset=offset,
         run_check=run_check,
         use_curl=use_curl,
     )
@@ -88,8 +101,12 @@ def _download_tracks(
 
 def cmd_search(args: argparse.Namespace) -> None:
     info(f"正在搜索「{args.query}」...")
+    # search 的 offset 与 limit 都是服务端的，直接交给接口即可，
+    # 本地再切一刀会把 offset 数两遍。JSON 要全量而服务端单次最多 100 条，
+    # 所以「全量」在这里就是那个上限，与 album 的全量语义一致
+    limit = args.limit or (SEARCH_LIMIT_MAX if args.json else 10)
     try:
-        result = search(args.query, limit=args.limit, offset=args.offset)
+        result = search(args.query, limit=limit, offset=args.offset)
     except Exception as e:
         error(f"搜索失败：{e}")
         sys.exit(1)
@@ -109,7 +126,9 @@ def cmd_search(args: argparse.Namespace) -> None:
     # 账号状态 main 里已经查过，这里读的是进程内缓存，不发请求
     account = get_account_info()
     blocked = [permission_verdict(s, account) for s in result["songs"]]
-    display_search_results(args.query, result["songs"], result["total"], blocked)
+    display_search_results(
+        args.query, result["songs"], result["total"], blocked, offset=args.offset
+    )
 
 
 def _dump_json(payload: dict) -> None:
@@ -220,13 +239,17 @@ def cmd_album(args: argparse.Namespace) -> None:
         error(f"获取专辑失败：{e}")
         sys.exit(1)
 
-    # 面板只显示前 limit 首，JSON 给的是完整曲目表：
-    # 表格给人看要截断免得刷屏，脚本要数据就得齐
+    # 面板只显示一段，JSON 给的是完整曲目表：
+    # 表格给人看要截断免得刷屏，脚本要数据就得齐。
+    # 显式给了 limit 或 offset 才切片，没给就是全量
     if args.json:
-        _dump_json({"album": al})
+        payload = dict(al)
+        if args.limit is not None or args.offset:
+            payload["tracks"] = _slice(al["tracks"], args.offset, args.limit)
+        _dump_json({"album": payload})
         return
 
-    display_album(al, max_tracks=args.limit or 10)
+    display_album(al, max_tracks=args.limit or 10, offset=args.offset)
 
     if not args.download:
         return
@@ -240,6 +263,7 @@ def cmd_album(args: argparse.Namespace) -> None:
         dl_type="album",
         dl_id=str(args.id),
         limit=args.limit,
+        offset=args.offset,
         run_check=args.check,
         use_curl=args.curl,
     )
@@ -255,10 +279,13 @@ def cmd_playlist(args: argparse.Namespace) -> None:
 
     # 同 album：面板截断，JSON 给全量
     if args.json:
-        _dump_json({"playlist": pl})
+        payload = dict(pl)
+        if args.limit is not None or args.offset:
+            payload["tracks"] = _slice(pl["tracks"], args.offset, args.limit)
+        _dump_json({"playlist": payload})
         return
 
-    display_playlist(pl, max_tracks=args.limit or 10)
+    display_playlist(pl, max_tracks=args.limit or 10, offset=args.offset)
 
     removed = pl.get("removed_tracks", [])
     # 明细跟在 warning 的标题下面，两边都进 stderr
@@ -283,6 +310,7 @@ def cmd_playlist(args: argparse.Namespace) -> None:
         dl_type="playlist",
         dl_id=str(args.id),
         limit=args.limit,
+        offset=args.offset,
         run_check=args.check,
         use_curl=args.curl,
     )

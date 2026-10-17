@@ -336,6 +336,12 @@ def get_album_details(album_id: int) -> dict:
     }
 
 
+# 搜索接口的单次上限，实测 100 能过而 101 直接回 {'code': 400}。
+# 放这一层而不是 CLI：这是服务端的事实，绕过命令行直接调本模块的人
+# 也该被拦住，而不是拿到一句对用户毫无意义的 {'code': 400}
+SEARCH_LIMIT_MAX = 100
+
+
 def search(q: str, limit: int = 10, offset: int = 0) -> dict:
     url = f"{_BASE_URL}/api/cloudsearch/pc"
     resp = _get_session().get(

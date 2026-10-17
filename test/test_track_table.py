@@ -30,7 +30,7 @@ def render(monkeypatch):
         console = Console(width=width)
         monkeypatch.setattr(output_mod, "console", console)
         with console.capture() as cap:
-            output_mod._display_track_table(TRACKS, len(TRACKS), show_album=show_album)
+            output_mod._display_track_table(TRACKS, show_album=show_album)
         return cap.get().rstrip("\n").split("\n")
 
     return _render

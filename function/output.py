@@ -57,11 +57,15 @@ def _build_track_table(
     title: str | None = None,
     show_album: bool = True,
     blocked: list[bool | None] | None = None,
+    offset: int = 0,
 ) -> Table:
     """按列配置拼出曲目表，渲染交给调用方
 
     拆出来是为了让测试量到真的那份配置。早先测试里抄了一份列定义，
     于是真表格改了样式或换行方式，测试照样全绿。
+
+    offset 是这批之前被跳过的首数，序号列报绝对序号：
+    分了页之后相对序号每页都从 1 开始，用户分不清看到的是第 1 首还是第 101 首。
     """
     show_perm = (
         blocked is not None
@@ -99,7 +103,7 @@ def _build_track_table(
         table.add_column("权限", justify="center")
     table.add_column("时长", style="blue", justify="right")
 
-    for i, t in enumerate(tracks, 1):
+    for i, t in enumerate(tracks, offset + 1):
         row = [
             str(i),
             str(t["id"]),
@@ -119,10 +123,10 @@ def _build_track_table(
 
 def _display_track_table(
     tracks: list[dict],
-    total_count: int,
     title: str | None = None,
     show_album: bool = True,
     blocked: list[bool | None] | None = None,
+    offset: int = 0,
 ) -> None:
     """显示曲目表
 
@@ -132,26 +136,44 @@ def _display_track_table(
 
     长度不等长时整列不显示：短了会 IndexError，长了会整列错位，
     而错位的权限标记比没有这一列更糟。
+
+    这里刻意不再报「还有 N 首未显示」：标题里的区间已经说了同一件事，
+    两行都报就成了同一屏两个口径 —— 一行按可切片的首数算，一行按接口声明的
+    总数算，在有下架曲目的歌单上这两个数不一样，用户会以为哪个是错的。
     """
     console.print(
-        _build_track_table(tracks, title, show_album=show_album, blocked=blocked)
+        _build_track_table(
+            tracks, title, show_album=show_album, blocked=blocked, offset=offset
+        )
     )
 
-    remaining = total_count - len(tracks)
-    if remaining > 0:
-        # 用 info() 而不是裸 print，这一行旁边没有表格边框，裸输出看着是悬空的
-        info(f"还有 {remaining} 首曲目未显示")
+
+def _range_suffix(offset: int, shown: int, total: int) -> str:
+    """标题右侧的分页区间，像翻页条
+
+    分母是传入的 total，由调用方给可切片的首数，不给接口声明的总数：
+    那个数里含已下架的，拿它当分母等于承诺一批翻不出来的曲目。
+    """
+    if shown <= 0:
+        # offset 越过了末尾。这与「末尾不足 limit 首」不同，后者是正常显示
+        return f"超出范围（共 {total} 首）"
+    return f"{offset + 1}-{offset + shown}/{total}"
 
 
 def display_search_results(
-    query: str, songs: list[dict], total: int, blocked: list[bool | None] | None = None
+    query: str,
+    songs: list[dict],
+    total: int,
+    blocked: list[bool | None] | None = None,
+    offset: int = 0,
 ) -> None:
     """Display search results as a table."""
+    suffix = _range_suffix(offset, len(songs), total)
     _display_track_table(
         songs,
-        total,
-        title=f"搜索：「{escape(query)}」  —  共 {total} 首",
+        title=f"搜索：「{escape(query)}」  —  {suffix}",
         blocked=blocked,
+        offset=offset,
     )
 
 
@@ -309,46 +331,52 @@ def display_song_detail(song: dict) -> None:
     console.print(panel)
 
 
-def display_playlist(playlist: dict, max_tracks: int = 100) -> None:
+def display_playlist(playlist: dict, max_tracks: int = 100, offset: int = 0) -> None:
     """Display playlist info and its tracks as a table."""
+    tracks = playlist["tracks"]
+    # 分母是可切片的数量，不是 track_count。后者是接口声明的总数，
+    # 含已下架的曲目，而那些拿不到条目、永远翻不出来
+    total = len(tracks)
+    shown = tracks[offset : offset + max_tracks]
+
     header = Text()
     header.append("歌单：", style="bold")
     header.append(f"{playlist['name']}\n", style="bold bright_white")
     header.append("创建者：", style="dim")
     header.append(f"{playlist['creator']}", style="yellow")
-    header.append("  |  曲目数：", style="dim")
-    header.append(f"{playlist['track_count']}", style="green")
     console.print(
         Panel(
             header,
-            title=f"[bold]歌单详情 - {playlist['id']}[/]",
+            title=f"[bold]歌单详情 - {playlist['id']} - "
+            f"{_range_suffix(offset, len(shown), total)}[/]",
             border_style="cyan",
             box=box.ROUNDED,
         )
     )
 
-    _display_track_table(playlist["tracks"][:max_tracks], playlist["track_count"])
+    _display_track_table(shown, offset=offset)
 
 
-def display_album(album: dict, max_tracks: int = 100) -> None:
+def display_album(album: dict, max_tracks: int = 100, offset: int = 0) -> None:
+    tracks = album["tracks"]
+    total = len(tracks)
+    shown = tracks[offset : offset + max_tracks]
+
     header = Text()
     header.append("专辑：", style="bold")
     header.append(f"{album['name']}\n", style="bold bright_white")
     header.append("艺术家：", style="dim")
     header.append(f"{album['artist']}", style="yellow")
-    header.append("  |  曲目数：", style="dim")
-    header.append(f"{album['track_count']}", style="green")
     console.print(
         Panel(
             header,
-            title=f"[bold]专辑详情 - {album['id']}[/]",
+            title=f"[bold]专辑详情 - {album['id']} - "
+            f"{_range_suffix(offset, len(shown), total)}[/]",
             border_style="cyan",
             box=box.ROUNDED,
         )
     )
-    _display_track_table(
-        album["tracks"][:max_tracks], album["track_count"], show_album=False
-    )
+    _display_track_table(shown, show_album=False, offset=offset)
 
 
 def display_lyrics(lyrics_text: str) -> None:
