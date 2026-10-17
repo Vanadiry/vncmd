@@ -30,15 +30,17 @@ vncmd song <ID> [-l] [--tlyric] [-u] [-d] [-q 音质] [-o 目录]
 
 ```bash
 # 歌单
-vncmd playlist <ID> [-n 数量] [-d] [-q 音质] [-o 目录]
+vncmd playlist <ID> [-n 数量] [--offset 序号] [--json] [-d] [-q 音质] [-o 目录]
 # 专辑
-vncmd album <ID> [-n 数量] [-d] [-q 音质] [-o 目录]
+vncmd album <ID> [-n 数量] [--offset 序号] [--json] [-d] [-q 音质] [-o 目录]
 ```
 
 以表格预览歌单或专辑中的曲目。若歌单中存在已下架曲目，会单独列出提醒。
 
 | 参数 | 简写 | 默认 | 说明 |
 | --- | --- | --- | --- |
-| `--limit` | `-n` | `10` | 预览条数（仅控制展示，API 始终拉取全量）；下载时默认全量 |
+| `--limit` | `-n` | 面板 `10` | 最多处理曲目数，面板、`--json` 与下载共用它 |
+| `--offset` | `/` | `0` | 起始序号，从 0 计 |
+| `--json` | `/` | 关 | 以 JSON 输出结果并退出，供脚本读取 |
 
 下载时支持并发，可在配置 `[download]` 中的 `concurrency` 调整同时下载数，默认 4。
