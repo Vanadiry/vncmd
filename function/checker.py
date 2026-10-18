@@ -10,14 +10,6 @@ DURATION_TOL = 1.0
 
 _TIME_RE = re.compile(r"time=(\d+):(\d+):(\d+(?:\.\d+)?)")
 
-# 三样工具各管一段校验，缺哪个只跳过那一段。
-# 键的顺序就是提示里的顺序，从最通用排到最专门
-CHECK_TOOLS = {
-    "ffprobe": "读时长与码率，用于时长交叉验证",
-    "ffmpeg": "全量解码，能查出文件截断与容器损坏",
-    "flac": "flac 文件的无损流 CRC 校验",
-}
-
 
 def _to_float(value) -> float | None:
     try:
@@ -50,13 +42,21 @@ def has_flac() -> bool:
     return bool(shutil.which("flac"))
 
 
+# 三样工具各管一段校验，缺哪个只跳过那一段。
+# 探测函数与它缺席时会少做哪一步放在一起 —— 以前 check_tools() 与
+# clear_check_tools_cache() 各抄一份，加第 4 样工具只改其中一份，
+# missing_check_tools 会在运行中 KeyError
+# 键的顺序就是提示里的顺序，从最通用排到最专门
+CHECK_TOOLS = {
+    "ffprobe": (has_ffprobe, "读时长与码率，用于时长交叉验证"),
+    "ffmpeg": (has_ffmpeg, "全量解码，能查出文件截断与容器损坏"),
+    "flac": (has_flac, "flac 文件的无损流 CRC 校验"),
+}
+
+
 def check_tools() -> dict[str, bool]:
     """三样校验工具的可用情况，启动检查与任务开始时的提示共用一份"""
-    return {
-        "ffprobe": has_ffprobe(),
-        "ffmpeg": has_ffmpeg(),
-        "flac": has_flac(),
-    }
+    return {name: probe() for name, (probe, _role) in CHECK_TOOLS.items()}
 
 
 def any_check_tool() -> bool:
@@ -71,7 +71,8 @@ def any_check_tool() -> bool:
 
 
 def missing_check_tools() -> list[str]:
-    return [name for name in CHECK_TOOLS if not check_tools()[name]]
+    available = check_tools()
+    return [name for name in CHECK_TOOLS if not available[name]]
 
 
 def describe_missing_check_tools() -> str:
@@ -79,7 +80,7 @@ def describe_missing_check_tools() -> str:
     missing = missing_check_tools()
     if not missing:
         return ""
-    roles = "、".join(CHECK_TOOLS[name] for name in missing)
+    roles = "、".join(CHECK_TOOLS[name][1] for name in missing)
     return (
         f"系统缺少 {' / '.join(missing)}，"
         f"本次不会做{roles}。size 与 md5 的校验不受影响。"
@@ -88,9 +89,8 @@ def describe_missing_check_tools() -> str:
 
 def clear_check_tools_cache() -> None:
     """改了 PATH 之后要调，否则 lru_cache 里的旧结果会一直用着"""
-    has_ffprobe.cache_clear()
-    has_ffmpeg.cache_clear()
-    has_flac.cache_clear()
+    for _name, (probe, _role) in CHECK_TOOLS.items():
+        probe.cache_clear()
 
 
 def ffprobe_info(path: str) -> dict | None:

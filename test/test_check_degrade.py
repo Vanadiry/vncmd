@@ -5,6 +5,7 @@
 """
 
 import subprocess
+from functools import lru_cache
 from unittest import mock
 
 import pytest
@@ -50,6 +51,36 @@ class Test工具探测:
     def test_missing顺序固定(self, tools):
         tools()
         assert checker.missing_check_tools() == ["ffprobe", "ffmpeg", "flac"]
+
+    def test_加一样工具只需改一张表(self, tools, monkeypatch):
+        """探测、提示文案、缓存清理全从 CHECK_TOOLS 派生。
+        以前 check_tools() 与 clear_check_tools_cache() 各抄一份，
+        只改其中一份时 missing_check_tools 会在运行中 KeyError"""
+        calls = []
+
+        @lru_cache(maxsize=1)
+        def probe():
+            calls.append(1)
+            return False
+
+        monkeypatch.setitem(
+            checker.CHECK_TOOLS, "metaflac", (probe, "无损流元数据校验")
+        )
+
+        assert checker.check_tools()["metaflac"] is False
+        assert "metaflac" in checker.missing_check_tools()
+        assert "无损流元数据校验" in checker.describe_missing_check_tools()
+
+        checker.clear_check_tools_cache()
+        checker.check_tools()
+        assert len(calls) == 2, "缓存清理漏了新加的那样工具"
+
+    def test_每样工具都有探测函数与缺了会少做哪一步(self, tools):
+        """漏了探测函数会在 check_tools 里 AttributeError，
+        漏了说明会让提示变成「本次不会做。」这种空话"""
+        for name, (probe, role) in checker.CHECK_TOOLS.items():
+            assert callable(probe), name
+            assert role.strip(), f"{name} 没有写它缺席时少做哪一步"
 
 
 class Test提示文案:
