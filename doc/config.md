@@ -40,6 +40,27 @@ Cookie 存放在 `~/.vSoft/vncmd/cookie`，纯文本。
 
 范围 1-16，过高可能触发风控。
 
+### check
+
+下载后做全量解码校验。默认 `true`。
+
+开启后，会用 ffmpeg/flac 对音频完整解码，可以查出文件截断、容器损坏等不易发现的问题。  
+需要系统中装有 ffmpeg/flac 库。若部分/全部未安装，则会跳过对应校验。
+
+### downloader
+
+下载功能的实现方式。默认 `"builtin"`。
+
+- `"builtin"`：使用内建下载实现
+- `"curl"`：调用系统 curl
+
+### curl_arg
+
+追加给 curl 的参数。默认 `""`。
+
+仅在 `downloader` 为 `"curl"` 时生效。  
+按 shell 的切分规则解析，可以写多个参数。
+
 ## [download.song]
 
 ### quality
@@ -57,7 +78,12 @@ Cookie 存放在 `~/.vSoft/vncmd/cookie`，纯文本。
 （受到 `credit_scan_lines` 的行数限制）
 
 启用（`true`）后，将自动从歌词头部解析 credit 数据，按对应格式的标准嵌入元数据。  
-目前支持：作曲、作词、编曲、制作人、混音、录音、指挥（包括简中/繁中/英语）。
+目前支持：作曲、作词、编曲、制作人、混音、录音、指挥（包括简中/繁中/部分英文）。
+
+另外，以下一些连写情况会被特殊处理：
+
+- `混音/母带`：记录混音，母带保留。
+- `作/編曲`、`作编曲`、`作曲/编曲`等：记录作曲和编曲
 
 ## [download.lyric]
 
@@ -95,7 +121,7 @@ Cookie 存放在 `~/.vSoft/vncmd/cookie`，纯文本。
 
 检查 credit 数据的行数。默认 `10`。在启用 `auto_trim` 或/和 `parse_credits` 时生效。
 
-检测 parse_credits 行时，只扫描歌词前 N 行。  
+检测 parse_credits 与/或 auto_trim 中记录的要删除的行，只扫描歌词前 N 行。  
 这能避免将正文中出现的角色关键词误判为 credit。
 
 ## [download.cover]
@@ -124,3 +150,18 @@ Cookie 存放在 `~/.vSoft/vncmd/cookie`，纯文本。
 缓存目录。默认 `"cache"`。
 
 支持绝对路径和基于 `~/.vSoft/vncmd` 的相对路径。
+
+### ttl
+
+缓存有效期，单位为天。默认 `3`。
+
+`0` 表示永不过期。
+
+## [display]
+
+### artist_color
+
+艺术家按各自代表色着色。默认 `true`。
+
+将展示的艺术家名字，按照 vncmd 预设的颜色对照表着色。  
+目前收录类型有 Vocaloid、世界计划、VTuber等。
