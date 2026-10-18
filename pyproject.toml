@@ -22,7 +22,7 @@ dependencies = [
 ]
 
 [project.scripts]
-vncmd = "vncmd:main"
+vncmd = "vncmd.cli:main"
 
 [dependency-groups]
 dev = [
@@ -36,7 +36,7 @@ requires = ["setuptools"]
 build-backend = "setuptools.build_meta"
 
 [tool.coverage.run]
-source = ["function"]
+source = ["vncmd"]
 omit = ["*/test/*", "*/__pycache__/*"]
 
 [tool.coverage.report]
@@ -76,5 +76,5 @@ ignore = [
 "test/*" = ["E402", "S101"]
 
 [tool.setuptools]
-py-modules = ["vncmd"]
-packages = ["function"]
+package-dir = { "" = "src" }
+packages = ["vncmd"]

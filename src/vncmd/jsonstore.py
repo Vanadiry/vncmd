@@ -10,7 +10,7 @@ import os
 from contextlib import suppress
 from pathlib import Path
 
-from function.output import warning
+from vncmd.output import warning
 
 
 def read_json_safe(path: Path, default=None, *, what: str = ""):

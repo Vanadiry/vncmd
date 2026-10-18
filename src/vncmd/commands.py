@@ -8,7 +8,7 @@ from pathlib import Path
 
 from rich.markup import escape
 
-from function.api import (
+from vncmd.api import (
     SEARCH_LIMIT_MAX,
     account_needs_check,
     account_stamp,
@@ -24,13 +24,13 @@ from function.api import (
     permission_verdict,
     search,
 )
-from function.checker import (
+from vncmd.checker import (
     any_check_tool,
     check_audio,
     check_tools,
     describe_missing_check_tools,
 )
-from function.config import (
+from vncmd.config import (
     CONFIG_FILE,
     COOKIE_FILE,
     QUALITY_MAP,
@@ -43,12 +43,12 @@ from function.config import (
     resolve_output_dir,
     validate_config,
 )
-from function.downloader import (
+from vncmd.downloader import (
     download_song,
     download_song_batch,
     make_session_dir,
 )
-from function.output import (
+from vncmd.output import (
     console,
     display_album,
     display_download_detail,

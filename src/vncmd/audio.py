@@ -1,8 +1,8 @@
 import re
 from pathlib import Path
 
-from function.config import get_filename_artist
-from function.output import warning
+from vncmd.config import get_filename_artist
+from vncmd.output import warning
 
 # Linux 的 ext4 单个文件名上限为 255 字节，macOS 的 APFS 为 255 字符，
 # 按字节收敛最保险；Windows 的完整路径上限 260 字符还要扣掉目录与扩展名

@@ -1,13 +1,13 @@
 import time
 from pathlib import Path
 
-from function.config import (
+from vncmd.config import (
     COOKIE_FILE,
     get_cache_dir,
     get_cache_ttl,
     is_cache_enabled,
 )
-from function.jsonstore import read_json_safe, write_json_atomic
+from vncmd.jsonstore import read_json_safe, write_json_atomic
 
 # 账号状态一天查一次就够了，中间都从磁盘读
 ACCOUNT_TTL = 86400

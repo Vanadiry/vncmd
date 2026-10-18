@@ -3,8 +3,8 @@ import sys
 from importlib.metadata import PackageNotFoundError
 from importlib.metadata import version as _pkg_version
 
-from function.api import SEARCH_LIMIT_MAX
-from function.commands import (
+from vncmd.api import SEARCH_LIMIT_MAX
+from vncmd.commands import (
     announce_account,
     cmd_album,
     cmd_cache,
@@ -15,9 +15,9 @@ from function.commands import (
     cmd_search,
     cmd_song,
 )
-from function.config import QUALITY_MAP, acquire_lock, validate_config
-from function.output import err_console, error
-from function.tracker import cmd_tracker
+from vncmd.config import QUALITY_MAP, acquire_lock, validate_config
+from vncmd.output import err_console, error
+from vncmd.tracker import cmd_tracker
 
 
 class _HelpFormatter(argparse.HelpFormatter):
@@ -388,7 +388,3 @@ def main() -> None:
         err_console.print()
         err_console.print("[yellow]已中断[/]")
         sys.exit(130)
-
-
-if __name__ == "__main__":
-    main()

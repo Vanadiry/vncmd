@@ -17,7 +17,7 @@ from mutagen.id3 import (
 )
 from mutagen.mp3 import MP3
 
-from function.lyrics import CREDIT_ROLES
+from vncmd.lyrics import CREDIT_ROLES
 
 # CREDIT_ROLES 里的 mp3 写法只有两种：帧 ID，或者是 TIPL 的角色名
 _CREDIT_FRAME_CLASSES = {"TCOM": TCOM, "TEXT": TEXT, "TPE3": TPE3}

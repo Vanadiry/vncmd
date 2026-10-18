@@ -11,23 +11,23 @@ from pathlib import Path
 import questionary
 from rich.markup import escape
 
-from function._defaults import TRACKER_SETTINGS_TOML
-from function.api import (
+from vncmd._defaults import TRACKER_SETTINGS_TOML
+from vncmd.api import (
     get_album_details,
     get_playlist_details,
     get_song_details,
 )
-from function.commands import _dump_json
-from function.config import (
+from vncmd.commands import _dump_json
+from vncmd.config import (
     QUALITY_MAP,
     VNCMD_HOME,
     abbrev_home,
     get_quality,
     resolve_output_dir,
 )
-from function.downloader import download_song_batch
-from function.jsonstore import read_json_safe, write_json_atomic
-from function.output import (
+from vncmd.downloader import download_song_batch
+from vncmd.jsonstore import read_json_safe, write_json_atomic
+from vncmd.output import (
     _artist_text,
     _range_suffix,
     console,
