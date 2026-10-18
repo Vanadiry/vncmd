@@ -108,7 +108,8 @@ def ffprobe_info(path: str) -> dict | None:
                 str(path),
             ],
             capture_output=True,
-            text=True,
+            encoding="utf-8",
+            errors="replace",
             timeout=10,
             check=False,
         )
@@ -150,7 +151,8 @@ def ffmpeg_decode(path: str) -> tuple[list[str], float | None]:
                 "-",
             ],
             capture_output=True,
-            text=True,
+            encoding="utf-8",
+            errors="replace",
             timeout=30,
             check=False,
         )
@@ -185,7 +187,8 @@ def flac_test(path: str) -> str | None:
         proc = subprocess.run(
             ["flac", "-t", "-s", str(path)],
             capture_output=True,
-            text=True,
+            encoding="utf-8",
+            errors="replace",
             timeout=30,
             check=False,
         )
@@ -257,6 +260,10 @@ def check_audio(path: str) -> tuple[bool, str]:
     info = ffprobe_info(path) if tools["ffprobe"] else None
     declared = info["duration"] if info else None
 
+    # 文件名我们自己拼。工具的 stderr 里也有路径，而那段恰恰是最可能解码失败的内容 ——
+    # 让它同时承担诊断信息与唯一可能乱码的字符两个角色不稳
+    name = Path(path).name
+
     errors: list[str] = []
     actual: float | None = None
     if tools["ffmpeg"]:
@@ -264,16 +271,17 @@ def check_audio(path: str) -> tuple[bool, str]:
         if errors:
             # 「尾部有异常数据」只在真的解完一遍的前提下才成立。
             # 超时或起不来时 actual 是 None，落到下面判失败而不是放行
+            note = " | ".join(errors[:3])
             if declared and actual is not None and actual >= declared - DURATION_TOL:
-                return True, f"解码完整但尾部有异常数据: {' | '.join(errors[:3])}"
-            return False, f"解码出错: {' | '.join(errors[:3])}"
+                return True, f"解码完整但尾部有异常数据 {name}: {note}"
+            return False, f"解码出错 {name}: {note}"
 
     if Path(path).suffix.lower() == ".flac" and tools["flac"]:
         err = flac_test(path)
         if err:
-            return False, f"flac 无损校验失败: {err}"
+            return False, f"flac 无损校验失败 {name}: {err}"
 
     if declared and actual is not None and actual < declared - DURATION_TOL:
-        return False, f"疑似截断 (声明 {declared:.0f}s 实际 {actual:.0f}s)"
+        return False, f"疑似截断 {name} (声明 {declared:.0f}s 实际 {actual:.0f}s)"
 
     return True, ""
