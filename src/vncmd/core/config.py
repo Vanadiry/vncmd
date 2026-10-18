@@ -7,6 +7,14 @@ from filelock import FileLock, Timeout
 
 from vncmd.core.defaults import CONFIG_TOML
 
+# 值域搬进 schema.py 了。这几个名字在 cli、tracker、commands 与测试里被 import，
+# 这里再转发一遍，各调用点就能分批跟着搬，不必一次全改
+from vncmd.core.schema import CONTENT_LETTERS as CONTENT_LETTERS
+from vncmd.core.schema import FILENAME_ARTIST as FILENAME_ARTIST
+from vncmd.core.schema import LYRIC_MODES as LYRIC_MODES
+from vncmd.core.schema import QUALITY_MAP as QUALITY_MAP
+from vncmd.core.schema import validate as schema_validate
+
 
 def abbrev_home(path) -> str:
     """把用户主目录那段替换成 ~，路径太长时能省下十几个字符
@@ -43,31 +51,6 @@ def acquire_lock() -> None:
 
 
 DEFAULT_CACHE_TTL = 3
-
-QUALITY_MAP = {
-    "128": 128000,
-    "192": 192000,
-    "320": 320000,
-    "max": 2147483647,
-}
-
-# 艺术家在文件名里的位置。以前这个键叫 filename_format，
-# 但它管不到分隔符、大小写、扩展名，全部三个值都由这一个维度决定，
-# 名字比内容宽
-FILENAME_ARTIST = ("front", "back", "drop")
-
-# 下载内容。三个字母任意组合，"alc" 是全要，"cl" 只要歌词和封面。
-# 用字母而不是数字：数字串读起来就是个带前导零的数，
-# 有人会当成整数写上引号就忘了，而 alc 一眼知道不是数字。
-# 三个字母没有天然顺序，所以读的时候按包含判断，顺序无所谓
-CONTENT_LETTERS = "alc"
-
-# 译文歌词的处理方式。embed 只有 drop 一档不要译文；
-# save 多一档 split 是分两个文件，另有一档 drop 同样不要译文
-LYRIC_MODES = {
-    "embed_mode": ("line", "block", "drop"),
-    "save_mode": ("line", "block", "split", "drop"),
-}
 
 _cfg: dict | None = None
 
@@ -106,6 +89,14 @@ def validate_config(quiet: bool = False) -> None:
 
     errors = []
 
+    # 已进表的那几项交给 schema —— 值域、默认值与报错措辞都在表里。
+    # 顺序放在段类型检查之后：段本身不是表时表里那几项取不到值，
+    # 会报出一堆「xx 缺失」，而真正的问题只是那一段写错了
+    if isinstance(cfg.get("download", {}), dict) and isinstance(
+        cfg.get("cache", {}), dict
+    ):
+        errors.extend(schema_validate(cfg))
+
     # 段本身写错类型时先拦下。下面全是 dl.get(key)、key not in dl 这类写法，
     # 段不是表的话它们会抛 TypeError 或 AttributeError，用户看到的是一整段调用栈，
     # 而不是「[download] 这一段写错了」
@@ -120,23 +111,8 @@ def validate_config(quiet: bool = False) -> None:
     elif not isinstance(dl["dir"], str):
         errors.append(f"[download] dir 必须是字符串，实际是 {type(dl['dir']).__name__}")
 
-    if not dl.get("filename_artist"):
-        errors.append("[download] filename_artist 缺失或为空")
-    elif dl["filename_artist"] not in FILENAME_ARTIST:
-        errors.append(f"[download] filename_artist 必须为 {'、'.join(FILENAME_ARTIST)}")
-
-    # 不是字符串要单独拦：content = 12 会被 tomllib 读成整数，
-    # 下面 set() 它会抛 TypeError，用户看到的是一整段调用栈而不是配置写错了
-    content = dl.get("content")
-    if not isinstance(content, str) or not content:
-        errors.append("[download] content 缺失或为空，且必须是带引号的字符串")
-    elif set(content) - set(CONTENT_LETTERS):
-        allowed = "、".join(CONTENT_LETTERS)
-        extra = "、".join(sorted(set(content) - set(CONTENT_LETTERS)))
-        errors.append(f"[download] content 只能包含 {allowed}，多余的字符：{extra}")
-    elif len(set(content)) != len(content):
-        dup = "、".join(sorted({c for c in content if content.count(c) > 1}))
-        errors.append(f"[download] content 里 {dup} 重复了，每个字母最多一次")
+    # filename_artist、content、downloader 三项由 schema 的表来查，
+    # 报错措辞在表里；其余手写的还在，等第 3 步起逐项挪进去
 
     # 缺键要报错而不是默认 4 —— getter 是直接下标取的，
     # 校验放行的话，等到真下载时才炸，而那时候用户看不到是哪句配置写错了
@@ -151,10 +127,6 @@ def validate_config(quiet: bool = False) -> None:
     if not isinstance(chk, bool):
         errors.append("[download] check 必须为 true 或 false")
 
-    kind = dl.get("downloader", "builtin")
-    if kind not in ("builtin", "curl"):
-        errors.append('[download] downloader 只能是 "builtin" 或 "curl"')
-
     if not isinstance(dl.get("curl_arg", ""), str):
         errors.append("[download] curl_arg 必须是字符串")
 
@@ -163,15 +135,6 @@ def validate_config(quiet: bool = False) -> None:
     if not isinstance(ds, dict):
         _die([f"[download.audio] 必须是一段配置，实际是 {type(ds).__name__}"])
         ds = {}
-    if not ds.get("quality"):
-        errors.append("[download.audio] quality 缺失或为空")
-    elif ds["quality"] not in QUALITY_MAP:
-        # 带上实际值：写 quality = 320 的人看到的是「必须为 128、192、320」，
-        # 只差一对引号，报错里不写实际值就让人以为键名也错了
-        errors.append(
-            f"[download.audio] quality 必须为以下之一：{', '.join(QUALITY_MAP)}，"
-            f"实际是 {ds['quality']!r}"
-        )
     if not isinstance(ds.get("parse_credits"), bool):
         errors.append("[download.audio] parse_credits 缺失或不为布尔值")
 
@@ -180,17 +143,6 @@ def validate_config(quiet: bool = False) -> None:
     if not isinstance(dly, dict):
         _die([f"[download.lyric] 必须是一段配置，实际是 {type(dly).__name__}"])
         dly = {}
-    # line 与 block 两边共有，第三档不同：embed 是不要译文，save 是分两个文件。
-    # 用 if key not in dly 判缺失而不是 not dly.get(key) ——
-    # 合法值里没有空串，但那种写法对空值才成立，将来加了空值就会重蹈覆辙
-    for key, allowed in LYRIC_MODES.items():
-        if key not in dly:
-            errors.append(f"[download.lyric] {key} 缺失")
-        elif dly[key] not in allowed:
-            errors.append(
-                f"[download.lyric] {key} 必须为 {'、'.join(allowed)}，"
-                f"实际是 {dly[key]!r}"
-            )
     if not isinstance(dly.get("auto_trim"), bool):
         errors.append("[download.lyric] auto_trim 缺失或不为布尔值")
     scan = dly.get("credit_scan_lines")
