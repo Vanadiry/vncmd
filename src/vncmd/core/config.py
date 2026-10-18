@@ -97,95 +97,33 @@ def validate_config(quiet: bool = False) -> None:
     ):
         errors.extend(schema_validate(cfg))
 
-    # 段本身写错类型时先拦下。下面全是 dl.get(key)、key not in dl 这类写法，
-    # 段不是表的话它们会抛 TypeError 或 AttributeError，用户看到的是一整段调用栈，
-    # 而不是「[download] 这一段写错了」
-    dl = cfg.get("download", {})
-    if not isinstance(dl, dict):
-        _die([f"[download] 必须是一段配置，实际是 {type(dl).__name__}"])
-        dl = {}
+    # 段本身写错类型时先拦下，它得排在逐项校验之前 ——
+    # 段不是表时表里那几项取不到值，会报出一堆「xx 缺失」，
+    # 而真正的问题只是那一段写错了
+    段名与内容 = (("download", cfg.get("download")), ("cache", cfg.get("cache")))
+    子段 = (
+        ("download.audio", "audio"),
+        ("download.lyric", "lyric"),
+        ("download.cover", "cover"),
+    )
+    for 名, 值 in 段名与内容:
+        if not isinstance(值, dict):
+            _die([f"[{名}] 必须是一段配置，实际是 {type(值).__name__}"])
+    for 名, 键 in 子段:
+        值 = cfg["download"].get(键)
+        # 值是 None 表示这一段没写，不是写坏了 —— 没写的段按缺键处理，
+        # 由表里那几项各报自己的缺键
+        if 值 is not None and not isinstance(值, dict):
+            _die([f"[{名}] 必须是一段配置，实际是 {type(值).__name__}"])
 
-    # 留空表示用 ~/Downloads，键本身必须在
-    if "dir" not in dl:
-        errors.append("[download] dir 缺失")
-    elif not isinstance(dl["dir"], str):
-        errors.append(f"[download] dir 必须是字符串，实际是 {type(dl['dir']).__name__}")
+    # 十八项的逐项知识都在 schema 的表里。段检查放前面就是为这一步 ——
+    # 表按点号路径取值，那几段不是表时它取不到值只能跳过，
+    # 跳过与「该段没写」分不清，段检查就是替它分的那道
+    errors.extend(schema_validate(cfg))
 
-    # filename_artist、content、downloader 三项由 schema 的表来查，
-    # 报错措辞在表里；其余手写的还在，等第 3 步起逐项挪进去
-
-    # 缺键要报错而不是默认 4 —— getter 是直接下标取的，
-    # 校验放行的话，等到真下载时才炸，而那时候用户看不到是哪句配置写错了
-    ccy = dl.get("concurrency")
-    # isinstance(ccy, bool) 那道不能省：布尔是 int 的子类，
-    # concurrency = true 会一路通过 isinstance 检查，min(True, 曲数) 得 1，
-    # 静默降成单线程还不给任何提示
-    if not isinstance(ccy, int) or isinstance(ccy, bool) or not 1 <= ccy <= 16:
-        errors.append(f"[download] concurrency 必须为 1-16 的整数，实际是 {ccy!r}")
-
-    chk = dl.get("check", True)
-    if not isinstance(chk, bool):
-        errors.append("[download] check 必须为 true 或 false")
-
-    if not isinstance(dl.get("curl_arg", ""), str):
-        errors.append("[download] curl_arg 必须是字符串")
-
-    # [download.audio]
-    ds = dl.get("audio", {})
-    if not isinstance(ds, dict):
-        _die([f"[download.audio] 必须是一段配置，实际是 {type(ds).__name__}"])
-        ds = {}
-    if not isinstance(ds.get("parse_credits"), bool):
-        errors.append("[download.audio] parse_credits 缺失或不为布尔值")
-
-    # [download.lyric]
-    dly = dl.get("lyric", {})
-    if not isinstance(dly, dict):
-        _die([f"[download.lyric] 必须是一段配置，实际是 {type(dly).__name__}"])
-        dly = {}
-    if not isinstance(dly.get("auto_trim"), bool):
-        errors.append("[download.lyric] auto_trim 缺失或不为布尔值")
-    scan = dly.get("credit_scan_lines")
-    if not isinstance(scan, int) or isinstance(scan, bool) or scan < 1:
-        errors.append("[download.lyric] credit_scan_lines 缺失或不为正整数")
-
-    # [download.cover]
-    # 判缺失用 `key not in dc` 而不是 `not dc.get(key)`。
-    # 这两个键的合法值里有 false，「取不到就是空」那种写法会把 false
-    # 当成没写，而 false 恰好是「用原图」那一档
-    dc = dl.get("cover", {})
-    if not isinstance(dc, dict):
-        _die([f"[download.cover] 必须是一段配置，实际是 {type(dc).__name__}"])
-        dc = {}
-    for key in ("embed_compress", "save_compress"):
-        if key not in dc:
-            errors.append(f"[download.cover] {key} 缺失")
-        elif not isinstance(dc[key], bool):
-            errors.append(
-                f"[download.cover] {key} 必须为 true 或 false，实际是 {dc[key]!r}"
-            )
-
-    # [cache]
-    cc = cfg.get("cache", {})
-    if not isinstance(cc, dict):
-        _die([f"[cache] 必须是一段配置，实际是 {type(cc).__name__}"])
-        cc = {}
-    # enabled 要判类型：写成带引号的 "false" 时字符串非空、是真值，
-    # 用户以为关了缓存实际照开，而这种错在界面上完全看不出来
-    if "enabled" not in cc:
-        errors.append("[cache] enabled 缺失")
-    elif not isinstance(cc["enabled"], bool):
-        errors.append(f"[cache] enabled 必须为 true 或 false，实际是 {cc['enabled']!r}")
-    ttl = cc.get("ttl", DEFAULT_CACHE_TTL)
-    if not isinstance(ttl, int) or isinstance(ttl, bool) or ttl < 0:
-        errors.append("[cache] ttl 不为非负整数")
-
-    # [display]
-    # 整段缺失时按默认值算，升级旧配置不至于报错，类型写错仍要拦下
-    artist_color = cfg.get("display", {}).get("artist_color", True)
-    if not isinstance(artist_color, bool):
-        errors.append("[display] artist_color 不为布尔值")
-
+    # 剩下的只有这一件：段写错类型就地退出，逐项错攒起来一起报
+    if errors:
+        _die(errors)
     if errors:
         _die(errors)
 

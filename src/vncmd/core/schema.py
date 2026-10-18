@@ -12,6 +12,11 @@
 from dataclasses import dataclass
 from typing import Any
 
+# 缓存有效期默认天数。它原来是 config.py 的常量，而 ttl 的默认值
+# 现在住在表里 —— 表不该反过来 import config，那是环。
+# 值要与 config.py 里那个一致，同步测试会盯
+DEFAULT_CACHE_TTL = 3
+
 # 音质名到码率的映射。最大值那档用 int 上限占位 ——
 # 服务端不认这个边界，发过去它自己降，所以那一档的真实规格逐曲不同
 QUALITY_MAP = {
@@ -36,8 +41,8 @@ class Setting:
     `enum` 查 values、`content` 走字母组合那套规则、
     `int` 查 minimum 与 maximum、`bool` 与 `str` 只查类型。
 
-    default 是键缺失时的取值。这一栏现在还没人读 ——
-    缺键回落默认值是第 4 步的事，先摆在这儿让表的形状一次定稳。
+    default 是键缺失时的取值。填了它的键才是「可省略」的 ——
+    第 4 步之前 validate 仍然对所有键报缺键，那时要改的是这里，不是别处
 
     bad 是取值不对时的措辞，miss 是缺键时的措辞。
     两者每项都不一样，不是一句模板套出来的：
@@ -131,6 +136,114 @@ SCHEMA = (
         "builtin",
         '只能是 "builtin" 或 "curl"',
     ),
+    # 下面 12 项是类型与范围。措辞从 config.py 逐字抄来的，
+    # 每项的差别都不是随意的：
+    # 带实际值的与不带的、缺键说「缺失」还是「缺失或不为布尔值」、
+    # dir 判类型但空串合法 —— 那些都是既有测试断言着的
+    # 留空表示用 ~/Downloads，所以只判类型不判非空。
+    # 报错写的是类型名而不是实际值：路径类的值打出来是一长串，
+    # 报出来用户也看不出哪里错，写 int、list 这种一眼能认的就行
+    Setting(
+        "download.dir",
+        "str",
+        default="",
+        bad="必须是字符串，实际是 {typename}",
+        # 不带「或为空」：空串是合法的，缺键与写空串是两回事
+        miss="缺失",
+    ),
+    Setting(
+        "download.concurrency",
+        "int",
+        minimum=1,
+        maximum=16,
+        default=4,
+        # 带实际值：写成 0 或 true 的人看到这个才知道自己填了什么。
+        # 缺键也用这句 —— 键本来就必须写，缺了与填了个 4 不该两样报错
+        bad="必须为 1-16 的整数，实际是 {value!r}",
+        miss="必须为 1-16 的整数，实际是 None",
+    ),
+    Setting(
+        "download.check",
+        "bool",
+        default=True,
+        bad="必须为 true 或 false",
+        miss="缺失或不为布尔值",
+    ),
+    Setting(
+        "download.curl_arg",
+        "str",
+        default="",
+        bad="必须是字符串",
+        # 缺了不算错：getter 取的是默认值空串，curl 用不到这个参数时
+        # 本来就没有。所以这一项是「可省略」的，miss 写成空表示不报
+        miss="",
+    ),
+    Setting(
+        "download.audio.parse_credits",
+        "bool",
+        default=False,
+        # 这一项缺键与写错值是同一句话：布尔没有「空」这个状态，
+        # 缺了与填了个非布尔值在用户看来是一回事
+        bad="缺失或不为布尔值",
+        miss="缺失或不为布尔值",
+    ),
+    Setting(
+        "download.lyric.auto_trim",
+        "bool",
+        default=False,
+        # 这一项缺键与写错值是同一句话：布尔没有「空」这个状态，
+        # 缺了与填了个非布尔值在用户看来是一回事
+        bad="缺失或不为布尔值",
+        miss="缺失或不为布尔值",
+    ),
+    Setting(
+        "download.lyric.credit_scan_lines",
+        "int",
+        minimum=1,
+        default=10,
+        bad="缺失或不为正整数",
+        miss="",
+    ),
+    # 判缺失用「在不在」而不是「取到没有」：这两个键的合法值里有 false，
+    # 那种写法会把 false 当成没写，而 false 恰好是「用原图」那一档
+    Setting(
+        "download.cover.embed_compress",
+        "bool",
+        default=True,
+        bad="必须为 true 或 false，实际是 {value!r}",
+        miss="缺失",
+    ),
+    Setting(
+        "download.cover.save_compress",
+        "bool",
+        default=False,
+        bad="必须为 true 或 false，实际是 {value!r}",
+        miss="缺失",
+    ),
+    # enabled 要判类型：写成带引号的 "false" 时字符串非空、是真值，
+    # 用户以为关了缓存实际照开，而这种错在界面上完全看不出来
+    Setting(
+        "cache.enabled",
+        "bool",
+        default=True,
+        bad="必须为 true 或 false，实际是 {value!r}",
+        miss="缺失",
+    ),
+    Setting(
+        "cache.ttl",
+        "int",
+        minimum=0,
+        default=DEFAULT_CACHE_TTL,
+        bad="不为非负整数",
+        miss="",
+    ),
+    Setting(
+        "display.artist_color",
+        "bool",
+        default=True,
+        bad="不为布尔值",
+        miss="",
+    ),
 )
 
 _BY_PATH = {s.path: s for s in SCHEMA}
@@ -179,11 +292,68 @@ def check_enum(setting: Setting, value: Any) -> str | None:
     """
     if value in setting.values:
         return None
-    # 两个占位符各自可选：quality 的值域是四个且带逗号分隔，
-    # 写死一种拼法就等于把那一项的措辞硬编进这里。
+    # 三个占位符各自可选，谁填了哪个看那一项的措辞。
     # 一次 format 而不是逐个 replace —— replace 会先把 {value!r} 替成 {value}，
     # 后面那道再替一次，结果占位符原样留在消息里
-    return setting.bad.format(allowed=", ".join(setting.values), value=value)
+    return setting.bad.format(
+        allowed=", ".join(setting.values),
+        value=value,
+        typename=type(value).__name__,
+    )
+
+
+def check_int(setting: Setting, value: Any) -> str | None:
+    """整数校验，返回值不对时的说明或 None
+
+    **布尔要单独排除。** Python 里 isinstance(True, int) 为真，
+    concurrency = true 会一路过类型检查，getter 拿到 True，
+    min(True, 曲数) 得 1 —— 静默降成单线程还不给任何提示。
+    这道检查原先只写在 config.py 的三处手写里，搬进 kind 就看不见了，
+    所以它得在检查器内部，谁读表都不用记得
+    """
+    if not isinstance(value, int) or isinstance(value, bool):
+        return setting.bad.format(
+            allowed="", value=value, typename=type(value).__name__
+        )
+    if setting.minimum is not None and value < setting.minimum:
+        return setting.bad.format(
+            allowed="", value=value, typename=type(value).__name__
+        )
+    if setting.maximum is not None and value > setting.maximum:
+        return setting.bad.format(
+            allowed="", value=value, typename=type(value).__name__
+        )
+    return None
+
+
+def check_bool(setting: Setting, value: Any) -> str | None:
+    """布尔校验
+
+    必须用 isinstance 而不是「等于 true 或 false」：
+    写成 enabled = 0 时 0 == false 为真，那样判会放行整数 0，
+    而它取到的是 0（假值），恰好蒙对 —— 换个键就不一定了
+    """
+    if not isinstance(value, bool):
+        return setting.bad.format(
+            allowed="", value=value, typename=type(value).__name__
+        )
+    return None
+
+
+def check_str(setting: Setting, value: Any) -> str | None:
+    """字符串校验
+
+    **不判非空。** dir 留空是合法的，意思是「用 ~/Downloads」——
+    这一项的空值有明确含义，判了就等于把默认行为判成错
+
+    报错用 {typename} 而不是 {value}：路径类的值打出来是一长串，
+    用户看不出哪里错，写 int、list 这种一眼能认的就行
+    """
+    if not isinstance(value, str):
+        return setting.bad.format(
+            allowed="", value=value, typename=type(value).__name__
+        )
+    return None
 
 
 def validate_entry(setting: Setting, value: Any) -> str | None:
@@ -196,6 +366,12 @@ def validate_entry(setting: Setting, value: Any) -> str | None:
         return check_enum(setting, value)
     if setting.kind == "content":
         return check_content(value, CONTENT_LETTERS)
+    if setting.kind == "int":
+        return check_int(setting, value)
+    if setting.kind == "bool":
+        return check_bool(setting, value)
+    if setting.kind == "str":
+        return check_str(setting, value)
     return None
 
 
@@ -217,10 +393,10 @@ def _locate(cfg: dict, path: str) -> tuple[list[str], str, Any]:
 
 
 def validate(cfg: dict) -> list[str]:
-    """校验表里已进表的那几项，返回错误说明的列表
+    """校验表里全部 18 项，返回错误说明的列表
 
-    只管表里有的键。类型、范围、缺键回落、未知键都在后面几步，
-    `validate_config` 那部分手写代码还留着
+    逐项逐字复刻搬进表之前的样子：一个字不一样就是行为变化，
+    用户看报错的地方比看代码的地方多
     """
     错误 = []
     for setting in SCHEMA:
@@ -232,7 +408,11 @@ def validate(cfg: dict) -> list[str]:
 
         段名 = "[" + ".".join(段) + "]" if len(段) > 1 else f"[{段[0]}]"
         if 值 is None:
-            # 缺键这轮仍然要报错，等第 4 步才改成回落默认值
+            # 缺键这轮仍然要报错，等第 4 步才改成回落默认值。
+            # miss 是空串的那几项在缺键时用表里的 default 顶上 ——
+            # 它们的 getter 本来就取默认值，缺了不该报错
+            if not setting.miss:
+                continue
             错误.append(f"{段名} {键} {setting.miss}")
             continue
 

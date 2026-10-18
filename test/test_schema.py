@@ -1,10 +1,13 @@
 """配置键表
 
-这张表现在只装了 6 个枚举型键，剩下的按 TODO2 第 3 步起逐项进表。
-每一步都该是零行为变化，靠 `test_config.py` 里那些既有断言确认 ——
-所以这里只盯表自己：形状、取值、以及它与手写校验的一致性。
+十八项全在表里了 —— 第 1 步搬了六个枚举，第 3 步搬了十二个类型与范围。
+`validate_config` 的逐项知识全在这里，那边只剩读文件与段检查。
+
+每一步都是零行为变化，靠 `test_config.py` 里那些既有断言确认 ——
+所以这组测试盯的是表自己：形状、取值、报错措辞，以及它与模板的一致性。
 """
 
+import copy
 import re
 import tomllib
 from pathlib import Path
@@ -18,8 +21,10 @@ from vncmd.core import schema
     re.search(r'CONFIG_TOML = """\\\n(.*?)\n"""', 模板, re.S).group(1)
 )
 
-# 表里的六项与它们在配置里的路径
-六个 = [
+# 表里的十八项与它们在配置里的路径。
+# 前六项是枚举那几个，第 1 步搬的；后十二项是类型与范围，第 3 步搬的。
+# 分开列是为了让「枚举那一组」与「非枚举那一组」在测试里能分别取用
+枚举六项 = [
     "download.filename_artist",
     "download.content",
     "download.audio.quality",
@@ -27,6 +32,23 @@ from vncmd.core import schema
     "download.lyric.save_mode",
     "download.downloader",
 ]
+
+其余十二项 = [
+    "download.dir",
+    "download.concurrency",
+    "download.check",
+    "download.curl_arg",
+    "download.audio.parse_credits",
+    "download.lyric.auto_trim",
+    "download.lyric.credit_scan_lines",
+    "download.cover.embed_compress",
+    "download.cover.save_compress",
+    "cache.enabled",
+    "cache.ttl",
+    "display.artist_color",
+]
+
+全部 = 枚举六项 + 其余十二项
 
 # 搬进表之前的报错原文，逐字抄下来当基准。
 # 放在这里而不是塞进 parametrize 的元组里 —— 那几条超出行宽，
@@ -88,18 +110,35 @@ class Test表的形状:
         assert s.kind == "content"
         assert s.values == (), "content 不该有 values"
 
-    def test缺键措辞不空(self):
-        """第 4 步之前缺键要报错，措辞空着就报不出像样的消息"""
-        for s in schema.SCHEMA:
-            assert s.miss, f"{s.path} 没写缺键时的措辞"
+    def test需要报缺键的都有措辞(self):
+        """miss 非空的那几项，缺了要报得出像样的消息
 
-    def test_lookup查得到这六项(self):
-        for 路径 in 六个:
+        不是每一项都要报 —— miss 空着的那些本来就可省略，
+        由下面那条断言管。所以这里只查「说要报的报得出来」
+        """
+        要报 = [s for s in schema.SCHEMA if s.miss]
+        assert 要报, "一项都不报的话，配置写错就没人知道了"
+        for s in 要报:
+            assert s.miss.strip(), f"{s.path} 缺键时报不出消息"
+
+    def test_miss空着的那些可省略且有默认值(self):
+        """miss 空着的键缺了不报错，那就得真的有默认值可回落
+
+        getter 缺键时取的是表里的 default，没有就是取到 None ——
+        而 None 与 0 在下游不是一回事，所以这道是第 4 步的前置
+        """
+        可省略 = [s.path for s in schema.SCHEMA if not s.miss]
+        assert 可省略, "一项都不该可省略，全报错说明没人真的可省"
+        for s in schema.SCHEMA:
+            if not s.miss:
+                assert s.default is not None, f"{s.path} 缺键不报错却没有默认值可回落"
+
+    def test_lookup查得到全部十八项(self):
+        for 路径 in 全部:
             assert schema.get(路径) is not None, 路径
 
     def test_lookup查不到时是None(self):
-        assert schema.get("download.dir") is None
-        assert schema.get("不存在的键") is None
+        assert schema.get("download.不存在的键") is None
 
 
 def 模板的全部叶子键() -> list[str]:
@@ -124,31 +163,19 @@ class Test与模板一致:
     """表与 defaults.py 的模板是刻意重复的两份，所以它们会漂移。
 
     这组测试抓三种漂移：
-    表里没有模板中的某个键（键漏了，getter 会按默认值走而用户填的没人管）、
+    表里没有模板中的某个键（键漏了，用户填的那个没人管）、
     表里有模板中没有的键（改了代码没改模板，用户看不到这个键）、
-    两边默认值不一样（机器读一套、人读另一套）
+    两边默认值或类型不一样（机器读一套、人读另一套）
 
-    前两种现在还不可能发生 —— 表里只有六项，模板里有 18 个。
-    所以用「剩余待进表」的白名单记着，不是假装它们已经对上了。
-    白名单里的键搬完一项就少一项，空了就可以删掉这个检查
+    `待进表` 是还没搬完的键，它自己也被一条断言盯着 ——
+    白名单多写一项会掩盖真的漏键，少写一项会误报。
+    十八项全进表之后它就是空的，那条断言仍在：往表里加键而忘了改模板，
+    或者模板加了键而忘了改表，都还会被抓住
     """
 
-    待进表 = frozenset(
-        {
-            "cache.enabled",
-            "cache.ttl",
-            "display.artist_color",
-            "download.audio.parse_credits",
-            "download.check",
-            "download.concurrency",
-            "download.cover.embed_compress",
-            "download.cover.save_compress",
-            "download.curl_arg",
-            "download.dir",
-            "download.lyric.auto_trim",
-            "download.lyric.credit_scan_lines",
-        }
-    )
+    # 十八项全部进表之后这个集合空了，但它得留着 ——
+    # 删掉它就等于没人再看「表与模板的键集合是否相等」
+    待进表 = frozenset()
 
     def _默认值(self, 路径: str):
         段 = 路径.split(".")
@@ -187,16 +214,16 @@ class Test与模板一致:
             f"多写会掩盖漏键，少写会误报"
         )
 
-    @pytest.mark.parametrize("路径", 六个)
+    @pytest.mark.parametrize("路径", 全部)
     def test默认值对得上(self, 路径):
         assert schema.get(路径).default == self._默认值(路径)
 
-    @pytest.mark.parametrize("路径", 六个)
+    @pytest.mark.parametrize("路径", 全部)
     def test类型也对得上(self, 路径):
         """模板里是字符串、表里写成整数，校验会一路放行非字符串的那种"""
         assert type(schema.get(路径).default) is type(self._默认值(路径))
 
-    @pytest.mark.parametrize("路径", 六个)
+    @pytest.mark.parametrize("路径", 全部)
     def test合法值过得了(self, 路径):
         """模板里就是合法值，喂进去不该报错"""
         assert schema.validate(完整配置) == []
@@ -335,3 +362,126 @@ class Test报错措辞不变:
     )
     def test逐字不变(self, 路径, 值, 期望):
         assert schema.validate(改配置(路径, 值)) == [期望]
+
+
+class Test类型与范围:
+    """第 3 步搬进表的那十二项
+
+    每一条都对着一个具体的坏处：静默降级、界面看不出来、
+    或者崩给用户一整段调用栈
+    """
+
+    def test_整数不接受布尔(self):
+        """最容易漏的一条
+
+        Python 里 isinstance(True, int) 为真，所以 concurrency = true
+        一路过类型检查，getter 拿到 True，min(True, 曲数) 得 1 ——
+        静默降成单线程还不给任何提示。
+        写进 kind 的检查器里就是让这道谁都不用记得
+        """
+        for 路径 in ("download.concurrency", "cache.ttl"):
+            错 = schema.validate(改配置(路径, True))
+            assert len(错) == 1, f"{路径} 竟然放过了布尔"
+        # concurrency 的措辞带实际值，ttl 的不带 —— 那是从前抄来的差别，
+        # 这里盯住的是「都报错」而不是「报成什么样」
+        assert "实际是 True" in schema.validate(改配置("download.concurrency", True))[0]
+
+    def test_整数不接受字符串(self):
+        """写成 "4" 会被 tomllib 读成字符串，没有它就是一个跑不起来的值"""
+        for 路径 in ("download.concurrency", "cache.ttl"):
+            assert len(schema.validate(改配置(路径, "4"))) == 1, 路径
+        assert "实际是 '4'" in schema.validate(改配置("download.concurrency", "4"))[0]
+
+    @pytest.mark.parametrize(
+        ("路径", "值"),
+        [
+            ("download.concurrency", 0),
+            ("download.concurrency", 17),
+            ("download.concurrency", -1),
+            ("download.lyric.credit_scan_lines", 0),
+            ("download.lyric.credit_scan_lines", -5),
+            ("cache.ttl", -1),
+        ],
+    )
+    def test_越界被拦下(self, 路径, 值):
+        assert len(schema.validate(改配置(路径, 值))) == 1, 路径
+
+    @pytest.mark.parametrize(
+        ("路径", "值"),
+        [
+            ("download.concurrency", 1),
+            ("download.concurrency", 16),
+            ("download.lyric.credit_scan_lines", 1),
+            ("cache.ttl", 0),
+        ],
+    )
+    def test_边界值算数(self, 路径, 值):
+        """1 与 16 都是合法的并发数，0 才是错的 —— 边界要写清是开区间还是闭区间"""
+        assert schema.validate(改配置(路径, 值)) == [], 路径
+
+    def test_布尔不接受整数(self):
+        """enabled = 0 恰好是假值，取到 0 也对，所以蒙得过去；
+        但 check = 0 与 enabled = 0 在别处未必一样，不能靠运气
+        """
+        for 路径 in ("download.check", "cache.enabled", "display.artist_color"):
+            错 = schema.validate(改配置(路径, 0))
+            assert len(错) == 1, 路径
+
+    def test_布尔不接受带引号的字符串(self):
+        """最阴的一条：'false' 是非空字符串、真值为真，
+        用户以为关了缓存实际照开，而界面上完全看不出来"""
+        错 = schema.validate(改配置("cache.enabled", "false"))
+        assert len(错) == 1 and "实际是 'false'" in 错[0]
+
+    def test_字符串只判类型不判非空(self):
+        """dir 留空是合法的，意思是「用 ~/Downloads」
+
+        判了非空等于把默认行为判成错 ——
+        而模板里它就是空串，写出来就是要能用的
+        """
+        assert schema.validate(改配置("download.dir", "")) == []
+
+    def test_字符串判类型时报类型名不报值(self):
+        """路径类的值打出来是一长串，用户看不出哪里错，
+        写 int、list 这种一眼能认的就行"""
+        for 值, 名 in [(123, "int"), (["a"], "list")]:
+            错 = schema.validate(改配置("download.dir", 值))
+            assert 错 == [f"[download] dir 必须是字符串，实际是 {名}"]
+
+    def test_字符串写成null算缺键(self):
+        """dir = null 与没写 dir 在用户看来是一回事，报「缺失」而不是类型错
+
+        这也说明 _locate 用「取到 None」判缺键是对的 ——
+        toml 里的 null 解析出来就是 None，与没写分不开
+        """
+        assert schema.validate(改配置("download.dir", None)) == ["[download] dir 缺失"]
+
+    def test_缺键不报错的那几项确实可省略(self):
+        """它们的 getter 本来就取默认值，缺了不该判错"""
+        cfg = copy.deepcopy(完整配置)
+        del cfg["download"]["curl_arg"]
+        del cfg["cache"]["ttl"]
+        del cfg["display"]["artist_color"]
+        assert schema.validate(cfg) == []
+
+    def test_缺键要报错的那几项不放过(self):
+        """剩下那些键本来就必须写，逐个删掉看每个都报得出来
+
+        逐项删而不是一次删光：一次删光只能数出「报了几条」，
+        某一项的措辞丢了照样数得出来
+        """
+        for 路径 in 全部:
+            项 = schema.get(路径)
+            if not 项.miss:
+                continue
+            cfg = copy.deepcopy(完整配置)
+            段 = 路径.split(".")
+            游 = cfg
+            for 一段 in 段[:-1]:
+                游 = 游[一段]
+            del 游[段[-1]]
+            错 = schema.validate(cfg)
+            assert len(错) == 1, f"{路径} 缺了却报了 {len(错)} 条：{错}"
+            assert 段[-1] in 错[0], f"{路径} 的报错没点名这一项：{错[0]}"
+        错 = schema.validate(cfg)
+        # 一共六项顶层键加三个子段里的五项，少一个报一条
