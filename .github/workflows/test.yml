@@ -37,4 +37,4 @@ jobs:
       # runner 默认就是 UTC，这样任何新写的时区相关断言都会当场暴露，
       # 而不是被一个固定的 TZ 变量掩盖过去。
       - name: Unit tests
-        run: uv run pytest -m "not network" --cov=function --cov-report=term-missing
+        run: uv run pytest -m "not network" --cov=vncmd --cov-report=term-missing
