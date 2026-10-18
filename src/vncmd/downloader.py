@@ -171,6 +171,81 @@ def _progress_desc(text: str) -> str:
     return escape(desc.plain + " " * max(0, limit - cell_len(desc.plain)))
 
 
+def _process_cover(cover_data, cover_url):
+    """把封面分成嵌音频用的与存文件用的两份
+
+    封面坏了不该连累音频，所以失败时返回三个 None —— 音频照下，
+    只是这次不带封面，并出声告知
+    """
+    if not cover_data:
+        return None, None, None
+    try:
+        embed_data, embed_mime = process_cover_image(
+            cover_data, cover_url, get_embed_cover_compress()
+        )
+        save_data, _ = process_cover_image(
+            cover_data, cover_url, get_save_cover_compress()
+        )
+    except Exception as e:
+        warning(f"封面处理失败，本次不嵌入封面：{e}")
+        return None, None, None
+    return embed_data, embed_mime, save_data
+
+
+def _download_and_verify(
+    path: str,
+    song_url: str,
+    label: str,
+    song_size: int,
+    song_md5: str,
+    progress=None,
+    task_id=None,
+    use_curl: bool | None = None,
+    run_check: bool | None = None,
+) -> str | None:
+    """下载到 path 并逐道校验
+
+    返回 None 表示落盘且校验通过；返回字符串是失败原因，调用方照原样报给用户。
+
+    每一道失败都要先删掉半截文件 —— 它留在 _temp 里会占着同名位置，
+    下一首同 id 的歌重下时会撞上
+
+    md5 与 size 是纯读文件，比全量解码快得多，所以放在解码前面。
+    解码不再按 has_ffmpeg 整块门控 —— 装了 flac 没装 ffmpeg 的机器
+    仍然能验 flac 文件，逐段跳过的判断在 check_audio 内部
+    """
+    err = fetch_audio(
+        song_url,
+        path,
+        label,
+        progress=progress,
+        task_id=task_id,
+        total=song_size,
+        use_curl=use_curl,
+    )
+    if err:
+        _discard_temp([path])
+        return f"下载失败：{err}"
+
+    if Path(path).stat().st_size == 0:
+        _discard_temp([path])
+        return "下载文件为空"
+
+    ok, msg = check_md5(path, song_md5, song_size)
+    if not ok:
+        _discard_temp([path])
+        return f"完整性校验失败：{msg}"
+
+    if run_check is None:
+        run_check = get_check_enabled()
+    if run_check and any_check_tool():
+        ok, msg = check_audio(path)
+        if not ok:
+            _discard_temp([path])
+            return f"完整性校验失败：{msg}"
+    return None
+
+
 def download_song(
     song_url: str,
     song_title: str,
@@ -248,20 +323,9 @@ def download_song(
     if want_cover or want_song:
         cover_data = fetch_cover(cover_url)
 
-    embed_cover_data, embed_cover_mime = None, None
-    save_cover_data = None
-    if cover_data:
-        # 封面坏了不该连累音频，降级为不嵌封面
-        try:
-            embed_cover_data, embed_cover_mime = process_cover_image(
-                cover_data, cover_url, get_embed_cover_compress()
-            )
-            save_cover_data, _ = process_cover_image(
-                cover_data, cover_url, get_save_cover_compress()
-            )
-        except Exception as e:
-            warning(f"封面处理失败，本次不嵌入封面：{e}")
-            embed_cover_data = embed_cover_mime = save_cover_data = None
+    embed_cover_data, embed_cover_mime, save_cover_data = _process_cover(
+        cover_data, cover_url
+    )
 
     music_type, temp_music_path = None, None
     temp_lyric_paths = []
@@ -271,39 +335,19 @@ def download_song(
     if want_song:
         music_type = get_type_from_url(song_url)
         temp_music_path = str(temp_dir / f"{song_id}.{music_type}")
-        label = f"{song_title} - {song_artist}"
-        err = fetch_audio(
-            song_url,
+        落盘 = _download_and_verify(
             temp_music_path,
-            label,
+            song_url=song_url,
+            label=f"{song_title} - {song_artist}",
             progress=progress,
             task_id=task_id,
-            total=song_size,
+            song_size=song_size,
             use_curl=use_curl,
+            song_md5=song_md5,
+            run_check=run_check,
         )
-        if err:
-            # 半截文件或错误页留着没用，还会占着 _temp 里的同名位置
-            _discard_temp([temp_music_path])
-            return False, f"下载失败：{err}", None
-        if Path(temp_music_path).stat().st_size == 0:
-            _discard_temp([temp_music_path])
-            return False, "下载文件为空", None
-
-        # 先用服务端声明的大小与 md5 过一道，纯读文件比全量解码快得多
-        ok, msg = check_md5(temp_music_path, song_md5, song_size)
-        if not ok:
-            _discard_temp([temp_music_path])
-            return False, f"完整性校验失败：{msg}", None
-
-        if run_check is None:
-            run_check = get_check_enabled()
-        # 不再按 has_ffmpeg 整块门控 —— 装了 flac 没装 ffmpeg 的机器
-        # 仍然能验 flac 文件，逐段跳过的判断挪进 check_audio 内部了
-        if run_check and any_check_tool():
-            ok, msg = check_audio(temp_music_path)
-            if not ok:
-                _discard_temp([temp_music_path])
-                return False, f"完整性校验失败：{msg}", None
+        if 落盘 is not None:
+            return False, 落盘, None
 
         # Process lyrics for embedding
         embed_mode = get_embed_lyrics_mode()
