@@ -198,12 +198,11 @@ class Test连写表:
 
 
 class Test删除类:
-    def test_纯音乐不限行号(self):
-        """长歌中段插曲标记是常态，限制行号会漏"""
-        text = lrc("[00:00.000]歌词", "[02:17.000]纯音乐，请欣赏", "[03:00.000]歌词")
+    def test_纯音乐在头部时被删(self):
+        text = lrc("[00:00.000]纯音乐，请欣赏", "[00:05.000]歌词")
         _, rest = process_credits(text, 10, False, True)
         assert "纯音乐" not in rest
-        assert rest.count("歌词") == 2
+        assert "[00:05.000]歌词" in rest
 
     def test_半角逗号也认(self):
         _, rest = process_credits(lrc("[00:00.000]纯音乐,请欣赏"), 10, False, True)
@@ -266,6 +265,19 @@ class Test行号限制:
         text += "\n[00:10.000]歌词翻译：越界\n"
         _, rest = process_credits(text, 10, False, True)
         assert "歌词翻译：越界" in rest
+
+    def test_纯音乐也受限(self):
+        """实测这行只在整首没歌词的歌里出现，混着有歌词的歌里没见过"""
+        text = "\n".join(f"[00:{i:02d}.000]歌词{i}" for i in range(10))
+        text += "\n[00:10.000]纯音乐，请欣赏\n"
+        _, rest = process_credits(text, 10, False, True)
+        assert "纯音乐" in rest
+
+    def test_放宽行数就删掉(self):
+        text = "\n".join(f"[00:{i:02d}.000]歌词{i}" for i in range(10))
+        text += "\n[00:10.000]纯音乐，请欣赏\n"
+        _, rest = process_credits(text, 11, False, True)
+        assert "纯音乐" not in rest
 
 
 class Test四格矩阵:

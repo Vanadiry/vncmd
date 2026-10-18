@@ -5,7 +5,8 @@ from function.cache import put_raw_lyrics
 
 _TIMESTAMP_RE = re.compile(r"^\[(\d{2}):(\d{2})[:.](\d{2,3})\](.*)")
 _META_RE = re.compile(r"^\[(ti|ar|al|offset|length|re|ve):")
-# 纯音乐在中段插曲处也会出现，所以全文查而不限头部
+# 纯音乐。实测这行只出现在整首没有歌词的歌里，混着有歌词的歌里没见过，
+# 所以与其他几类一样受 credit_scan_lines 限制
 _PURE_MUSIC_RE = re.compile(r"纯音乐[，,]请欣赏")
 # 值为「无」的行没有内容可写，写进 tag 是脏数据
 _NO_VALUE_RE = re.compile(r"[:：]\s*无\s*$")
@@ -107,7 +108,7 @@ def process_credits(
         role = m.group("role") if m else None
         value = m.group("value") if m else None
 
-        if _PURE_MUSIC_RE.search(line):
+        if head and _PURE_MUSIC_RE.search(line):
             if trim:
                 continue
         elif head and _NO_VALUE_RE.search(line):
