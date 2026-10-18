@@ -44,7 +44,6 @@ from function.config import (
     get_auto_trim,
     get_check_enabled,
     get_concurrency,
-    get_credit_prefixes,
     get_credit_scan_lines,
     get_download_content,
     get_download_dir,
@@ -58,15 +57,13 @@ from function.download import fetch_audio, fetch_cover, fetch_lyrics
 from function.image import detect_format
 from function.image import process_cover as process_cover_image
 from function.lyrics import (
-    extract_credits,
-    is_pure_credits,
-    trim_lyrics,
-)
-from function.lyrics import (
     output_files as output_lyrics_files,
 )
 from function.lyrics import (
     process as process_lyrics,
+)
+from function.lyrics import (
+    process_credits,
 )
 from function.metadata import embed as embed_metadata
 from function.output import (
@@ -104,7 +101,7 @@ def _embed_with_retry(fn, *args) -> str:
     """嵌入元数据，失败后重试若干次，返回最后一次的错误说明或空串
 
     标签对音乐库很关键，值得再试几次：并发下的磁盘争用是偶发的，
-    重试就能成；而eyed3 读不出某些 mp3 属于确定性失败，重试无果但
+    重试就能成；而文件本身损坏属于确定性失败，重试无果但
     代价只是几十毫秒。
     """
     last = ""
@@ -240,28 +237,19 @@ def download_song(
         lyric_text, tlyric_text = fetch_lyrics(lyrics_api_url, source)
 
     # --- Parse credits / auto trim ---
-    parse_credits = get_parse_credits()
     auto_trim = get_auto_trim()
     scan_lines = get_credit_scan_lines()
-    prefixes = get_credit_prefixes()
-    composer = None
-    skip_lrc = False
+    # 没音频可写的时候不抽 —— 抽出来的 credits 没人接收，而行又被裁掉等于白删
+    collect = get_parse_credits() and want_song
+    credits: dict[str, str] = {}
 
-    if parse_credits:
-        composer, _ = extract_credits(lyric_text, scan_lines, [*prefixes, "作曲"])
-
-    if parse_credits and auto_trim:
-        lyric_text, _ = trim_lyrics(lyric_text, scan_lines, prefixes=["作曲"])
-        if tlyric_text:
-            tlyric_text, _ = trim_lyrics(tlyric_text, scan_lines, prefixes=["作曲"])
-        skip_lrc = is_pure_credits(lyric_text, prefixes)
-    elif auto_trim:
-        lyric_text, is_empty = trim_lyrics(lyric_text, scan_lines, [])
-        if tlyric_text:
-            tlyric_text, _ = trim_lyrics(tlyric_text, scan_lines, [])
-        if is_empty:
-            lyric_text = ""
-            tlyric_text = ""
+    if collect or auto_trim:
+        credits, lyric_text = process_credits(
+            lyric_text, scan_lines, collect, auto_trim
+        )
+        # 翻译歌词里没有 credit 行，只裁不抽，与 extract_credits 原来的行为一致
+        if auto_trim:
+            _, tlyric_text = process_credits(tlyric_text, scan_lines, False, True)
 
     # --- Fetch and process cover ---
     cover_data = None
@@ -345,7 +333,7 @@ def download_song(
             publish_time,
             track_no,
             cd_no,
-            composer,
+            credits or None,
         )
         if embed_err:
             # 音频本身过了校验，标签嵌不上不该把整首判为下载失败，
@@ -357,7 +345,8 @@ def download_song(
             )
 
     # --- Save lyrics to temp ---
-    if want_lyrics and lyric_text and not skip_lrc:
+    # 裁空之后 lyric_text 是空串，这一项就挡住了，不必再单独判「是不是只有 credits」
+    if want_lyrics and lyric_text:
         save_mode = get_save_lyrics_mode()
         base_path = str(temp_dir / str(song_id))
         result = process_lyrics(lyric_text, tlyric_text, save_mode, song_id)

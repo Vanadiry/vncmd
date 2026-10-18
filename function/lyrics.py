@@ -5,12 +5,68 @@ from function.cache import put_raw_lyrics
 
 _TIMESTAMP_RE = re.compile(r"^\[(\d{2}):(\d{2})[:.](\d{2,3})\](.*)")
 _META_RE = re.compile(r"^\[(ti|ar|al|offset|length|re|ve):")
-# 分隔符要同时认半角与全角：中文歌词里「作曲：XX」比「作曲:XX」常见得多，
-# 而只认半角会让这些行被当成普通歌词 —— 裁不掉、作曲人也抽不出来，
-# 抽不出作曲人时 extract_credits 会退而抓第一行credit，于是把编曲的人
-# 写进 composer 字段（实测「NEVER feat. Evil Neuro」就是这样错的）
-_CREDIT_RE_TEMPLATE = r"^\[\d{2}:\d{2}[:.]\d{2,3}\]\s*%s\s*[:：]\s*(.+)$"
+# 纯音乐在中段插曲处也会出现，所以全文查而不限头部
 _PURE_MUSIC_RE = re.compile(r"纯音乐[，,]请欣赏")
+# 值为「无」的行没有内容可写，写进 tag 是脏数据
+_NO_VALUE_RE = re.compile(r"[:：]\s*无\s*$")
+# 歌词翻译与歌词无关而 mp3 与 flac 都没有对应字段，只能丢。带冒号才认，
+# 否则正文里出现「歌词翻译」三个字的普通歌词会被误删
+_TRANSLATION_RE = re.compile(
+    r"^\[\d{2}:\d{2}[:.]\d{2,3}\]\s*(?:歌词翻译|歌詞翻譯)\s*[:：]"
+)
+# 冒号要同时认半角与全角：中文歌词里「作词：XX」比「作词:XX」常见得多，
+# 只认半角会让这些行被当成普通歌词，裁不掉也搬不走
+_CREDIT_LINE_RE = re.compile(
+    r"^\[\d{2}:\d{2}[:.]\d{2,3}\]\s*(?P<role>[^:：\[\]]{1,20}?)\s*[:：]\s*(?P<value>.+)$"
+)
+
+# 内部名 → (mp3 写法, flac 键)。简体与繁体共用同一个 tag 键
+# 母带不进表，mp3 与 flac 都没有标准字段，不硬塞
+# 乐器不进表，上游写的是具体乐器名而不是「乐器」这个角色
+# 演唱不进表，库里三行的值与文件已有的 artist 全部不一致
+CREDIT_FIELDS = {
+    "作曲": ("TCOM", "composer"),
+    "作词": ("TEXT", "lyricist"),
+    "编曲": ("TIPL:arranger", "arranger"),
+    "制作人": ("TIPL:producer", "producer"),
+    "混音": ("TIPL:mix", "mixer"),
+    "录音": ("TIPL:engineer", "engineer"),
+    "指挥": ("TPE3", "conductor"),
+}
+
+# 角色别名 → 内部名。繁体必须一起认，否则繁体歌词的 credit 行会被当成歌词。
+# 「作曲」的繁体与简体同形，「作词」的繁体是「作詞」，两者不撞车
+ROLE_ALIASES = {
+    "作曲": "作曲",
+    "作词": "作词",
+    "作詞": "作词",
+    "编曲": "编曲",
+    "編曲": "编曲",
+    "制作人": "制作人",
+    "製作人": "制作人",
+    "Producer": "制作人",
+    "混音": "混音",
+    "Mixer": "混音",
+    "录音": "录音",
+    "錄音": "录音",
+    "指挥": "指挥",
+    "指揮": "指挥",
+}
+
+# 连写角色名 → (要记的角色, 保留后剩下的角色名)。
+# 剩下的为 None 表示整行删掉。
+# 库里只有这七种，逐个写死。库里的六种含表内角色的连写里，
+# 「配唱制作人」与「人声录音」不在这张表里 —— 前者的「制作人」匹配不上整名，
+# 后者整体是「录人声的那个录音师」而不是「人声」加「录音」两件事
+CREDIT_COMBOS = {
+    "作/編曲": (("作曲", "编曲"), None),
+    "作/编曲": (("作曲", "编曲"), None),
+    "作編曲": (("作曲", "编曲"), None),
+    "作编曲": (("作曲", "编曲"), None),
+    "作曲/编曲": (("作曲", "编曲"), None),
+    "作曲/編曲": (("作曲", "编曲"), None),
+    "混音/母带": (("混音",), "母带"),
+}
 
 
 def clean(text: str) -> str:
@@ -36,84 +92,67 @@ def parse(text: str) -> list[tuple[float, str, str]]:
     return result
 
 
-def extract_credits(
-    text: str, scan_lines: int = 10, prefixes: list[str] | None = None
-) -> tuple[str | None, str]:
+def process_credits(
+    text: str, scan_lines: int = 10, collect: bool = False, trim: bool = False
+) -> tuple[dict[str, str], str]:
     """
-    Scan first *scan_lines* for credit role lines. Returns (composer_name, text).
-    Only extracts composer; does NOT remove any lines from text.
+    扫歌词头部，把角色行搬进 credits，并按开关决定删不删那些行。
+
+    *collect* 为真时把值收进 credits，为假时一个角色都不收。
+    *trim* 为真时删掉三类占位与所有已处理的角色行，为假时一行不动。
+
+    值原样保留不拆 —— 上游用到的分隔符在播放器里本来就拆得开，
+    拆成多值反而只剩第一个。
+
+    同一角色在头部出现多行时后一个覆盖前一个。库里这样写的五个文件全是
+    同一个人写了两遍，其中「カワイヒデヒロ(fox capture plan)」那行更详细，
+    所以覆盖不丢东西。
     """
-    if prefixes is None:
-        prefixes = ["作曲", "作词", "编曲", "制作人"]
+    credits: dict[str, str] = {}
+    kept: list[str] = []
+    for i, line in enumerate(text.splitlines()):
+        head = i < scan_lines
+        m = _CREDIT_LINE_RE.match(line)
+        role = m.group("role") if m else None
+        value = m.group("value") if m else None
 
-    lines = text.splitlines()
-    composer = None
-    for i, line in enumerate(lines):
-        if i >= scan_lines:
-            break
-        for role in prefixes:
-            role_re = re.compile(_CREDIT_RE_TEMPLATE % re.escape(role))
-            m = role_re.match(line)
-            if m and role == "作曲":
-                composer = m.group(1).strip()
-                break
-    return composer, text
-
-
-def trim_lyrics(
-    text: str, scan_lines: int = 10, prefixes: list[str] | None = None
-) -> tuple[str, bool]:
-    """
-    Remove credit lines and 纯音乐. Returns (trimmed_text, is_empty).
-    *prefixes* controls which credit roles to remove.
-    """
-    if prefixes is None:
-        prefixes = ["作曲", "作词", "编曲", "制作人"]
-
-    lines = text.splitlines()
-    kept = []
-    for i, line in enumerate(lines):
-        if i < scan_lines:
-            matched = False
-            for role in prefixes:
-                role_re = re.compile(_CREDIT_RE_TEMPLATE % re.escape(role))
-                if role_re.match(line):
-                    matched = True
-                    break
-            if matched:
-                continue
         if _PURE_MUSIC_RE.search(line):
-            continue
+            if trim:
+                continue
+        elif head and _NO_VALUE_RE.search(line):
+            # 值为无的行没有内容可写，删掉但不收进 credits
+            if trim:
+                continue
+        elif head and _TRANSLATION_RE.match(line):
+            if trim:
+                continue
+        elif head and role in CREDIT_COMBOS:
+            roles, leftover = CREDIT_COMBOS[role]
+            # 角色名改写与删行都只在角色真被搬走时才做。
+            # 没搬走就改掉「混音/」或者整行删掉，删掉的部分没进任何地方，是白丢
+            if collect:
+                for r in roles:
+                    credits[r] = value
+                if trim:
+                    if leftover is None:
+                        continue
+                    line = line[: m.start("role")] + leftover + line[m.end("role") :]
+        elif head and collect and role in ROLE_ALIASES:
+            # 与连写同理：没搬走就裁掉，这一行就是白丢。
+            # 只开 auto_trim 不开 parse_credits 时角色行要留着 ——
+            # 改动前那一格走的是空 prefixes，同样不裁角色行
+            credits[ROLE_ALIASES[role]] = value
+            if trim:
+                continue
+
         kept.append(line)
 
-    trimmed = "\n".join(kept)
-    remaining = parse(trimmed)
-    is_empty = len(remaining) == 0 and not trimmed.strip()
-    return trimmed, is_empty
+    return credits, "\n".join(kept)
 
 
 def has_meaningful_lyrics(text: str) -> bool:
     """Check if text has actual lyric lines (with timestamps)."""
     return len(parse(text)) > 0
-
-
-def is_pure_credits(text: str, prefixes: list[str] | None = None) -> bool:
-    """Check if text consists ONLY of credit lines (no actual lyrics)."""
-    if prefixes is None:
-        prefixes = ["作曲", "作词", "编曲", "制作人"]
-    parsed = parse(text)
-    if not parsed:
-        return not text.strip()
-    roles = set(prefixes)
-    for _, content, _ in parsed:
-        for role in roles:
-            # 与 _CREDIT_RE_TEMPLATE 一样要认全角，
-            # 否则全角写法的 credit 行在这里会被判成歌词
-            if re.match(rf"^\s*{re.escape(role)}\s*[:：]", content):
-                break
-        else:
-            return False
-    return True
 
 
 def interleave(lrc_text: str, tlyric_text: str, threshold: float = 0.3) -> str:

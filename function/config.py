@@ -146,9 +146,6 @@ def validate_config(quiet: bool = False) -> None:
     scan = dly.get("credit_scan_lines")
     if not isinstance(scan, int) or isinstance(scan, bool) or scan < 1:
         errors.append("[download.lyric] credit_scan_lines 缺失或不为正整数")
-    prefixes = dly.get("credit_prefixes")
-    if not isinstance(prefixes, list) or not all(isinstance(p, str) for p in prefixes):
-        errors.append("[download.lyric] credit_prefixes 缺失或不为字符串列表")
 
     # [download.cover]
     dc = dl.get("cover", {})
@@ -276,10 +273,6 @@ def get_auto_trim() -> bool:
 
 def get_credit_scan_lines() -> int:
     return _get_cfg()["download"]["lyric"]["credit_scan_lines"]
-
-
-def get_credit_prefixes() -> list[str]:
-    return _get_cfg()["download"]["lyric"]["credit_prefixes"]
 
 
 def get_cache_ttl() -> int:

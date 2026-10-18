@@ -1,139 +1,411 @@
-"""credit 行的识别与裁剪
+"""credit 行的识别、搬走与裁剪
 
-三个函数里没有测试，所以中文歌词里的全角冒号被漏掉了一直没被发现：
-`作曲：XX` 不被当成 credit，裁不掉、作曲人也抽不出来。
+`process_credits` 一个函数管两件事：把认得出的角色搬进 credits，
+并按开关决定删不删那些行。两个开关的四种组合逐格断言，
+因为它们之间最容易出现「搬走了却没删」或者「没搬走却删了」这类不一致。
+
+行的样子全部取自 2026-10-17 的实测（用户真实曲库 528 首、307 个 lrc），
+不是凭空编的。
 """
+
+import hashlib
+from pathlib import Path
 
 import pytest
 
-from function.lyrics import (
-    _CREDIT_RE_TEMPLATE,
-    extract_credits,
-    is_pure_credits,
-    trim_lyrics,
-)
-
-ROLES = ["作词", "编曲", "制作人", "混音", "母带制作", "作曲"]
+from function import downloader
+from function.downloader import download_song
+from function.lyrics import CREDIT_COMBOS, process_credits
 
 
 def lrc(*lines):
     return "\n".join(lines) + "\n"
 
 
-# 实测（2026-10-17，用户真实曲库 528 首）被漏掉的那几行
+# 实测里出现过的那几行，繁体与全角冒号都有
 REAL = [
     "[00:08.75]作曲：残月",
     "[00:01.30]编曲：emon(Tes.)",
     "[00:00.94]编曲：カワイヒデヒロ(fox capture plan)",
     "[00:09.14]混音：Kolaa、Hanser",
     "[00:03.578]编曲：ilem",
+    "[00:02.00]作詞：狐夢想(COOL&CREATE)",
+    "[00:03.10]編曲：大久保薫",
+]
+
+# 含表内角色但按规格不处理的连写，一个都不能碰
+COMBO_OUT = [
+    ("[00:01.00]配唱制作人：金大洲", "配唱制作人"),
+    ("[00:01.00]人声录音：郑晓桐", "人声录音"),
+    ("[00:01.00]母带制作：Ten Jensen@Sterling Sound", "母带制作"),
+    ("[00:01.00]音乐制作发行：北京听见时代娱乐传媒有限公司", "音乐制作发行"),
+]
+
+ALIASES = [
+    ("[00:01.00]作曲：X", "作曲", "X"),
+    ("[00:01.00]作词：X", "作词", "X"),
+    ("[00:01.00]作詞：X", "作词", "X"),
+    ("[00:01.00]编曲：X", "编曲", "X"),
+    ("[00:01.00]編曲：X", "编曲", "X"),
+    ("[00:01.00]制作人：X", "制作人", "X"),
+    ("[00:01.00]製作人：X", "制作人", "X"),
+    ("[00:01.00]Producer: X", "制作人", "X"),
+    ("[00:01.00]混音：X", "混音", "X"),
+    ("[00:01.00]Mixer: X", "混音", "X"),
+    ("[00:01.00]录音：X", "录音", "X"),
+    ("[00:01.00]錄音：X", "录音", "X"),
+    ("[00:01.00]指挥：X", "指挥", "X"),
+    ("[00:01.00]指揮：X", "指挥", "X"),
+]
+
+COMBO_PAIRS = [
+    ("[00:01.00]作/編曲：ARM(IOSYS)", "ARM(IOSYS)"),
+    ("[00:01.00]作/编曲：ARM(IOSYS)", "ARM(IOSYS)"),
+    ("[00:01.00]作編曲：ARM(IOSYS)", "ARM(IOSYS)"),
+    ("[00:01.00]作编曲：ARM(IOSYS)", "ARM(IOSYS)"),
+    ("[00:01.00]作曲/编曲：ARM(IOSYS)", "ARM(IOSYS)"),
+    ("[00:01.00]作曲/編曲：ARM(IOSYS)", "ARM(IOSYS)"),
 ]
 
 
-class Test冒号:
-    @pytest.mark.parametrize("colon", [":", "："])
-    def test_两种冒号都认(self, colon):
-        """只认半角会让全角那批全被漏掉 —— 实测 11 行、8 个文件"""
-        assert re_match(f"[00:08.75]作曲{colon}残月")
+class Test角色表:
+    @pytest.mark.parametrize("line,role,value", ALIASES)
+    def test_逐行命中(self, line, role, value):
+        credits, _ = process_credits(lrc(line), 10, True, False)
+        assert credits == {role: value}
 
     @pytest.mark.parametrize("colon", [":", "："])
-    def test_冒号前后有空格也认(self, colon):
-        """实测「作词 : 赵武」这种带空格的写法也在库里"""
-        assert re_match(f"[00:01.00] 作词 {colon} 赵武", "作词")
+    def test_两种冒号都认(self, colon):
+        credits, _ = process_credits(lrc(f"[00:01.00]作词{colon}赵武"), 10, True, False)
+        assert credits == {"作词": "赵武"}
+
+    def test_冒号前后有空格也认(self):
+        """实测「作词 : 赵武」这种带空格的写法在库里有五处"""
+        credits, _ = process_credits(lrc("[00:01.00] 作词 : 赵武"), 10, True, False)
+        assert credits == {"作词": "赵武"}
 
     @pytest.mark.parametrize("line", REAL)
     def test_实测那几行改动后不再被漏(self, line):
-        """它们该被 trim_lyrics 认出来裁掉，而不是留在歌词里
+        credits, rest = process_credits(lrc(line, "[00:20.00]歌词"), 10, True, True)
+        assert credits, f"没搬走：{line}"
+        assert line not in rest, f"没裁掉：{line}"
+        assert "[00:20.00]歌词" in rest
 
-        extract_credits 只抽作曲，拿编曲那几行去问作曲当然问不出东西 ——
-        那是另一个函数的事，这里测的是「认得出这是 credit 行」。
-        """
-        role = line.split("]")[1].strip().split("：")[0].split(":")[0].strip()
-        out, _ = trim_lyrics(lrc(line, "[00:20.00]歌词"), 10, prefixes=[role])
-        assert line.split("]", 1)[1].strip() not in out, f"没裁掉：{line}"
-        assert "[00:20.00]歌词" in out
-
-
-def re_match(line, role="作曲"):
-    import re
-
-    return re.compile(_CREDIT_RE_TEMPLATE % re.escape(role)).match(line) is not None
-
-
-class Test抽作曲人:
-    def test_半角冒号(self):
-        got, _ = extract_credits(lrc("[00:01.00]作曲:大瀧詠一"), 10, ["作曲"])
-        assert got == "大瀧詠一"
-
-    def test_全角冒号(self):
-        got, _ = extract_credits(lrc("[00:01.00]作曲：大瀧詠一"), 10, ["作曲"])
-        assert got == "大瀧詠一"
-
-    def test_没有作曲行就返回None(self):
-        """NEVER 那首只有编曲，抽不到作曲就该是 None
-
-        改动前它会抓到第一行 credit 当作曲，把编曲的人写进 composer 字段。
-        """
-        got, _ = extract_credits(
-            lrc("[00:01.000] 编曲 : Asteroid Music Team"), 10, [*ROLES, "作曲"]
+    def test_七个角色一次全中(self):
+        text = lrc(
+            "[00:00.000]作曲：大瀧詠一",
+            "[00:01.000]作詞：畑亜貴",
+            "[00:02.000]编曲：wowaka",
+            "[00:03.000]製作人：X",
+            "[00:04.000]混音：Mike Truman",
+            "[00:05.000]錄音：D-Jin",
+            "[00:06.000]指揮：X",
+            "[00:07.000]歌词",
         )
-        assert got is None, f"不该把编曲当作曲：{got}"
+        credits, rest = process_credits(text, 10, True, True)
+        assert credits == {
+            "作曲": "大瀧詠一",
+            "作词": "畑亜貴",
+            "编曲": "wowaka",
+            "制作人": "X",
+            "混音": "Mike Truman",
+            "录音": "D-Jin",
+            "指挥": "X",
+        }
+        assert rest == "[00:07.000]歌词"
 
-    def test_抽取时不删行(self):
-        """抽与裁是两件事，抽的时候原文要留着"""
-        text = lrc("[00:01.00]作曲：X", "[00:05.00]歌词")
-        _, text2 = extract_credits(text, 10, ["作曲"])
-        assert "作曲：X" in text2
-
-    def test_超过扫描行数就不抽(self):
-        text = "\n".join(["[00:00.00]词"] * 10 + ["[00:10.00]作曲：X"]) + "\n"
-        got, _ = extract_credits(text, 10, ["作曲"])
-        assert got is None
-
-
-class Test裁剪:
-    def test_全角冒号那行被裁掉(self):
-        text = lrc("[00:08.75]作曲：残月", "[00:11.36]编曲：残月", "[00:20.00]歌词")
-        out, _ = trim_lyrics(text, 10, prefixes=["作曲"])
-        assert "作曲：残月" not in out
-        assert "编曲：残月" in out, "只裁作曲，不该动编曲"
-        assert "[00:20.00]歌词" in out
-
-    def test_半角也一样(self):
-        text = lrc("[00:08.75]作曲:残月", "[00:20.00]歌词")
-        out, _ = trim_lyrics(text, 10, prefixes=["作曲"])
-        assert "作曲:残月" not in out
-
-    def test_空口令返回值(self):
-        text = lrc("[00:01.00]纯音乐，请欣赏", "[00:02.00]纯音乐，请欣赏")
-        _out, is_empty = trim_lyrics(text, 10, prefixes=["作曲"])
-        assert is_empty
-
-    def test_不传prefixes有兜底(self):
-        out, _ = trim_lyrics(lrc("[00:01.00]作词：X", "[00:05.00]歌词"))
-        assert "作词：X" not in out
+    def test_同角色两行取后一个(self):
+        """库里这样写的五个文件全是同一个人写了两遍，其中一行更详细"""
+        text = lrc(
+            "[00:00.00]编曲：カワイヒデヒロ",
+            "[00:01.00]编曲：カワイヒデヒロ(fox capture plan)",
+        )
+        credits, _ = process_credits(text, 10, True, False)
+        assert credits == {"编曲": "カワイヒデヒロ(fox capture plan)"}
 
 
-class Test纯credit判断:
-    def test_全是credit判True(self):
-        text = lrc("[00:01.00]作词：X", "[00:02.00]作曲：Y")
-        assert is_pure_credits(text, ROLES)
+class Test值原样:
+    def test_括号里的逗号不动(self):
+        """踩过：按逗号切会把这个团队名切成三片碎片"""
+        raw = "[00:00.000]作曲：Asteroid Music Team（monii, Johnny R, Ari）"
+        credits, _ = process_credits(lrc(raw), 10, True, False)
+        assert credits == {"作曲": "Asteroid Music Team（monii, Johnny R, Ari）"}
 
-    def test_全角冒号也要认(self):
-        """这一处也有一个半角硬编码的冒号，与 _CREDIT_RE_TEMPLATE 是同一个坑"""
-        assert is_pure_credits(lrc("[00:01.00]作词：X", "[00:02.00]作曲：Y"), ROLES)
+    def test_斜杠分隔不动(self):
+        raw = "[00:00.000]作词：monii/Neuro-sama/Evil Neuro"
+        credits, _ = process_credits(lrc(raw), 10, True, False)
+        assert credits == {"作词": "monii/Neuro-sama/Evil Neuro"}
 
-    def test_有歌词判False(self):
-        text = lrc("[00:01.00]作词：X", "[00:05.00]这是歌词")
-        assert not is_pure_credits(text, ROLES)
+    def test_值是字符串不是列表(self):
+        """多值在 Petrichor 与 ffprobe 上都只显示第一个，所以一律写整串"""
+        credits, _ = process_credits(
+            lrc("[00:00.00]混音：Kolaa、Hanser"), 10, True, False
+        )
+        assert isinstance(credits["混音"], str)
+        assert credits["混音"] == "Kolaa、Hanser"
 
-    def test_全角冒号加歌词判False(self):
-        text = lrc("[00:01.00]作词：X", "[00:05.00]这是歌词")
-        assert not is_pure_credits(text, ROLES)
 
-    def test_不在白名单的角色不算credit(self):
-        text = lrc("[00:01.00]钢琴：X")
-        assert not is_pure_credits(text, ROLES)
+class Test连写表:
+    @pytest.mark.parametrize("line,value", COMBO_PAIRS)
+    def test_六个字符串都记两个角色并整行删(self, line, value):
+        credits, rest = process_credits(lrc(line, "[00:20.00]歌词"), 10, True, True)
+        assert credits == {"作曲": value, "编曲": value}
+        assert line not in rest
+        assert "[00:20.00]歌词" in rest
 
-    def test_空文本算纯credit(self):
-        assert is_pure_credits("", ROLES)
+    def test_混音母带记混音并留母带(self):
+        credits, rest = process_credits(
+            lrc("[00:00.000]混音/母带：Johnny R", "[00:05.000]歌词"), 10, True, True
+        )
+        assert credits == {"混音": "Johnny R"}
+        assert rest == "[00:00.000]母带：Johnny R\n[00:05.000]歌词"
+
+    def test_没搬走就不改角色名(self):
+        """只开 trim 没开 collect 时，删掉「混音/」而它没进任何地方就是白丢"""
+        credits, rest = process_credits(
+            lrc("[00:00.000]混音/母带：Johnny R"), 10, False, True
+        )
+        assert credits == {}
+        assert rest == "[00:00.000]混音/母带：Johnny R"
+
+    def test_没搬走就不删连写行(self):
+        _, rest = process_credits(lrc("[00:01.00]作編曲：ARM(IOSYS)"), 10, False, True)
+        assert "作編曲：ARM(IOSYS)" in rest
+
+    @pytest.mark.parametrize("line,role", COMBO_OUT)
+    def test_规格外的一律不动(self, line, role):
+        """`人声录音` 整体是「录人声的那个录音师」，不是「人声」加「录音」"""
+        credits, rest = process_credits(lrc(line), 10, True, True)
+        assert credits == {}
+        assert role in rest
+
+    def test_表里没有的单字作不认(self):
+        """「作」不是角色名，它只是「作词」与「作曲」的省略写法"""
+        credits, rest = process_credits(lrc("[00:00.00]作：X"), 10, True, True)
+        assert credits == {}
+        assert "作：X" in rest
+
+    def test_表与规格一致(self):
+        assert set(CREDIT_COMBOS) == {
+            "作/編曲",
+            "作/编曲",
+            "作編曲",
+            "作编曲",
+            "作曲/编曲",
+            "作曲/編曲",
+            "混音/母带",
+        }
+
+
+class Test删除类:
+    def test_纯音乐不限行号(self):
+        """长歌中段插曲标记是常态，限制行号会漏"""
+        text = lrc("[00:00.000]歌词", "[02:17.000]纯音乐，请欣赏", "[03:00.000]歌词")
+        _, rest = process_credits(text, 10, False, True)
+        assert "纯音乐" not in rest
+        assert rest.count("歌词") == 2
+
+    def test_半角逗号也认(self):
+        _, rest = process_credits(lrc("[00:00.000]纯音乐,请欣赏"), 10, False, True)
+        assert rest == ""
+
+    @pytest.mark.parametrize("line", ["[00:00.000] 作词 : 无", "[00:00.00]作词：无"])
+    def test_值为无被删(self, line):
+        _, rest = process_credits(lrc(line, "[00:01.00]歌词"), 10, False, True)
+        assert "无" not in rest
+        assert "[00:01.00]歌词" in rest
+
+    @pytest.mark.parametrize("line", ["[00:00.000]作词 : 无", "[00:00.00]作词：无"])
+    def test_值为无不写进tag(self, line):
+        """没有内容可写，写进去是脏数据"""
+        credits, _ = process_credits(lrc(line), 10, True, False)
+        assert credits == {}
+
+    def test_值里含无不算无(self):
+        """无名氏是真名，不能当占位删掉"""
+        credits, _ = process_credits(lrc("[00:00.000]作词：无名氏"), 10, True, False)
+        assert credits == {"作词": "无名氏"}
+
+    @pytest.mark.parametrize("role", ["歌词翻译", "歌詞翻譯"])
+    def test_歌词翻译被删(self, role):
+        _, rest = process_credits(lrc(f"[00:00.000]{role}：@老肯LK"), 10, False, True)
+        assert rest == ""
+
+    def test_正文出现歌词翻译三字但没冒号不删(self):
+        text = lrc("[00:01.00]歌词翻译这三字出现在歌里", "[00:02.00]歌词")
+        _, rest = process_credits(text, 10, False, True)
+        assert "歌词翻译这三字出现在歌里" in rest
+
+    def test_删除类不写进tag(self):
+        credits, _ = process_credits(lrc("[00:00.000]歌词翻译：X"), 10, True, False)
+        assert credits == {}
+
+    @pytest.mark.parametrize("line,keep", COMBO_OUT)
+    def test_母带制作不被当成值为无(self, line, keep):
+        _, rest = process_credits(lrc(line), 10, False, True)
+        assert keep in rest
+
+
+class Test行号限制:
+    def test_角色行越界就不搬也不裁(self):
+        text = "\n".join(f"[00:{i:02d}.000]歌词{i}" for i in range(10))
+        text += "\n[00:10.000]作词：越界\n"
+        credits, rest = process_credits(text, 10, True, True)
+        assert credits == {}
+        assert "越界" in rest
+
+    def test_放宽行数就搬走(self):
+        text = "\n".join(f"[00:{i:02d}.000]歌词{i}" for i in range(10))
+        text += "\n[00:10.000]作词：越界\n"
+        credits, rest = process_credits(text, 11, True, True)
+        assert credits == {"作词": "越界"}
+        assert "越界" not in rest
+
+    def test_歌词翻译也受限(self):
+        text = "\n".join(f"[00:{i:02d}.000]歌词{i}" for i in range(10))
+        text += "\n[00:10.000]歌词翻译：越界\n"
+        _, rest = process_credits(text, 10, False, True)
+        assert "歌词翻译：越界" in rest
+
+
+class Test四格矩阵:
+    ROLE_LINE = "[00:01.00]作词：X"
+    PLACEHOLDER = "[00:02.00]纯音乐，请欣赏"
+    LYRIC = "[00:03.00]这是歌词"
+
+    @pytest.mark.parametrize(
+        "collect,trim,role_kept,credit",
+        [
+            (False, False, True, False),
+            (True, False, True, True),
+            (False, True, True, False),
+            (True, True, False, True),
+        ],
+    )
+    def test_逐格(self, collect, trim, role_kept, credit):
+        text = lrc(self.ROLE_LINE, self.PLACEHOLDER, self.LYRIC)
+        credits, rest = process_credits(text, 10, collect, trim)
+        assert (self.ROLE_LINE in rest) is role_kept
+        assert (self.PLACEHOLDER in rest) is (not trim)
+        assert (self.LYRIC in rest) is True
+        assert (credits.get("作词") == "X") is credit
+
+    def test_两个都关时原文一字不动(self):
+        text = lrc(self.ROLE_LINE, self.PLACEHOLDER, self.LYRIC)
+        credits, rest = process_credits(text, 10, False, False)
+        assert credits == {}
+        assert rest == text.rstrip("\n")
+
+    def test_裁空之后剩下空串(self):
+        """上游整首只有 credits 时不写 lrc 文件也不嵌空歌词"""
+        credits, rest = process_credits(lrc(self.ROLE_LINE), 10, True, True)
+        assert credits == {"作词": "X"}
+        assert rest == ""
+
+    def test_留白行原样保留(self):
+        """上游 lrc 里有空时间戳行，裁的时候不能顺手删掉"""
+        text = lrc("[00:00.00]", "[00:01.00]作词：X", "[00:02.00]")
+        _credits, rest = process_credits(text, 10, True, True)
+        assert rest == "[00:00.00]\n[00:02.00]"
+
+    def test_歌词里带冒号不该被搬走(self):
+        """实测库里有一批歌词本身就带冒号（全员、在了一起之类）"""
+        text = lrc("[00:00.00]全员：在一起!", "[00:05.00]歌词")
+        credits, rest = process_credits(text, 10, True, True)
+        assert credits == {}
+        assert "全员：在一起!" in rest
+
+    def test_署名类的英文不搬(self):
+        """Written by 分不清词曲，硬分是编"""
+        credits, rest = process_credits(lrc("[00:00.00]Written by: X"), 10, True, True)
+        assert credits == {}
+        assert "Written by: X" in rest
+
+    def test_歌词翻译不搬但Vocal搬不到也不动(self):
+        for line in (
+            "[00:00.00]Vocal：Neuro-sama",
+            "[00:00.00]Composed and mixed by：X",
+        ):
+            credits, rest = process_credits(lrc(line), 10, True, True)
+            assert credits == {}
+            assert line in rest
+
+
+AUDIO = b"fLaC" + b"vncmd" * 5000
+CREDIT_LYRIC = (
+    "[00:00.000] 作曲 : 大瀧詠一\n"
+    "[00:01.000] 作词 : monii/Neuro-sama/Evil Neuro\n"
+    "[00:05.000] 纯音乐，请欣赏\n"
+    "[00:15.920]YOU BURNED MY SOUL AGAIN\n"
+)
+
+
+class TestDownloader接线:
+    """这一层测两个开关怎么接到 process_credits 上，逻辑本身上面已测过"""
+
+    @pytest.fixture
+    def run(self, tmp_path, monkeypatch):
+        state = {"content": "012", "credits": None}
+
+        def fake_fetch(url, path, label, progress=None, task_id=None, **kw):
+            Path(path).write_bytes(AUDIO)
+
+        def fake_embed(_fn, *args):
+            state["credits"] = args[-1]
+
+        monkeypatch.setattr(downloader, "fetch_audio", fake_fetch)
+        monkeypatch.setattr(downloader, "fetch_lyrics", lambda *_a: (CREDIT_LYRIC, ""))
+        monkeypatch.setattr(downloader, "fetch_cover", lambda *_a: b"\x89PNG")
+        monkeypatch.setattr(downloader, "embed_metadata", fake_embed)
+        monkeypatch.setattr(downloader, "get_check_enabled", lambda: False)
+        monkeypatch.setattr(
+            downloader, "get_download_content", lambda: state["content"]
+        )
+        monkeypatch.setattr(downloader, "get_parse_credits", lambda: True)
+        monkeypatch.setattr(downloader, "get_auto_trim", lambda: True)
+
+        def go(content="012"):
+            state["content"] = content
+            dl = tmp_path / f"dl{content}"
+            ok, msg, _ = download_song(
+                song_url="http://x/a.flac",
+                song_title="歌",
+                song_artist="人",
+                song_album="专",
+                song_id=1,
+                cover_url="http://x/c.png",
+                lyrics_api_url="http://x/l",
+                publish_time="",
+                download_dir=str(dl),
+                song_md5=hashlib.md5(AUDIO).hexdigest(),
+            )
+            assert ok, msg
+            lr = sorted(dl.glob("*.lrc"))
+            assert len(lr) == 1, f"lrc 文件数不对：{[p.name for p in lr]}"
+            return lr[0].read_text(), state["credits"]
+
+        go.state = state
+        return go
+
+    def test_两个开关开时搬走并裁掉(self, run):
+        text, credits = run("012")
+        assert credits == {
+            "作曲": "大瀧詠一",
+            "作词": "monii/Neuro-sama/Evil Neuro",
+        }
+        assert "大瀧詠一" not in text
+        assert "YOU BURNED MY SOUL AGAIN" in text
+        assert "纯音乐" not in text
+
+    def test_仅歌词时角色行不裁(self, run):
+        """content 为 1 时不会下音频，抽出来的 credits 没人接收，
+        而行被裁掉就是白删。改动前丢的是作曲一行，改动后会丢七个角色"""
+        text, credits = run("1")
+        assert credits is None, "没有音频可写，不该去抽"
+        assert "作曲 : 大瀧詠一" in text
+        assert "YOU BURNED MY SOUL AGAIN" in text
+
+    def test_仅歌词时删除类照裁(self, run):
+        """值为无、歌词翻译、纯音乐这三类不依赖标签，该删还是删"""
+        text, _ = run("1")
+        assert "纯音乐" not in text
