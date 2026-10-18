@@ -2,7 +2,13 @@ from pathlib import Path
 
 import pytest
 
-from function.checker import check_audio, ffprobe_info, has_ffmpeg, has_flac
+from function.checker import (
+    check_audio,
+    ffprobe_info,
+    has_ffmpeg,
+    has_ffprobe,
+    has_flac,
+)
 
 
 def _gen_valid_flac(path: Path) -> None:
@@ -31,6 +37,9 @@ class TestChecker:
     def test_has_ffmpeg(self):
         assert isinstance(has_ffmpeg(), bool)
 
+    def test_has_ffprobe(self):
+        assert isinstance(has_ffprobe(), bool)
+
     def test_has_flac(self):
         assert isinstance(has_flac(), bool)
 
@@ -48,7 +57,7 @@ class TestChecker:
         ok, _ = check_audio(str(bad_path))
         assert not ok
 
-    @pytest.mark.skipif(not has_ffmpeg(), reason="需要 ffmpeg")
+    @pytest.mark.skipif(not has_ffprobe(), reason="需要 ffprobe")
     def test_ffprobe_info(self, temp_dir):
         flac_path = Path(temp_dir) / "valid.flac"
         _gen_valid_flac(flac_path)
