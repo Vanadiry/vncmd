@@ -5,6 +5,9 @@ from function.cache import put_raw_lyrics
 
 _TIMESTAMP_RE = re.compile(r"^\[(\d{2}):(\d{2})[:.](\d{2,3})\](.*)")
 _META_RE = re.compile(r"^\[(ti|ar|al|offset|length|re|ve):")
+# 扫 credit 时不占行号配额的那些行。比 _META_RE 宽 —— 后者漏了 by:，
+# 而 by: 正是 LRC 头四行里最常见的一个
+_META_TAG_RE = re.compile(r"^\[[a-zA-Z]+:")
 # 纯音乐。整行去掉时间戳之后正好是这一句才算，早先用「含即删」，
 # 正文里出现这六个字也会被删 —— 连 credit 行都会被吃掉：
 # `作曲：他说纯音乐，请欣赏` 整行没了而作曲人也没进 tag
@@ -112,11 +115,18 @@ def process_credits(
     同一角色在头部出现多行时后一个覆盖前一个。库里这样写的五个文件全是
     同一个人写了两遍，其中「カワイヒデヒロ(fox capture plan)」那行更详细，
     所以覆盖不丢东西。
+
+    *scan_lines* 只数非元数据行。[ti:] [ar:] [al:] [by:] 这些不占配额 ——
+    clean() 在这一步之后才跑，扫的时候它们还在，而标准 LRC 头就有四行，
+    默认的 10 行会被白吃掉四行。
     """
     credits: dict[str, str] = {}
     kept: list[str] = []
-    for i, line in enumerate(text.splitlines()):
-        head = i < scan_lines
+    quota = scan_lines
+    for line in text.splitlines():
+        head = quota > 0
+        if head and not _META_TAG_RE.match(line):
+            quota -= 1
         m = _CREDIT_LINE_RE.match(line)
         role = m.group("role") if m else None
         value = m.group("value") if m else None

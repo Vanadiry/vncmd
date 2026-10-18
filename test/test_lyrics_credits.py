@@ -322,6 +322,27 @@ class Test行号限制:
         _, rest = process_credits(text, 10, False, True)
         assert "纯音乐" in rest
 
+    def test_元数据行不占配额(self):
+        """clean() 在这一步之后才跑，扫的时候 [ti:] 那几行还在。
+        标准 LRC 头四行会白吃掉默认 10 行里的四行"""
+        text = "[ti:歌名]\n[ar:歌手]\n[al:专辑]\n[by:工具]\n"
+        text += "[00:00.00]歌词\n[00:01.00]作词：X\n"
+        credits, _ = process_credits(text, 5, True, False)
+        assert credits == {"作词": "X"}, "第 5 行的作词该算头部内"
+
+    def test_元数据行不够多时配额照常数(self):
+        text = "[ti:歌名]\n" + "\n".join(f"[00:{i:02d}.000]歌词{i}" for i in range(5))
+        text += "\n[00:06.00]作词：X\n"
+        credits, _ = process_credits(text, 5, True, False)
+        assert credits == {}, "歌词已经用掉五行配额，第 6 行该越界"
+
+    def test_时间戳行不会被当成元数据(self):
+        """[00:01.00] 里的 00 是数字不是字母，不能被 _META_TAG_RE 吃掉配额"""
+        text = "\n".join(f"[00:{i:02d}.000]歌词{i}" for i in range(5))
+        text += "\n[00:05.000]作词：越界\n"
+        credits, _ = process_credits(text, 5, True, False)
+        assert credits == {}
+
     def test_放宽行数就删掉(self):
         text = "\n".join(f"[00:{i:02d}.000]歌词{i}" for i in range(10))
         text += "\n[00:10.000]纯音乐，请欣赏\n"
