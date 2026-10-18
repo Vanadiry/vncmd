@@ -57,6 +57,12 @@ QUALITY_MAP = {
 # 三个字母没有天然顺序，所以读的时候按包含判断，顺序无所谓
 CONTENT_LETTERS = "alc"
 
+# 译文歌词的处理方式。第三档两边不同：embed 是不要译文，save 是分两个文件
+LYRIC_MODES = {
+    "embed_mode": ("line", "block", "drop"),
+    "save_mode": ("line", "block", "split"),
+}
+
 _cfg: dict | None = None
 
 
@@ -147,11 +153,14 @@ def validate_config(quiet: bool = False) -> None:
 
     # [download.lyric]
     dly = dl.get("lyric", {})
-    for key in ("embed_mode", "save_mode"):
-        if not dly.get(key):
-            errors.append(f"[download.lyric] {key} 缺失或为空")
-        elif dly[key] not in ("0", "1", "2"):
-            errors.append(f'[download.lyric] {key} 必须为 "0"、"1" 或 "2"')
+    # line 与 block 两边共有，第三档不同：embed 是不要译文，save 是分两个文件。
+    # 用 if key not in dly 判缺失而不是 not dly.get(key) ——
+    # 合法值里没有空串，但那种写法对空值才成立，将来加了空值就会重蹈覆辙
+    for key, allowed in LYRIC_MODES.items():
+        if key not in dly:
+            errors.append(f"[download.lyric] {key} 缺失")
+        elif dly[key] not in allowed:
+            errors.append(f"[download.lyric] {key} 必须为 {'、'.join(allowed)}")
     if not isinstance(dly.get("auto_trim"), bool):
         errors.append("[download.lyric] auto_trim 缺失或不为布尔值")
     scan = dly.get("credit_scan_lines")

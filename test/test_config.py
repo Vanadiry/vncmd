@@ -6,6 +6,7 @@ from function._defaults import CONFIG_TOML
 from function.config import (
     CONFIG_FILE,
     CONTENT_LETTERS,
+    LYRIC_MODES,
     QUALITY_MAP,
     get_cache_dir,
     get_cookie,
@@ -77,10 +78,10 @@ class TestGetters:
         assert set(content) <= set(CONTENT_LETTERS)
 
     def test_embed_lyrics_mode(self):
-        assert get_embed_lyrics_mode() in ("0", "1", "2")
+        assert get_embed_lyrics_mode() in LYRIC_MODES["embed_mode"]
 
     def test_save_lyrics_mode(self):
-        assert get_save_lyrics_mode() in ("0", "1", "2")
+        assert get_save_lyrics_mode() in LYRIC_MODES["save_mode"]
 
     def test_embed_cover_compress(self):
         assert isinstance(get_embed_cover_compress(), bool)
@@ -204,5 +205,59 @@ class Test下载内容的字母:
         """content = 12 会被 tomllib 读成整数，
         下面 set() 它会抛 TypeError，用户看到的是一整段调用栈"""
         self._写("12")
+        with pytest.raises(SystemExit):
+            validate_config(quiet=True)
+
+
+class Test歌词模式的取值:
+    """embed_mode 与 save_mode 的第三档不同：drop 是不要译文，split 是分两个文件。
+
+    以前两个键都是 "2"，字面完全一样而意思两样，只能靠文档解释。
+    换成不同的词之后，看值就知道是哪一档
+    """
+
+    @pytest.fixture
+    def 配置文件(self):
+        原样 = CONFIG_FILE.read_text(encoding="utf-8")
+        yield
+        CONFIG_FILE.write_text(原样, encoding="utf-8")
+
+    def _写(self, embed: str, save: str) -> None:
+        CONFIG_FILE.write_text(
+            CONFIG_TOML.replace('embed_mode = "drop"', f"embed_mode = {embed}").replace(
+                'save_mode = "line"', f"save_mode = {save}"
+            ),
+            encoding="utf-8",
+        )
+
+    @pytest.mark.parametrize("value", ['"line"', '"block"', '"drop"'])
+    def test_embed三个值都算数(self, 配置文件, value):
+        self._写(value, '"line"')
+        validate_config(quiet=True)
+
+    @pytest.mark.parametrize("value", ['"line"', '"block"', '"split"'])
+    def test_save三个值都算数(self, 配置文件, value):
+        self._写('"line"', value)
+        validate_config(quiet=True)
+
+    @pytest.mark.parametrize(
+        ("embed", "save"),
+        [
+            ('"split"', '"line"'),
+            ('"line"', '"drop"'),
+            ('"0"', '"line"'),
+            ('"line"', '"2"'),
+        ],
+    )
+    def test串了档被拦下(self, 配置文件, embed, save):
+        """split 只属于 save，drop 只属于 embed，旧数字一律不认"""
+        self._写(embed, save)
+        with pytest.raises(SystemExit):
+            validate_config(quiet=True)
+
+    @pytest.mark.parametrize("key", ["embed_mode", "save_mode"])
+    def test键缺失被拦下(self, 配置文件, key):
+        行 = 'embed_mode = "drop"' if key == "embed_mode" else 'save_mode = "line"'
+        CONFIG_FILE.write_text(CONFIG_TOML.replace(f"{行}\n", ""), encoding="utf-8")
         with pytest.raises(SystemExit):
             validate_config(quiet=True)

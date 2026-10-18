@@ -22,10 +22,10 @@ quality = "max"
 parse_credits = false
 
 [download.lyric]
-# 嵌入歌词模式：0=交错，1=合并，2=仅原文
-embed_mode = "2"
-# 独立歌词文件模式：0=交错，1=合并，2=分离文件
-save_mode = "0"
+# 嵌入译文时，与原文的合并模式：line=交错，block=拼接，drop=丢弃译文
+embed_mode = "drop"
+# 下载译文时，与原文的合并模式：line=交错，block=拼接，split=拆分文件
+save_mode = "line"
 # 自动裁剪无用歌词数据，如作曲人、“纯音乐，请欣赏”行等
 auto_trim = false
 # credit 检测时要扫描的歌词行数

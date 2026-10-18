@@ -145,8 +145,8 @@ quality = "max"
 parse_credits = false
 
 [download.lyric]
-embed_mode = "0"
-save_mode = "0"
+embed_mode = "line"
+save_mode = "line"
 auto_trim = false
 credit_scan_lines = 10
 
@@ -221,15 +221,23 @@ class TestArtistColor改名:
         assert not caught, caught
 
     def test_两个歌词模式各说各的(self):
-        """embed_mode=2 是仅原文，save_mode=2 是分离文件，两件事
+        """embed_mode 的 drop 是不要译文，save_mode 的 split 是分两个文件
 
         曾把这两行合并成一段共用说明，合并之后「嵌入只能写一个歌词字段」
-        那层因果丢了，读者会以为 embed_mode=2 也是分开两个文件。
+        那层因果丢了，读者会以为 embed 的第三档也是分开两个文件。
+        数字当值的时候两边的第三档字面相同，更容易看混，
+        所以这一条要一直盯着
         """
         from function._defaults import CONFIG_TOML
+        from function.config import LYRIC_MODES
 
-        assert "# 嵌入歌词模式：0=交错，1=合并，2=仅原文" in CONFIG_TOML
-        assert "# 独立歌词文件模式：0=交错，1=合并，2=分离文件" in CONFIG_TOML
+        assert LYRIC_MODES["embed_mode"] == ("line", "block", "drop")
+        assert LYRIC_MODES["save_mode"] == ("line", "block", "split")
+        # 两边的前两档必须一致，第三档必须不同
+        assert LYRIC_MODES["embed_mode"][:2] == LYRIC_MODES["save_mode"][:2]
+        assert LYRIC_MODES["embed_mode"][2] != LYRIC_MODES["save_mode"][2]
+        assert 'embed_mode = "drop"' in CONFIG_TOML
+        assert 'save_mode = "line"' in CONFIG_TOML
 
 
 class Test路径缩写:

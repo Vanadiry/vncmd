@@ -226,9 +226,11 @@ def process(lrc_raw: str, tlyric_raw: str, mode: str, song_id: int) -> dict[str,
     Process lyrics according to mode. Caches raw cleaned lyrics.
 
     Returns dict of {suffix: text} for output_files():
-      mode "0": {"lrc": interleaved_text}
-      mode "1": {"lrc": lrc_clean + "\n" + tlyric_clean}
-      mode "2": {"lrc": lrc_clean} 加上有译文时的 {"2.lrc": tlyric_clean}
+      line: {"lrc": interleaved_text}
+      block: {"lrc": lrc_clean + "\n" + tlyric_clean}
+      split: {"lrc": lrc_clean} 加上有译文时的 {"2.lrc": tlyric_clean}
+
+    embed_mode 的 drop 不走这里 —— 调用方 downloader 短路掉了。
     """
     lrc_clean = clean(lrc_raw)
     tlyric_clean = clean(tlyric_raw)
@@ -236,11 +238,11 @@ def process(lrc_raw: str, tlyric_raw: str, mode: str, song_id: int) -> dict[str,
     # Cache raw cleaned lyrics
     put_raw_lyrics(song_id, lrc_clean, tlyric_clean)
 
-    if mode == "0":
+    if mode == "line":
         return {"lrc": interleave(lrc_clean, tlyric_clean)}
-    if mode == "1":
+    if mode == "block":
         return {"lrc": lrc_clean + "\n" + tlyric_clean}
-    # mode "2" 每个流各出一个文件。译文没有内容时不出那个 ——
+    # split 每个流各出一个文件。译文没有内容时不出那个 ——
     # 照样写会得到一个 0 字节的 .2.lrc，播放器会把它当成一首独立的翻译歌词。
     # 判空要 strip：clean() 刻意留着空行，删掉 [by:] 之后可能只剩换行与空格
     #

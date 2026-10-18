@@ -431,14 +431,18 @@ class TestDownloader接线:
             "content": "alc",
             "lyrics": (CREDIT_LYRIC, ""),
             "credits": None,
-            "mode": "0",
+            "mode": "line",
+            "embed_mode": "drop",
+            "embed_lyric": None,
         }
 
         def fake_fetch(url, path, label, progress=None, task_id=None, **kw):
             Path(path).write_bytes(AUDIO)
 
-        def fake_embed(_fn, *args):
+        # _embed_with_retry 调的是 fn(*args)，所以第一个参数是音乐路径不是函数
+        def fake_embed(_music_path, *args):
             state["credits"] = args[-1]
+            state["embed_lyric"] = args[3]
 
         monkeypatch.setattr(downloader, "fetch_audio", fake_fetch)
         monkeypatch.setattr(downloader, "fetch_lyrics", lambda *_a: state["lyrics"])
@@ -451,12 +455,15 @@ class TestDownloader接线:
         monkeypatch.setattr(downloader, "get_parse_credits", lambda: True)
         monkeypatch.setattr(downloader, "get_auto_trim", lambda: True)
         monkeypatch.setattr(downloader, "get_save_lyrics_mode", lambda: state["mode"])
-        monkeypatch.setattr(downloader, "get_embed_lyrics_mode", lambda: "2")
+        monkeypatch.setattr(
+            downloader, "get_embed_lyrics_mode", lambda: state["embed_mode"]
+        )
 
-        def go(content="alc", lyrics=None, mode="0"):
+        def go(content="alc", lyrics=None, mode="line", embed_mode="drop"):
             if lyrics is not None:
                 state["lyrics"] = lyrics
             state["mode"] = mode
+            state["embed_mode"] = embed_mode
             state["content"] = content
             # 每次换个目录，否则 output_lyrics_files 会写成 xxx(1).lrc
             dl = tmp_path / f"dl{content}{len(state['lyrics'][0])}"
@@ -535,3 +542,34 @@ class TestDownloader接线:
         """值为无、歌词翻译、纯音乐这三类不依赖标签，该删还是删"""
         texts, _ = run("l")
         assert "纯音乐" not in texts[0]
+
+    # 译文与原文同一个时间戳，line 模式才能配成对
+    _两路 = (CREDIT_LYRIC, "[00:15.920]THIS IS THE TRANSLATION")
+
+    def test_embed为drop时只嵌原文(self, run):
+        """drop 是不要译文。短路写错会掉进 process 的兜底分支，
+        那个分支是 split，于是原文加译文一起嵌进去。
+
+        这一条是被反向验证逼出来的：夹具里那个 embed_mode 写的是早已
+        不存在的值，短路永远不触发，改名之后那条判断一度谁都没测到
+        """
+        run("alc", lyrics=self._两路, embed_mode="drop")
+        嵌的 = run.state["embed_lyric"]
+        assert "YOU BURNED MY SOUL AGAIN" in 嵌的
+        assert "TRANSLATION" not in 嵌的
+
+    @pytest.mark.parametrize("mode", ["line", "block"])
+    def test_embed为line与block时两路都嵌(self, run, mode):
+        run("alc", lyrics=self._两路, embed_mode=mode)
+        嵌的 = run.state["embed_lyric"]
+        assert "YOU BURNED MY SOUL AGAIN" in 嵌的
+        assert "TRANSLATION" in 嵌的
+
+    @pytest.mark.parametrize("mode", ["drop", "line", "block"])
+    def test_没有译文时三档都只嵌原文(self, run, mode):
+        """没译文就别折腾。drop 的短路本来也挡住了，
+        而 line 与 block 是 process 里 interleave 与拼接的结果，天然只剩原文"""
+        run("alc", lyrics=(CREDIT_LYRIC, ""), embed_mode=mode)
+        嵌的 = run.state["embed_lyric"]
+        assert "YOU BURNED MY SOUL AGAIN" in 嵌的
+        assert "TRANSLATION" not in 嵌的

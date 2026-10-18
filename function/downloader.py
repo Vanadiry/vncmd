@@ -329,7 +329,7 @@ def download_song(
 
         # Process lyrics for embedding
         embed_mode = get_embed_lyrics_mode()
-        if embed_mode == "2" or not tlyric_text:
+        if embed_mode == "drop" or not tlyric_text:
             embed_lyric = lyric_text
         else:
             embed_result = process_lyrics(lyric_text, tlyric_text, embed_mode, song_id)
