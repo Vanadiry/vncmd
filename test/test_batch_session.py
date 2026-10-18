@@ -8,6 +8,7 @@
 
 from pathlib import Path
 from queue import Empty
+from types import SimpleNamespace
 
 from vncmd import downloader, session
 
@@ -310,3 +311,80 @@ class Test并发环境准备:
         workers = downloader._prepare_workers([], 4)
         assert workers.count == 0
         assert workers.slots == []
+
+
+class Test取链接重试:
+    """三次都取不到就返回 None，不抛
+
+    取不到链接是网络与账号权限的常态，不是程序错误，
+    调用方要按「这一首失败」处理而不是中断整批
+    """
+
+    def _打桩(self, monkeypatch, 每次返回):
+        """每次返回列表的取值函数，返回几轮就取几轮，取完复用最后一个"""
+        记录 = []
+
+        def 取(_sid, quality=None):
+            i = min(len(记录), len(每次返回) - 1)
+            记录.append(每次返回[i])
+            return 每次返回[i]
+
+        monkeypatch.setattr(downloader, "get_audio_source", 取)
+        return 记录
+
+    def _假音源(self):
+        return SimpleNamespace(url="http://x/a.flac", size=1, md5="", level="lossless")
+
+    def test_第一次就拿到就只调一次(self, monkeypatch):
+        音源 = self._假音源()
+        记录 = self._打桩(monkeypatch, [音源])
+        assert downloader._fetch_source_with_retry(1, 999) is 音源
+        assert len(记录) == 1
+
+    def test_第二次拿到就调两次(self, monkeypatch):
+        音源 = self._假音源()
+        记录 = self._打桩(monkeypatch, [None, 音源])
+        assert downloader._fetch_source_with_retry(1, 999) is 音源
+        assert len(记录) == 2
+
+    def test_三次都拿不到返回None(self, monkeypatch):
+        记录 = self._打桩(monkeypatch, [None, None, None])
+        assert downloader._fetch_source_with_retry(1, 999) is None
+        assert len(记录) == downloader._LINK_ATTEMPTS
+
+    def test_不会无限重试(self, monkeypatch):
+        """永远取不到也只能试三次 —— 上游返回空 url 时不会卡死批次"""
+        记录 = self._打桩(monkeypatch, [None])
+        downloader._fetch_source_with_retry(1, 999)
+        assert len(记录) == 3
+
+    def test_on_retry只在还有下一次时调用(self, monkeypatch):
+        """最后一次失败之后不再提示重试，那样会显示「重试 3/3」却不再重试"""
+        次数 = []
+        self._打桩(monkeypatch, [None, None, None])
+        downloader._fetch_source_with_retry(1, 999, 次数.append)
+        assert 次数 == [1, 2]
+
+    def test_成功那次不调_on_retry(self, monkeypatch):
+        次数 = []
+        音源 = self._假音源()
+        self._打桩(monkeypatch, [音源])
+        downloader._fetch_source_with_retry(1, 999, 次数.append)
+        assert 次数 == []
+
+    def test_没有_on_retry也能跑(self, monkeypatch):
+        self._打桩(monkeypatch, [None, None, None])
+        assert downloader._fetch_source_with_retry(1, 999) is None
+
+    def test_音质原样传下去(self, monkeypatch):
+        """quality 是码率，不能在重试之间丢掉或写死"""
+        看到的 = []
+        音源 = self._假音源()
+
+        def 取(_sid, quality=None):
+            看到的.append(quality)
+            return 音源
+
+        monkeypatch.setattr(downloader, "get_audio_source", 取)
+        downloader._fetch_source_with_retry(1, 320000)
+        assert 看到的 == [320000]

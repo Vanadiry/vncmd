@@ -406,6 +406,29 @@ def download_song(
     return True, "\n".join(lines), music_path
 
 
+# 取下载链接的重试次数。服务端偶发返回空 url，重试一次多半就好
+_LINK_ATTEMPTS = 3
+
+
+def _fetch_source_with_retry(sid: int, quality: int, on_retry=None):
+    """取下载链接，三次都取不到就返回 None
+
+    单独抽出来是为了能测重试次数与次数之间的间隔 ——
+    它夹在 worker 里的时候，要触发它就得把整个批次跑起来。
+    on_retry 只在还有下一次尝试时调用，不含最后一次
+
+    取不到返回 None 而不是抛 —— 取不到链接是网络与账号权限的常态，
+    不是程序错误，调用方要按「这一首失败」处理而不是中断整批
+    """
+    for attempt in range(1, _LINK_ATTEMPTS + 1):
+        source = get_audio_source(sid, quality=quality)
+        if source:
+            return source
+        if attempt < _LINK_ATTEMPTS and on_retry:
+            on_retry(attempt)
+    return None
+
+
 @dataclass
 class _Workers:
     """一批下载的并发执行环境
@@ -569,16 +592,14 @@ def download_song_batch(
                         cd_no=track.get("cd_no"),
                     )
                 else:
-                    source = None
-                    for attempt in range(1, 4):
-                        source = get_audio_source(sid, quality=quality)
-                        if source:
-                            break
-                        if attempt < 3:
-                            workers.describe(
-                                task_id,
-                                f"{title} - {artist}（获取链接重试 {attempt}/3）",
-                            )
+                    source = _fetch_source_with_retry(
+                        sid,
+                        quality,
+                        # 默认参数把循环变量绑死，不让闭包去抓它
+                        lambda n, t=task_id, ti=title, ar=artist: workers.describe(
+                            t, f"{ti} - {ar}（获取链接重试 {n}/{_LINK_ATTEMPTS}）"
+                        ),
+                    )
                     if not source:
                         workers.reset(task_id)
                         warning(f"跳过 {title} - {artist} — 无法获取下载链接")
