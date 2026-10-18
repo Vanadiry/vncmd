@@ -210,7 +210,7 @@ class Test删除类:
 
     @pytest.mark.parametrize("line", ["[00:00.000] 作词 : 无", "[00:00.00]作词：无"])
     def test_值为无被删(self, line):
-        _, rest = process_credits(lrc(line, "[00:01.00]歌词"), 10, False, True)
+        _, rest = process_credits(lrc(line, "[00:01.00]歌词"), 10, True, True)
         assert "无" not in rest
         assert "[00:01.00]歌词" in rest
 
@@ -219,6 +219,55 @@ class Test删除类:
         """没有内容可写，写进去是脏数据"""
         credits, _ = process_credits(lrc(line), 10, True, False)
         assert credits == {}
+
+    @pytest.mark.parametrize("line", ["[00:00.000]作詞：無", "[00:00.00]作词：無"])
+    def test_繁体無也算无(self, line):
+        """只认简体的话，繁体歌词会把「無」原样写进 lyricist"""
+        credits, rest = process_credits(lrc(line), 10, True, True)
+        assert credits == {}
+        assert "無" not in rest
+
+    def test_不搬走时值为无的行也留着(self, line="[00:00.000]作词：无"):
+        """值为无是角色行的属性，没搬走就不该裁 —— 与其他角色行同一口径"""
+        _credits, rest = process_credits(lrc(line), 10, False, True)
+        assert "作词：无" in rest
+
+    @pytest.mark.parametrize(
+        "line",
+        [
+            "[00:00.000]我：无",
+            "[00:00.000]旁白：无",
+            "[00:00.000]念白： 无 ",
+            "[00:00.000]全员：无",
+        ],
+    )
+    def test_歌词里的冒号加无不被当占位(self, line):
+        """早先用裸正则 search，前 N 行里任何以冒号加「无」收尾的行都会被删，
+        连歌词都被吃掉。判定该只对认得出的角色行生效"""
+        credits, rest = process_credits(lrc(line, "[00:05.000]歌词"), 10, True, True)
+        assert credits == {}
+        assert line in rest
+
+    def test_正文提到纯音乐不再连作曲人一起吃掉(self):
+        """早先用「含即删」，正文里提到这六个字也会被删。
+        那一行是 credit 行，于是整行没了而作曲人也没进 tag ——
+        两头落空。判定改成整行相等之后，作曲人能正常搬走"""
+        credits, rest = process_credits(
+            lrc("[00:00.000]作曲：他说纯音乐，请欣赏", "[00:05.000]歌词"),
+            10,
+            True,
+            True,
+        )
+        assert credits == {"作曲": "他说纯音乐，请欣赏"}
+        # 行照删 —— 作曲人已经搬进 tag 了，留着就是重复
+        assert "他说纯音乐，请欣赏" not in rest
+        assert "[00:05.000]歌词" in rest
+
+    def test_纯音乐只认整行(self):
+        _, rest = process_credits(
+            lrc("[00:00.000]插曲：纯音乐，请欣赏"), 10, False, True
+        )
+        assert "纯音乐" in rest
 
     def test_值里含无不算无(self):
         """无名氏是真名，不能当占位删掉"""

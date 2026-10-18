@@ -5,11 +5,13 @@ from function.cache import put_raw_lyrics
 
 _TIMESTAMP_RE = re.compile(r"^\[(\d{2}):(\d{2})[:.](\d{2,3})\](.*)")
 _META_RE = re.compile(r"^\[(ti|ar|al|offset|length|re|ve):")
-# 纯音乐。实测这行只出现在整首没有歌词的歌里，混着有歌词的歌里没见过，
-# 所以与其他几类一样受 credit_scan_lines 限制
-_PURE_MUSIC_RE = re.compile(r"纯音乐[，,]请欣赏")
-# 值为「无」的行没有内容可写，写进 tag 是脏数据
-_NO_VALUE_RE = re.compile(r"[:：]\s*无\s*$")
+# 纯音乐。整行去掉时间戳之后正好是这一句才算，早先用「含即删」，
+# 正文里出现这六个字也会被删 —— 连 credit 行都会被吃掉：
+# `作曲：他说纯音乐，请欣赏` 整行没了而作曲人也没进 tag
+_PURE_MUSIC_RE = re.compile(r"^纯音乐[，,]请欣赏$")
+# 值为「无」的行没有内容可写，写进 tag 是脏数据。
+# 繁体「無」同理 —— 只认简体的话，繁体歌词会把「無」原样写进 lyricist
+_NO_VALUES = frozenset({"无", "無"})
 # 歌词翻译与歌词无关而 mp3 与 flac 都没有对应字段，只能丢。带冒号才认，
 # 否则正文里出现「歌词翻译」三个字的普通歌词会被误删
 _TRANSLATION_RE = re.compile(
@@ -84,6 +86,17 @@ def parse(text: str) -> list[tuple[float, str, str]]:
     return result
 
 
+def _is_pure_music_placeholder(line: str) -> bool:
+    """去掉时间戳之后整行正好是那句占位符
+
+    与 credit 行判定的口径一致 —— 都要求这一行就是它自己，
+    不靠「含」来判断，免得正文里提到这六个字时被当成占位删掉
+    """
+    m = _TIMESTAMP_RE.match(line)
+    content = m.group(4) if m else line
+    return bool(_PURE_MUSIC_RE.match(content.strip()))
+
+
 def process_credits(
     text: str, scan_lines: int = 10, collect: bool = False, trim: bool = False
 ) -> tuple[dict[str, str], str]:
@@ -108,14 +121,8 @@ def process_credits(
         role = m.group("role") if m else None
         value = m.group("value") if m else None
 
-        if head and _PURE_MUSIC_RE.search(line):
-            if trim:
-                continue
-        elif head and _NO_VALUE_RE.search(line):
-            # 值为无的行没有内容可写，删掉但不收进 credits
-            if trim:
-                continue
-        elif head and _TRANSLATION_RE.match(line):
+        # 前两类是独立占位，与角色行无关，所以放在角色判定之前
+        if head and (_is_pure_music_placeholder(line) or _TRANSLATION_RE.match(line)):
             if trim:
                 continue
         elif head and role in CREDIT_COMBOS:
@@ -123,8 +130,9 @@ def process_credits(
             # 角色名改写与删行都只在角色真被搬走时才做。
             # 没搬走就改掉「混音/」或者整行删掉，删掉的部分没进任何地方，是白丢
             if collect:
-                for r in roles:
-                    credits[r] = value
+                if value.strip() not in _NO_VALUES:
+                    for r in roles:
+                        credits[r] = value
                 if trim:
                     if leftover is None:
                         continue
@@ -133,7 +141,12 @@ def process_credits(
             # 与连写同理：没搬走就裁掉，这一行就是白丢。
             # 只开 auto_trim 不开 parse_credits 时角色行要留着 ——
             # 改动前那一格走的是空 prefixes，同样不裁角色行
-            credits[ROLE_ALIASES[role]] = value
+            #
+            # 值为「无」不写进 tag，行照删。判定放在角色匹配之后，
+            # 早先用裸正则 search，前 N 行里任何以「：无」收尾的行都会被删，
+            # 连歌词都被吃掉
+            if value.strip() not in _NO_VALUES:
+                credits[ROLE_ALIASES[role]] = value
             if trim:
                 continue
 
