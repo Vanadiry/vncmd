@@ -357,7 +357,12 @@ class TestDownloader接线:
 
     @pytest.fixture
     def run(self, tmp_path, monkeypatch):
-        state = {"content": "012", "lyrics": (CREDIT_LYRIC, ""), "credits": None}
+        state = {
+            "content": "012",
+            "lyrics": (CREDIT_LYRIC, ""),
+            "credits": None,
+            "mode": "0",
+        }
 
         def fake_fetch(url, path, label, progress=None, task_id=None, **kw):
             Path(path).write_bytes(AUDIO)
@@ -375,10 +380,13 @@ class TestDownloader接线:
         )
         monkeypatch.setattr(downloader, "get_parse_credits", lambda: True)
         monkeypatch.setattr(downloader, "get_auto_trim", lambda: True)
+        monkeypatch.setattr(downloader, "get_save_lyrics_mode", lambda: state["mode"])
+        monkeypatch.setattr(downloader, "get_embed_lyrics_mode", lambda: "2")
 
-        def go(content="012", lyrics=None):
+        def go(content="012", lyrics=None, mode="0"):
             if lyrics is not None:
                 state["lyrics"] = lyrics
+            state["mode"] = mode
             state["content"] = content
             # 每次换个目录，否则 output_lyrics_files 会写成 xxx(1).lrc
             dl = tmp_path / f"dl{content}{len(state['lyrics'][0])}"
@@ -410,6 +418,28 @@ class TestDownloader接线:
         """原文没歌词只有译文时一并清掉，免得留下有 2.lrc 没 lrc 的怪状态"""
         texts, _ = run("012", ("[00:00.000]纯音乐，请欣赏\n", "[00:00.000]译文\n"))
         assert texts == [], f"该不写却写了：{texts}"
+
+    @pytest.mark.parametrize(
+        "lyric",
+        [
+            "这是一首纯文本的歌词\n第二行\n",
+            "[1:02.34]一位分钟\n[2:03.45]也是\n",
+            "[00:01.5]一位小数\n[00:02.5]也是\n",
+            "[00:01]没有小数\n[00:02]也是\n",
+            "[ti:歌名]\n[ar:歌手]\n[al:专辑]\n",
+        ],
+        ids=["纯文本", "单数字分钟", "一位小数", "无小数", "只有元数据行"],
+    )
+    def test_解析不出时间戳的歌词照样要写(self, run, lyric):
+        """parse() 要求时间戳是 [mm:ss.xx]，上游给别的形态是有的。
+        拿 parse 的结果判「有没有内容」会把它们整份丢掉 ——
+        只在 save_mode 为 1 与 2 时验：0 是交错，那一档的 interleave
+        本来就只保留带时间戳的行，写出空文件是既有行为，与这次改动无关。
+        mode 为 2 时会多产出一个空的 2.lrc（既有问题），所以断言「原文在不在」
+        而不是「第一个文件是不是原文」
+        """
+        texts, _ = run("012", (lyric, ""), mode="2")
+        assert lyric.rstrip("\n") in texts, f"歌词被丢了：{lyric!r}，写出的是 {texts}"
 
     def test_两个开关开时搬走并裁掉(self, run):
         texts, credits = run("012")

@@ -63,14 +63,13 @@ from function.download import fetch_audio, fetch_cover, fetch_lyrics
 from function.image import detect_format
 from function.image import process_cover as process_cover_image
 from function.lyrics import (
-    has_meaningful_lyrics,
-    process_credits,
-)
-from function.lyrics import (
     output_files as output_lyrics_files,
 )
 from function.lyrics import (
     process as process_lyrics,
+)
+from function.lyrics import (
+    process_credits,
 )
 from function.metadata import embed as embed_metadata
 from function.output import (
@@ -258,11 +257,11 @@ def download_song(
         if auto_trim:
             _, tlyric_text = process_credits(tlyric_text, scan_lines, False, True)
 
-    # 裁完没有任何带时间戳的行就不写 lrc 也不嵌空歌词。
-    # 判的是「有没有带时间戳的行」而不是「字符串空不空」——
-    # 删光时 "\n".join([]) 是空串，但残留几个空行时是 "\n" 这种非空串。
-    # 原文没歌词只有译文的情况一并清掉，免得留下有 2.lrc 没 lrc 的怪状态
-    if not has_meaningful_lyrics(lyric_text):
+    # 裁完什么都不剩就不写 lrc 也不嵌空歌词。
+    # 判的是「有没有内容」而不是「有没有带时间戳的行」——
+    # parse() 要求时间戳是 [mm:ss.xx]，而上游给纯文本歌词、单数字分钟、
+    # 没有小数的秒都是有的，那些判成「没内容」就是静默丢数据
+    if not lyric_text.strip():
         lyric_text = ""
         tlyric_text = ""
 

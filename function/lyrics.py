@@ -142,11 +142,6 @@ def process_credits(
     return credits, "\n".join(kept)
 
 
-def has_meaningful_lyrics(text: str) -> bool:
-    """Check if text has actual lyric lines (with timestamps)."""
-    return len(parse(text)) > 0
-
-
 def interleave(lrc_text: str, tlyric_text: str, threshold: float = 0.3) -> str:
     """
     Interleave lrc with tlyric: for each lrc line, find a tlyric line within
