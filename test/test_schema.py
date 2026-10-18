@@ -364,6 +364,62 @@ class Test报错措辞不变:
         assert schema.validate(改配置(路径, 值)) == [期望]
 
 
+class Test表与getter不各说各话:
+    """默认值只有表里那一份是真的
+
+    表存着 default 供第 4 步回落用，而 getter 现在还在写自己的 fallback。
+    两处都是「缺键时取什么」，改一处忘了另一处就会两个答案 ——
+    这种错只有在配置真的缺了键时才看得见，而那时用户已经在下载了
+    """
+
+    def test_常量只有一处定义(self):
+        """DEFAULT_CACHE_TTL 现在两个文件里各有一份，都是 3
+
+        不该有两个来源。config.py 那份等第 4 步 getter 改按表取就删掉，
+        在那之前这条断言盯着两边别走偏
+        """
+        from vncmd.core import config as config_mod
+
+        assert config_mod.DEFAULT_CACHE_TTL == schema.DEFAULT_CACHE_TTL, (
+            "两个文件里各有一份，值不一样就有一处是错的"
+        )
+
+    def test_两个来源与模板都对得上(self):
+        from vncmd.core import config as config_mod
+
+        模板值 = 完整配置["cache"]["ttl"]
+        assert 模板值 == schema.DEFAULT_CACHE_TTL
+        assert 模板值 == config_mod.DEFAULT_CACHE_TTL
+
+    @pytest.mark.parametrize(
+        "路径",
+        [
+            "download.dir",
+            "download.concurrency",
+            "download.check",
+            "download.curl_arg",
+            "download.audio.parse_credits",
+            "download.lyric.auto_trim",
+            "download.lyric.credit_scan_lines",
+            "download.cover.embed_compress",
+            "download.cover.save_compress",
+            "cache.enabled",
+            "cache.ttl",
+            "display.artist_color",
+        ],
+    )
+    def test_每项的默认值都是可用值(self, 路径):
+        """表里的 default 喂给自己的检查器要过得去
+
+        default 是缺键时用户实际会拿到的东西，它自己非法就等于
+        「不写这一项反而跑不起来」—— 而第 4 步之后那就是默认行为
+        """
+        项 = schema.get(路径)
+        assert schema.validate_entry(项, 项.default) is None, (
+            f"{路径} 的默认值 {项.default!r} 过不了自己的检查"
+        )
+
+
 class Test类型与范围:
     """第 3 步搬进表的那十二项
 
