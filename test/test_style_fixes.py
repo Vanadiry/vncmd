@@ -65,9 +65,9 @@ def test_check按文件名排序输出(tmp_path, monkeypatch, capsys):
         time.sleep(delays[path.rsplit("/", 1)[-1]])
         return True, ""
 
-    # check_audio 与 has_ffmpeg 已在 commands 模块顶层绑定，要打在 commands 上
+    # check_audio 与 any_check_tool 已在 commands 模块顶层绑定，要打在 commands 上
     monkeypatch.setattr(commands_mod, "check_audio", fake_check)
-    monkeypatch.setattr(commands_mod, "has_ffmpeg", lambda: True)
+    monkeypatch.setattr(commands_mod, "any_check_tool", lambda: True)
     args = argparse.Namespace(path=str(tmp_path))
     commands_mod.cmd_check(args)
 

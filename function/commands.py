@@ -24,7 +24,12 @@ from function.api import (
     permission_verdict,
     search,
 )
-from function.checker import check_audio, has_ffmpeg
+from function.checker import (
+    any_check_tool,
+    check_audio,
+    check_tools,
+    describe_missing_check_tools,
+)
 from function.config import (
     CONFIG_FILE,
     COOKIE_FILE,
@@ -457,13 +462,9 @@ def cmd_init(args: argparse.Namespace) -> None:
         )
 
     # Check system dependencies
-    missing = []
-    found = []
-    for dep, name in [("ffmpeg", "ffmpeg"), ("flac", "flac")]:
-        if shutil.which(dep):
-            found.append(name)
-        else:
-            missing.append(name)
+    tools = check_tools()
+    found = [name for name in tools if tools[name]]
+    missing = [name for name in tools if not tools[name]]
     if found:
         console.print(f"  [dim]存在 {' / '.join(found)}[/]")
     if missing:
@@ -541,9 +542,14 @@ def cmd_cache(args: argparse.Namespace) -> None:
 
 def cmd_check(args: argparse.Namespace) -> None:
     """Check audio file integrity."""
-    if not has_ffmpeg():
-        error("需要 ffmpeg 和 ffprobe，请先安装。")
+    if not any_check_tool():
+        error("没有可用的校验工具，请至少安装 ffmpeg 或 flac 后重试。")
         sys.exit(1)
+
+    note = describe_missing_check_tools()
+    if note:
+        # 只说一次，不影响检查本身 —— 缺哪样就只跳过那一步
+        warning(note)
 
     path = Path(os.path.expanduser(args.path))
     if not path.exists():

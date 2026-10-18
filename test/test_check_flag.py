@@ -25,7 +25,7 @@ def harness(tmp_path, monkeypatch):
     )
     monkeypatch.setattr(downloader, "fetch_cover", lambda *_a, **_k: None)
     monkeypatch.setattr(downloader, "embed_metadata", lambda *_a, **_k: None)
-    monkeypatch.setattr(downloader, "has_ffmpeg", lambda: True)
+    monkeypatch.setattr(downloader, "any_check_tool", lambda: True)
     return calls, str(tmp_path)
 
 
@@ -67,7 +67,7 @@ def test_explicit_false_beats_config_on(harness, monkeypatch):
 def test_missing_ffmpeg_skips_decode_even_when_on(harness, monkeypatch):
     """开关打开但没装 ffmpeg 时自动降级，不能因此判失败"""
     calls, tmp = harness
-    monkeypatch.setattr(downloader, "has_ffmpeg", lambda: False)
+    monkeypatch.setattr(downloader, "any_check_tool", lambda: False)
     ok, _msg, _ = run(tmp, run_check=True)
     assert ok
     assert calls == []

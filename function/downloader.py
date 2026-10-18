@@ -32,7 +32,13 @@ from function.audio import (
     get_type_from_url,
     resolve_path,
 )
-from function.checker import check_audio, check_md5, has_ffmpeg
+from function.checker import (
+    any_check_tool,
+    check_audio,
+    check_md5,
+    check_tools,
+    describe_missing_check_tools,
+)
 from function.checkpoint import (
     create_checkpoint,
     load_checkpoint,
@@ -314,7 +320,9 @@ def download_song(
 
         if run_check is None:
             run_check = get_check_enabled()
-        if run_check and has_ffmpeg():
+        # 不再按 has_ffmpeg 整块门控 —— 装了 flac 没装 ffmpeg 的机器
+        # 仍然能验 flac 文件，逐段跳过的判断挪进 check_audio 内部了
+        if run_check and any_check_tool():
             ok, msg = check_audio(temp_music_path)
             if not ok:
                 _discard_temp([temp_music_path])
@@ -463,6 +471,15 @@ def download_song_batch(
 
     Returns ``(success_count, fail_count, session_dir)``.
     """
+    # 校验工具缺哪几样、因此少做哪几步，只在任务最开始说一次。
+    # 放在这里而不是每首歌里，否则一个批次能刷出几百条一样的提示
+    if (get_check_enabled() if run_check is None else run_check) and not all(
+        check_tools().values()
+    ):
+        note = describe_missing_check_tools()
+        if note:
+            warning(note)
+
     # --- Resolve session directory (checkpoint or new) ---
     if dl_type is not None and dl_id is not None:
         cp = load_checkpoint(dl_type, dl_id)

@@ -58,7 +58,7 @@ def run(download_dir, **kw):
 def test_md5_runs_before_full_decode(harness, monkeypatch):
     """md5 是纯读文件，必须排在全量解码前面，否则快的那道白排了"""
     calls, tmp = harness
-    monkeypatch.setattr(downloader, "has_ffmpeg", lambda: True)
+    monkeypatch.setattr(downloader, "any_check_tool", lambda: True)
     ok, _msg, _ = run(tmp)
     assert ok
     assert [c[0] for c in calls] == ["md5", "audio"]
@@ -67,7 +67,7 @@ def test_md5_runs_before_full_decode(harness, monkeypatch):
 def test_both_checks_run_when_ffmpeg_present(harness, monkeypatch):
     """两道都要过，md5 过不代表文件一定能解码"""
     calls, tmp = harness
-    monkeypatch.setattr(downloader, "has_ffmpeg", lambda: True)
+    monkeypatch.setattr(downloader, "any_check_tool", lambda: True)
     ok, _msg, _ = run(
         tmp, song_size=len(AUDIO), song_md5=hashlib.md5(AUDIO).hexdigest()
     )
@@ -78,7 +78,7 @@ def test_both_checks_run_when_ffmpeg_present(harness, monkeypatch):
 def test_md5_runs_without_ffmpeg(harness, monkeypatch):
     """没有 ffmpeg 时以前完全不校验，现在 md5 仍然把关"""
     calls, tmp = harness
-    monkeypatch.setattr(downloader, "has_ffmpeg", lambda: False)
+    monkeypatch.setattr(downloader, "any_check_tool", lambda: False)
     ok, _msg, _ = run(
         tmp, song_size=len(AUDIO), song_md5=hashlib.md5(AUDIO).hexdigest()
     )
@@ -89,7 +89,7 @@ def test_md5_runs_without_ffmpeg(harness, monkeypatch):
 def test_bad_md5_rejected_without_ffmpeg(harness, monkeypatch):
     """无 ffmpeg 且 md5 不符时必须判失败，不能悄悄放行"""
     _calls, tmp = harness
-    monkeypatch.setattr(downloader, "has_ffmpeg", lambda: False)
+    monkeypatch.setattr(downloader, "any_check_tool", lambda: False)
     ok, msg, _ = run(tmp, song_size=len(AUDIO), song_md5="0" * 32)
     assert not ok
     assert "md5 不符" in msg
@@ -98,7 +98,7 @@ def test_bad_md5_rejected_without_ffmpeg(harness, monkeypatch):
 def test_bad_md5_skips_decode(harness, monkeypatch):
     """md5 已经判定不符就不必再解码，提示要指向 md5 而不是解码错误"""
     calls, tmp = harness
-    monkeypatch.setattr(downloader, "has_ffmpeg", lambda: True)
+    monkeypatch.setattr(downloader, "any_check_tool", lambda: True)
     ok, msg, _ = run(tmp, song_size=len(AUDIO), song_md5="0" * 32)
     assert not ok
     assert "md5 不符" in msg
@@ -108,7 +108,7 @@ def test_bad_md5_skips_decode(harness, monkeypatch):
 def test_decode_failure_still_caught_when_md5_passes(harness, monkeypatch):
     """服务端自己的文件坏掉时 md5 会通过，解码这道还得留"""
     _calls, tmp = harness
-    monkeypatch.setattr(downloader, "has_ffmpeg", lambda: True)
+    monkeypatch.setattr(downloader, "any_check_tool", lambda: True)
     monkeypatch.setattr(downloader, "check_audio", lambda _p: (False, "解码出错: boom"))
     ok, msg, _ = run(tmp, song_size=len(AUDIO), song_md5=hashlib.md5(AUDIO).hexdigest())
     assert not ok
@@ -118,7 +118,7 @@ def test_decode_failure_still_caught_when_md5_passes(harness, monkeypatch):
 def test_expectations_reach_the_checker(harness, monkeypatch):
     """服务端声明的值要原样传下去，不能在中途丢掉"""
     calls, tmp = harness
-    monkeypatch.setattr(downloader, "has_ffmpeg", lambda: False)
+    monkeypatch.setattr(downloader, "any_check_tool", lambda: False)
     digest = hashlib.md5(AUDIO).hexdigest()
     ok, _msg, _ = run(tmp, song_size=len(AUDIO), song_md5=digest)
     assert ok
@@ -128,7 +128,7 @@ def test_expectations_reach_the_checker(harness, monkeypatch):
 def test_no_expectations_still_decodes(harness, monkeypatch):
     """服务端没给校验依据时退回原有行为，只跑解码"""
     calls, tmp = harness
-    monkeypatch.setattr(downloader, "has_ffmpeg", lambda: True)
+    monkeypatch.setattr(downloader, "any_check_tool", lambda: True)
     ok, _msg, _ = run(tmp)
     assert ok
     assert calls == [("md5", "", 0), ("audio",)]

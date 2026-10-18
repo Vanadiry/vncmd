@@ -18,7 +18,7 @@ def audio_dir(tmp_path):
 
 def _run_check(monkeypatch, capsys, path, check):
     monkeypatch.setattr(commands_mod, "check_audio", check)
-    monkeypatch.setattr(commands_mod, "has_ffmpeg", lambda: True)
+    monkeypatch.setattr(commands_mod, "any_check_tool", lambda: True)
     commands_mod.cmd_check(argparse.Namespace(path=str(path)))
     return capsys.readouterr().out
 
@@ -65,7 +65,7 @@ def test_并发执行但按文件名排序(monkeypatch, capsys, audio_dir):
 def test_checker在模块顶层绑定():
     # 函数内 import 会让 monkeypatch 打不中，也与项目其它模块风格不一致
     assert hasattr(commands_mod, "check_audio")
-    assert hasattr(commands_mod, "has_ffmpeg")
+    assert hasattr(commands_mod, "any_check_tool")
 
 
 def test_get_cookie文件不存在返回空串(monkeypatch, tmp_path):

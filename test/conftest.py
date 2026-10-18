@@ -78,6 +78,20 @@ def _reset_config_cache():
     function.config._cfg = None
 
 
+@pytest.fixture(autouse=True)
+def _reset_check_tools_cache():
+    """checker 的三个 has_* 带 lru_cache，每条测试前后都清一次。
+
+    那些测试会 monkeypatch shutil.which 来模拟「装没装」，
+    不清就会拿到上一条测试留下的缓存值。
+    """
+    from function.checker import clear_check_tools_cache
+
+    clear_check_tools_cache()
+    yield
+    clear_check_tools_cache()
+
+
 @pytest.fixture(scope="session", autouse=True)
 def _ensure_dirs():
     """Create default config and required directories for tests."""

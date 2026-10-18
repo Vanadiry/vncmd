@@ -3,11 +3,20 @@ import json
 import re
 import shutil
 import subprocess
+from functools import lru_cache
 from pathlib import Path
 
 DURATION_TOL = 1.0
 
 _TIME_RE = re.compile(r"time=(\d+):(\d+):(\d+(?:\.\d+)?)")
+
+# 三样工具各管一段校验，缺哪个只跳过那一段。
+# 键的顺序就是提示里的顺序，从最通用排到最专门
+CHECK_TOOLS = {
+    "ffprobe": "读时长与码率，用于时长交叉验证",
+    "ffmpeg": "全量解码，能查出文件截断与容器损坏",
+    "flac": "flac 文件的无损流 CRC 校验",
+}
 
 
 def _to_float(value) -> float | None:
@@ -24,12 +33,57 @@ def _to_int(value) -> int | None:
         return None
 
 
+# lru_cache 是为了 tool check 一次扫几百个文件时不反复扫 PATH。
+# 代价是改了 PATH 之后拿不到新值，需要 clear_check_tools_cache()
+@lru_cache(maxsize=1)
+def has_ffprobe() -> bool:
+    return bool(shutil.which("ffprobe"))
+
+
+@lru_cache(maxsize=1)
 def has_ffmpeg() -> bool:
-    return bool(shutil.which("ffmpeg") and shutil.which("ffprobe"))
+    return bool(shutil.which("ffmpeg"))
 
 
+@lru_cache(maxsize=1)
 def has_flac() -> bool:
     return bool(shutil.which("flac"))
+
+
+def check_tools() -> dict[str, bool]:
+    """三样校验工具的可用情况，启动检查与任务开始时的提示共用一份"""
+    return {
+        "ffprobe": has_ffprobe(),
+        "ffmpeg": has_ffmpeg(),
+        "flac": has_flac(),
+    }
+
+
+def any_check_tool() -> bool:
+    return any(check_tools().values())
+
+
+def missing_check_tools() -> list[str]:
+    return [name for name in CHECK_TOOLS if not check_tools()[name]]
+
+
+def describe_missing_check_tools() -> str:
+    """缺哪些校验工具，以及因此会少做哪几步。三样都在时返回空串"""
+    missing = missing_check_tools()
+    if not missing:
+        return ""
+    roles = "、".join(CHECK_TOOLS[name] for name in missing)
+    return (
+        f"系统缺少 {' / '.join(missing)}，"
+        f"本次不会做{roles}。size 与 md5 的校验不受影响。"
+    )
+
+
+def clear_check_tools_cache() -> None:
+    """改了 PATH 之后要调，否则 lru_cache 里的旧结果会一直用着"""
+    has_ffprobe.cache_clear()
+    has_ffmpeg.cache_clear()
+    has_flac.cache_clear()
 
 
 def ffprobe_info(path: str) -> dict | None:
@@ -94,7 +148,11 @@ def ffmpeg_decode(path: str) -> tuple[list[str], float | None]:
             check=False,
         )
     except subprocess.TimeoutExpired:
-        return [], None
+        # 超时不是通过。返回空错误列表会让调用方当成「解码完整」，
+        # 那样一首 30 秒都解不完的歌会被当完好文件收进库
+        return ["ffmpeg 解码超时"], None
+    except OSError as e:
+        return [f"无法运行 ffmpeg：{e}"], None
     errors: list[str] = []
     max_time: float | None = None
     for line in proc.stderr.splitlines():
@@ -177,18 +235,33 @@ def check_md5(path: str, expect_md5: str, expect_size: int = 0) -> tuple[bool, s
 
 
 def check_audio(path: str) -> tuple[bool, str]:
-    """Check audio file integrity. Returns (ok, message)."""
-    info = ffprobe_info(path)
+    """Check audio file integrity. Returns (ok, message).
+
+    三样工具各管一段，缺哪个只跳过那一段 —— 装了 flac 没装 ffmpeg 的机器
+    仍然能验 flac 文件。整块门控放在这里以前是开在调用方的，
+    结果缺 ffmpeg 时连 flac 那一步也一起不做。
+
+    三样都没有时无事可做，直接放行：上游声明的 size 与 md5 已经对过了。
+    """
+    tools = check_tools()
+    if not any(tools.values()):
+        return True, ""
+
+    info = ffprobe_info(path) if tools["ffprobe"] else None
     declared = info["duration"] if info else None
 
-    errors, actual = ffmpeg_decode(path)
-    if errors:
-        note = " | ".join(errors[:3])
-        if declared and actual is not None and actual >= declared - DURATION_TOL:
-            return True, f"解码完整但尾部有异常数据: {note}"
-        return False, f"解码出错: {note}"
+    errors: list[str] = []
+    actual: float | None = None
+    if tools["ffmpeg"]:
+        errors, actual = ffmpeg_decode(path)
+        if errors:
+            # 「尾部有异常数据」只在真的解完一遍的前提下才成立。
+            # 超时或起不来时 actual 是 None，落到下面判失败而不是放行
+            if declared and actual is not None and actual >= declared - DURATION_TOL:
+                return True, f"解码完整但尾部有异常数据: {' | '.join(errors[:3])}"
+            return False, f"解码出错: {' | '.join(errors[:3])}"
 
-    if Path(path).suffix.lower() == ".flac":
+    if Path(path).suffix.lower() == ".flac" and tools["flac"]:
         err = flac_test(path)
         if err:
             return False, f"flac 无损校验失败: {err}"

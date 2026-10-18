@@ -51,9 +51,21 @@ def test_ffprobe输出是JSON数组(monkeypatch):
     assert checker.ffprobe_info("x.mp3") is None
 
 
-def test_ffmpeg解码超时有处理(monkeypatch):
+def test_ffmpeg解码超时不能当成通过(monkeypatch):
+    """超时返回空错误列表的话，调用方会当成「解码完整」放行，
+    于是一首 30 秒都解不完的歌被当完好文件收进库"""
     monkeypatch.setattr(checker.subprocess, "run", _timeout_run)
-    assert checker.ffmpeg_decode("x.mp3") == ([], None)
+    errors, actual = checker.ffmpeg_decode("x.mp3")
+    assert errors, "超时必须给出原因"
+    assert actual is None
+
+
+def test_超时的文件在check_audio里判失败(monkeypatch):
+    monkeypatch.setattr(checker.shutil, "which", lambda n: "/usr/bin/" + n)
+    monkeypatch.setattr(checker.subprocess, "run", _timeout_run)
+    ok, msg = checker.check_audio("x.flac")
+    assert not ok
+    assert "超时" in msg
 
 
 def test_flac超时给可读原因(monkeypatch, tmp_path):
