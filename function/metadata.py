@@ -166,7 +166,6 @@ def embed(
     cover_data: bytes | None,
     cover_mime: str | None,
     lyric_text: str | None,
-    song_id: int | None,
     song_title: str | None,
     song_artist: str | None,
     song_album: str | None,

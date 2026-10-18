@@ -12,7 +12,6 @@ VIP = {"logged_in": True, "vip": True, "vip_type": 11}
 
 # 判定为 True 是下不了，False 是能下，None 是看不出来
 BLOCK_ALL = [True, False, None]
-ALL_OK = [False, False, False]
 
 
 def song(sid, fee):

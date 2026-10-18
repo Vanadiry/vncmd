@@ -149,7 +149,6 @@ embed_mode = "0"
 save_mode = "0"
 auto_trim = false
 credit_scan_lines = 10
-credit_prefixes = []
 
 [download.cover]
 embed_quality = "0"

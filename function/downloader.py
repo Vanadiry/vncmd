@@ -342,7 +342,6 @@ def download_song(
             embed_cover_data,
             embed_cover_mime,
             embed_lyric,
-            song_id,
             song_title,
             song_artist,
             song_album,

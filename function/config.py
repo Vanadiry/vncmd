@@ -292,18 +292,3 @@ def is_cache_enabled() -> bool:
 def is_artist_color() -> bool:
     # 配置段缺失时保持默认开启
     return _get_cfg().get("display", {}).get("artist_color", True)
-
-
-def show_config() -> str:
-    lines = [
-        f"--- Config TOML ({CONFIG_FILE}) ---",
-    ]
-    lines.append(CONFIG_FILE.read_text(encoding="utf-8").rstrip())
-    lines.append("")
-    lines.append("--- Cookie ---")
-    cookie = get_cookie()
-    if cookie:
-        lines.append(f"已设置（{len(cookie)} 字符） —  {COOKIE_FILE}")
-    else:
-        lines.append("未设置")
-    return "\n".join(lines)

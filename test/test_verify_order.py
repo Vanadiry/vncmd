@@ -1,10 +1,11 @@
 """download_song 里两道校验的先后与在无 ffmpeg 环境下的表现"""
 
 import hashlib
+import inspect
 
 import pytest
 
-from function import downloader
+from function import downloader, metadata
 from function.checker import check_md5 as real_check_md5
 
 AUDIO = b"vncmd-test-audio" * 1000
@@ -132,3 +133,24 @@ def test_no_expectations_still_decodes(harness, monkeypatch):
     ok, _msg, _ = run(tmp)
     assert ok
     assert calls == [("md5", "", 0), ("audio",)]
+
+
+def test_embed的位置传参与真签名对得上(harness, monkeypatch):
+    """embed 的形参在 downloader 里全靠位置传，两边对不齐时元数据会串位 ——
+    歌名写进歌手那种。夹具里的 lambda 把签名吃掉了，所以要拿真签名来 bind。
+    以前 embed 带一个从没用过的 song_id，调用方就为它白占一个位置"""
+    _calls, tmp = harness
+    seen = {}
+    monkeypatch.setattr(
+        downloader, "embed_metadata", lambda *a, **k: seen.update(a=a, k=k)
+    )
+    ok, _msg, _ = run(tmp)
+    assert ok
+    assert seen, "embed 没被调到，这条测不到东西"
+
+    bound = inspect.signature(metadata.embed).bind(*seen["a"], **seen["k"])
+    bound.apply_defaults()
+    assert bound.arguments["song_title"] == "T"
+    assert bound.arguments["song_artist"] == "A"
+    assert bound.arguments["song_album"] == "B"
+    assert bound.arguments["music_type"] == "flac"

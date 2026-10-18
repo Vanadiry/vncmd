@@ -32,8 +32,6 @@ TRACKS = [
     },
 ]
 
-NARROW_HEADERS = ("#", "ID", "时长")
-
 
 def _render(width):
     """用 output.py 的真列配置渲染，量出每列表头占的格数"""
