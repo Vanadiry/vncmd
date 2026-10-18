@@ -85,10 +85,8 @@ class Test单独给diff要报错:
         )
         ran = []
         monkeypatch.setattr(tracker, "download_diff", lambda *a, **k: ran.append(a))
-        monkeypatch.setattr(tracker, "QUALITY_MAP", {"320": 320000}, raising=False)
-        monkeypatch.setattr(
-            tracker, "resolve_output_dir", lambda o=None: "/tmp", raising=False
-        )
+        monkeypatch.setattr(tracker, "QUALITY_MAP", {"320": 320000})
+        monkeypatch.setattr(tracker, "resolve_output_dir", lambda o=None: "/tmp")
         tracker.cmd_tracker(ns(diff=True, download=True, quality="320"))
         assert ran, "配了 -d 就该走下载 diff 那条路"
 
