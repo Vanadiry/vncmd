@@ -79,9 +79,16 @@ class TestMp3Embed:
         else:
             raise AssertionError("该报错却没报")
 
-    def test_日期写进TDRC与TDRL(self, temp_dir):
-        """日期帧是时间戳类，读回来时 mutagen 会把 T 归一空格，
-        所以直接查文件里的字节，那才是落盘的样子"""
+    def test_日期只写TDRL(self, temp_dir):
+        """只写 TDRL，不写 TDRC。
+
+        publish_time 是发行时间，而 ID3v2.4 §4.2.5 里 TDRC 是录制时间、
+        TDRL 才是发行时间 —— 填错语义比不填更糟。顺带解决 ffprobe 把两帧
+        都映射成 date 那个键、导致它出现两次。
+
+        日期帧是时间戳类，读回来时 mutagen 会把 T 归一空格，
+        所以直接查文件里的字节，那才是落盘的样子
+        """
         path = self._make(temp_dir)
         embed(
             path,
@@ -96,8 +103,26 @@ class TestMp3Embed:
             publish_time="2023-01-01 00:00:00",
         )
         raw = Path(path).read_bytes()
-        assert b"\x032023-01-01" in raw
+        assert b"TDRL" in raw
         assert b"\x032023-01-01T00:00" in raw
+        assert b"TDRC" not in raw, "TDRC 是录制时间，不该拿发行时间去填"
+
+    def test_publish_time为空时不写日期(self, temp_dir):
+        path = self._make(temp_dir)
+        embed(
+            path,
+            "mp3",
+            cover_data=None,
+            cover_mime=None,
+            lyric_text=None,
+            song_id=1,
+            song_title="T",
+            song_artist="A",
+            song_album=None,
+            publish_time="",
+        )
+        raw = Path(path).read_bytes()
+        assert b"TDRL" not in raw
 
 
 class TestMp3Credits:

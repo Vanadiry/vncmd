@@ -5,7 +5,6 @@ from mutagen.id3 import (
     APIC,
     TALB,
     TCOM,
-    TDRC,
     TDRL,
     TEXT,
     TIPL,
@@ -89,7 +88,9 @@ def _embed_mp3(
         except ValueError:
             pass
         else:
-            _set_text(tags, "TDRC", TDRC, pt.strftime("%Y-%m-%d"))
+            # 只写 TDRL。publish_time 是发行时间，而 ID3v2.4 §4.2.5 里
+            # TDRC 是录制时间、TDRL 才是发行时间 —— 填错语义比不填更糟。
+            # 顺带解决 ffprobe 把两帧都映射成 date 那个键、导致它出现两次
             _set_text(tags, "TDRL", TDRL, pt.strftime("%Y-%m-%dT%H:%M"))
 
     if track_no is not None:
