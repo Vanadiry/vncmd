@@ -6,6 +6,7 @@ from function._defaults import CONFIG_TOML
 from function.config import (
     CONFIG_FILE,
     CONTENT_LETTERS,
+    FILENAME_ARTIST,
     LYRIC_MODES,
     QUALITY_MAP,
     get_cache_dir,
@@ -14,7 +15,7 @@ from function.config import (
     get_download_dir,
     get_embed_cover_compress,
     get_embed_lyrics_mode,
-    get_filename_format,
+    get_filename_artist,
     get_quality,
     get_save_cover_compress,
     get_save_lyrics_mode,
@@ -67,9 +68,9 @@ class TestGetters:
         assert QUALITY_MAP["max"] == 2**31 - 1
         assert QUALITY_MAP["max"] == max(QUALITY_MAP.values())
 
-    def test_filename_format(self):
-        fmt = get_filename_format()
-        assert fmt in ("10", "01", "1")
+    def test_filename_artist(self):
+        fmt = get_filename_artist()
+        assert fmt in FILENAME_ARTIST
 
     def test_download_content(self):
         content = get_download_content()
@@ -259,5 +260,45 @@ class Test歌词模式的取值:
     def test键缺失被拦下(self, 配置文件, key):
         行 = 'embed_mode = "drop"' if key == "embed_mode" else 'save_mode = "line"'
         CONFIG_FILE.write_text(CONFIG_TOML.replace(f"{行}\n", ""), encoding="utf-8")
+        with pytest.raises(SystemExit):
+            validate_config(quiet=True)
+
+
+class Test文件名里的艺术家位置:
+    """filename_artist 的三个值。
+
+    这个键以前叫 filename_format，但分隔符、大小写、扩展名它一个都管不了，
+    三个值全由「艺术家在哪」这一个维度决定，名字比内容宽
+    """
+
+    @pytest.fixture
+    def 配置文件(self):
+        原样 = CONFIG_FILE.read_text(encoding="utf-8")
+        yield
+        CONFIG_FILE.write_text(原样, encoding="utf-8")
+
+    def _写(self, value: str) -> None:
+        CONFIG_FILE.write_text(
+            CONFIG_TOML.replace(
+                'filename_artist = "back"', f"filename_artist = {value}"
+            ),
+            encoding="utf-8",
+        )
+
+    @pytest.mark.parametrize("value", ['"front"', '"back"', '"drop"'])
+    def test三个值都算数(self, 配置文件, value):
+        self._写(value)
+        validate_config(quiet=True)
+
+    @pytest.mark.parametrize("value", ['"10"', '"01"', '"1"', '"before"', '"10 "'])
+    def test旧数字与别的词被拦下(self, 配置文件, value):
+        self._写(value)
+        with pytest.raises(SystemExit):
+            validate_config(quiet=True)
+
+    def test缺失被拦下(self, 配置文件):
+        CONFIG_FILE.write_text(
+            CONFIG_TOML.replace('filename_artist = "back"\n', ""), encoding="utf-8"
+        )
         with pytest.raises(SystemExit):
             validate_config(quiet=True)

@@ -1,7 +1,7 @@
 import re
 from pathlib import Path
 
-from function.config import get_filename_format
+from function.config import get_filename_artist
 from function.output import warning
 
 # Linux 的 ext4 单个文件名上限为 255 字节，macOS 的 APFS 为 255 字符，
@@ -66,13 +66,13 @@ def build_filename(title: str, artist: str) -> tuple[str, str | None]:
 
     完整名字仅在发生截断时返回，调用方据此写一份同名 txt
     """
-    fmt = get_filename_format()
+    fmt = get_filename_artist()
     safe_title = check_filename(title)
     safe_artist = check_filename(artist)
-    # 艺术家为空时直接留标题，拼接会多出一个待分隔的连字符
-    if fmt == "01":
-        name = f"{safe_artist} - {safe_title}" if safe_artist else safe_title
-    elif fmt == "10" and safe_artist:
+    # 艺术家为空时一律只留标题，拼接会多出一个待分隔的连字符
+    if fmt == "front" and safe_artist:
+        name = f"{safe_artist} - {safe_title}"
+    elif fmt == "back" and safe_artist:
         name = f"{safe_title} - {safe_artist}"
     else:
         name = safe_title

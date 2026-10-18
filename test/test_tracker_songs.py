@@ -133,7 +133,7 @@ class Test面板给设置路径:
 _MINIMAL_CFG = """\
 [download]
 dir = ""
-filename_format = "10"
+filename_artist = "back"
 content = "alc"
 concurrency = 4
 check = true

@@ -9,44 +9,44 @@ from function import config as config_mod
 def fmt(monkeypatch):
     def _set(value):
         monkeypatch.setattr(
-            config_mod, "_cfg", {"download": {"filename_format": value}}
+            config_mod, "_cfg", {"download": {"filename_artist": value}}
         )
 
     return _set
 
 
 def test_艺术家为空不留尾随空格(fmt):
-    fmt("10")
+    fmt("back")
     assert audio_mod.build_filename("Song", "")[0] == "Song"
 
 
 def test_标题含空格也没问题(fmt):
-    fmt("10")
+    fmt("back")
     assert (
         audio_mod.build_filename("-let's go to the sea", "")[0]
         == "-let's go to the sea"
     )
 
 
-def test_艺术家为空且格式为01(fmt):
-    fmt("01")
+def test_艺术家为空且位置在前(fmt):
+    fmt("front")
     assert audio_mod.build_filename("Song", "")[0] == "Song"
 
 
 def test_两段齐全时保持原样(fmt):
-    fmt("10")
+    fmt("back")
     assert audio_mod.build_filename("正常歌", "Someone")[0] == "正常歌 - Someone"
-    fmt("01")
+    fmt("front")
     assert audio_mod.build_filename("正常歌", "Someone")[0] == "Someone - 正常歌"
 
 
-def test_仅标题格式不受影响(fmt):
-    fmt("1")
+def test_丢弃艺术家不受影响(fmt):
+    fmt("drop")
     assert audio_mod.build_filename("Song", "Someone")[0] == "Song"
 
 
 def test_文件名首尾无空白(fmt):
-    fmt("10")
+    fmt("back")
     name = audio_mod.build_filename("Song", "")[0]
     assert name == name.strip()
 

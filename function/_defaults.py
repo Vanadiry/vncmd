@@ -2,8 +2,8 @@ CONFIG_TOML = """\
 [download]
 # 绝对路径、相对于 VNCMD_HOME 的路径，或留空使用 ~/Downloads
 dir = ""
-# 文件名格式：10=曲目-艺术家，01=艺术家-曲目，1=仅曲目
-filename_format = "10"
+# 艺术家在文件名里的位置：back=曲目-艺术家，front=艺术家-曲目，drop=仅曲目
+filename_artist = "back"
 # 下载内容：a=音频，l=歌词，c=封面，任意组合（如 alc=全部，cl=歌词和封面）
 content = "alc"
 # 并发下载数：1-16（默认 4）

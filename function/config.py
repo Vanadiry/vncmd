@@ -51,6 +51,11 @@ QUALITY_MAP = {
     "max": 2147483647,
 }
 
+# 艺术家在文件名里的位置。以前这个键叫 filename_format，
+# 但它管不到分隔符、大小写、扩展名，全部三个值都由这一个维度决定，
+# 名字比内容宽
+FILENAME_ARTIST = ("front", "back", "drop")
+
 # 下载内容。三个字母任意组合，"alc" 是全要，"cl" 只要歌词和封面。
 # 用字母而不是数字：数字串读起来就是个带前导零的数，
 # 有人会当成整数写上引号就忘了，而 alc 一眼知道不是数字。
@@ -108,10 +113,10 @@ def validate_config(quiet: bool = False) -> None:
     if "dir" not in dl:
         errors.append("[download] dir 缺失")
 
-    if not dl.get("filename_format"):
-        errors.append("[download] filename_format 缺失或为空")
-    elif dl["filename_format"] not in ("10", "01", "1"):
-        errors.append('[download] filename_format 必须为 "10"、"01" 或 "1"')
+    if not dl.get("filename_artist"):
+        errors.append("[download] filename_artist 缺失或为空")
+    elif dl["filename_artist"] not in FILENAME_ARTIST:
+        errors.append(f"[download] filename_artist 必须为 {'、'.join(FILENAME_ARTIST)}")
 
     # 不是字符串要单独拦：content = 12 会被 tomllib 读成整数，
     # 下面 set() 它会抛 TypeError，用户看到的是一整段调用栈而不是配置写错了
@@ -261,8 +266,8 @@ def get_cookie() -> str:
         return ""
 
 
-def get_filename_format() -> str:
-    return _get_cfg()["download"]["filename_format"]
+def get_filename_artist() -> str:
+    return _get_cfg()["download"]["filename_artist"]
 
 
 def get_download_content() -> str:
