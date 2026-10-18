@@ -51,6 +51,20 @@ class TestGetters:
         assert isinstance(q, int)
         assert q in QUALITY_MAP.values()
 
+    def test_音质四档的键都是字符串(self):
+        """配置里的值全是 TOML 字符串，所以键也必须是字符串。
+
+        写整数会在 QUALITY_MAP 里查不到，配置又会被 not 判断当成缺失，
+        报错信息还跟真正的原因对不上"""
+        assert list(QUALITY_MAP) == ["128", "192", "320", "max"]
+        assert all(isinstance(k, str) for k in QUALITY_MAP)
+
+    def test_max是最高的那一档(self):
+        """2147483647 是 2^31-1，一个「不设码率上限」的哨兵值。
+        实测发给服务端的 br 与返回的 br 无关，服务端按能给的最高档给"""
+        assert QUALITY_MAP["max"] == 2**31 - 1
+        assert QUALITY_MAP["max"] == max(QUALITY_MAP.values())
+
     def test_filename_format(self):
         fmt = get_filename_format()
         assert fmt in ("10", "01", "1")

@@ -16,8 +16,8 @@ downloader = "builtin"
 curl_arg = ""
 
 [download.song]
-# 音质：128、192、320、999（最高）
-quality = "999"
+# 音质：128、192、320（kbps），或 max（可用的最高质量）
+quality = "max"
 # 从歌词头解析“作曲人”并嵌入元数据
 parse_credits = false
 

@@ -141,7 +141,7 @@ downloader = "builtin"
 curl_arg = ""
 
 [download.song]
-quality = "999"
+quality = "max"
 parse_credits = false
 
 [download.lyric]
