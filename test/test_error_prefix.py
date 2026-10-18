@@ -11,7 +11,7 @@ import argparse
 
 import pytest
 
-from function import api, commands
+from vncmd import api, commands
 
 
 class Test搜索失败:

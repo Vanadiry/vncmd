@@ -13,7 +13,7 @@ import pytest
 from PIL import Image
 from rich.cells import cell_len
 
-from function import downloader
+from vncmd import downloader
 
 
 def _png() -> bytes:

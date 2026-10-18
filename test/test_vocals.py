@@ -1,6 +1,6 @@
 import pytest
 
-from function.vocals import COLORS, NAME_TO_COLOR, colorize
+from vncmd.vocals import COLORS, NAME_TO_COLOR, colorize
 
 
 def _colors(artist):

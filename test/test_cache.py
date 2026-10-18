@@ -4,8 +4,8 @@ from pathlib import Path
 
 import pytest
 
-from function import cache as cache_mod
-from function import config as config_mod
+from vncmd import cache as cache_mod
+from vncmd import config as config_mod
 
 
 @pytest.fixture
@@ -79,7 +79,7 @@ def test_翻译非空时正常写入(cached):
 def test_默认配置含ttl():
     import tomllib
 
-    from function._defaults import CONFIG_TOML
+    from vncmd._defaults import CONFIG_TOML
 
     cfg = tomllib.loads(CONFIG_TOML)
     assert cfg["cache"]["ttl"] == config_mod.DEFAULT_CACHE_TTL == 3
@@ -97,7 +97,7 @@ def test_cache段里不再有dir():
     """
     import tomllib
 
-    from function._defaults import CONFIG_TOML
+    from vncmd._defaults import CONFIG_TOML
 
     assert "dir" not in tomllib.loads(CONFIG_TOML)["cache"]
 
@@ -106,7 +106,7 @@ def test_cache段里不再有dir():
 def test_非法ttl被拦下(monkeypatch, tmp_path, bad):
     import tomllib
 
-    from function._defaults import CONFIG_TOML
+    from vncmd._defaults import CONFIG_TOML
 
     cfg = tomllib.loads(CONFIG_TOML)
     cfg["cache"]["ttl"] = bad

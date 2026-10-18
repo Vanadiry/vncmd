@@ -1,8 +1,8 @@
 import pytest
 import requests
 
-from function import api as api_mod
-from function import download as download_mod
+from vncmd import api as api_mod
+from vncmd import download as download_mod
 
 
 @pytest.fixture(autouse=True)

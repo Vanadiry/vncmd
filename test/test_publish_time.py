@@ -1,5 +1,5 @@
-from function import api as api_mod
 from test.conftest import SAMPLE_MS, as_tz
+from vncmd import api as api_mod
 
 SHANGHAI_STR = "2011-09-01 16:00:00"
 

@@ -9,8 +9,8 @@ rich 的 Text.append 只收 str 与 Text，收到 None 直接抛 TypeError。
 
 import pytest
 
-from function.api import _normalize_song, _text
-from function.output import display_song_detail
+from vncmd.api import _normalize_song, _text
+from vncmd.output import display_song_detail
 
 # 接口对有专辑的曲目返回的样子
 WITH_ALBUM = {

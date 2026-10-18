@@ -8,7 +8,7 @@ import argparse
 
 import pytest
 
-from function import commands
+from vncmd import commands
 
 READY = {
     "id": 1,
@@ -146,7 +146,7 @@ class Test单独给dlink要报错:
 class Testparser:
     @pytest.mark.parametrize("name", ["song", "album", "playlist"])
     def test_三个命令都有(self, name):
-        from vncmd import build_parser
+        from vncmd.cli import build_parser
 
         sub = next(
             a
@@ -164,7 +164,7 @@ class Testparser:
         断言的是「需配合」而不是「--json」：后者 argparse 的用法行里本来就有，
         断言它在就恒真了 —— 与 test_search_limit 里那条注释同一个坑。
         """
-        from vncmd import build_parser
+        from vncmd.cli import build_parser
 
         sub = next(
             a
@@ -177,7 +177,7 @@ class Testparser:
 
     def test_song的help说的是面板(self, capsys):
         """单曲的形态是面板，与批量不同，两边文案要分开"""
-        from vncmd import build_parser
+        from vncmd.cli import build_parser
 
         with pytest.raises(SystemExit):
             build_parser().parse_args(["song", "--help"])

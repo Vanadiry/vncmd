@@ -2,8 +2,8 @@ from pathlib import Path
 
 import pytest
 
-from function._defaults import CONFIG_TOML
-from function.config import (
+from vncmd._defaults import CONFIG_TOML
+from vncmd.config import (
     CONFIG_FILE,
     CONTENT_LETTERS,
     FILENAME_ARTIST,

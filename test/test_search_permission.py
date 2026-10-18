@@ -4,8 +4,8 @@
 都在截断，能不占地方就不占。用符号而不是文字，一格宽度摆得下。
 """
 
-from function.api import permission_verdict
-from function.output import display_search_results
+from vncmd.api import permission_verdict
+from vncmd.output import display_search_results
 
 NO_VIP = {"logged_in": True, "vip": False, "vip_type": 0}
 VIP = {"logged_in": True, "vip": True, "vip_type": 11}
@@ -148,7 +148,7 @@ def _rows(out):
 
 class TestMarks:
     def test_三态各有符号(self):
-        from function.output import _PERM_MARKS
+        from vncmd.output import _PERM_MARKS
 
         assert [m for m, _ in (_PERM_MARKS[b] for b in BLOCK_ALL)] == ["✗", "✓", "?"]
 
@@ -156,13 +156,13 @@ class TestMarks:
         """宽符号会把标题再挤掉几格，那这一列就白加了"""
         from rich.cells import cell_len
 
-        from function.output import _PERM_MARKS
+        from vncmd.output import _PERM_MARKS
 
         for blocked, (mark, _) in _PERM_MARKS.items():
             assert cell_len(mark) == 1, f"{blocked} 用了 {mark}，占 {cell_len(mark)} 格"
 
     def test_颜色分得开(self):
-        from function.output import _PERM_MARKS
+        from vncmd.output import _PERM_MARKS
 
         styles = {style for _, style in _PERM_MARKS.values()}
         assert len(styles) == 3, "三态用同一个颜色就分不出来了"
@@ -176,7 +176,7 @@ class TestSearchCarriesFee:
     """
 
     def _search(self, monkeypatch, raw_songs):
-        import function.api as api
+        import vncmd.api as api
 
         class Resp:
             @staticmethod

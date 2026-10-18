@@ -5,8 +5,8 @@ import pytest
 from rich.cells import cell_len
 from rich.console import Console
 
-from function import output
-from function.output import _build_track_table
+from vncmd import output
+from vncmd.output import _build_track_table
 
 TRACKS = [
     {

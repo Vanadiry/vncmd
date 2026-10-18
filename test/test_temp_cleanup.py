@@ -9,8 +9,8 @@ from pathlib import Path
 
 import pytest
 
-from function import downloader
 from test.conftest import SAMPLE_MS  # noqa: F401  保�� conftest 会被加载
+from vncmd import downloader
 
 AUDIO = b"fLaC" + b"vncmd-audio" * 500
 

@@ -1,6 +1,6 @@
 import pytest
 
-from function.audio import get_type_from_url
+from vncmd.audio import get_type_from_url
 
 
 @pytest.mark.parametrize(

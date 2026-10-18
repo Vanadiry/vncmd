@@ -10,8 +10,8 @@ import unittest.mock
 import pytest
 from rich.console import Console
 
-from function import commands
-from function import output as output_mod
+from vncmd import commands
+from vncmd import output as output_mod
 
 
 def tracks(n, start=1):
@@ -251,7 +251,7 @@ class Test下载也吃切片:
         改成任务级是另一步（见 TODO）。现在动它会让全量下过之后再 -n 1
         把其余曲目判成已移除并删掉。
         """
-        from function.downloader import _select_batch
+        from vncmd.downloader import _select_batch
 
         dl = tracks(20)
         selected, offset = _select_batch(dl, 3, 5)
@@ -271,7 +271,7 @@ class Test下载侧的切片:
         ],
     )
     def test_切片(self, offset, limit, want):
-        from function.downloader import _select_batch
+        from vncmd.downloader import _select_batch
 
         selected, _ = _select_batch(tracks(3), offset, limit)
         assert [t["id"] for t in selected] == want

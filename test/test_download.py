@@ -2,10 +2,10 @@ from pathlib import Path
 
 import pytest
 
-from function.api import get_lyrics_url, get_song_details, get_song_url
-from function.download import fetch_cover, fetch_lyrics
-from function.downloader import download_song
 from test.conftest import SONG_ID
+from vncmd.api import get_lyrics_url, get_song_details, get_song_url
+from vncmd.download import fetch_cover, fetch_lyrics
+from vncmd.downloader import download_song
 
 
 @pytest.mark.network

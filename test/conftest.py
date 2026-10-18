@@ -12,9 +12,9 @@ import pytest
 _session_home = tempfile.mkdtemp(prefix="vncmd_home_")
 os.environ["VNCMD_HOME"] = _session_home
 
-# sys.path setup — needed so that `from function.xxx import ...` works in tests
+# sys.path setup — needed so that `from vncmd.xxx import ...` works in tests
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
-sys.path.insert(0, str(PROJECT_ROOT))
+sys.path.insert(0, str(PROJECT_ROOT / "src"))
 
 # Shared test IDs (real NetEase Music IDs for integration tests)
 PLAYLIST_ID = 17647459371
@@ -73,9 +73,9 @@ def temp_dir():
 @pytest.fixture(autouse=True)
 def _reset_config_cache():
     """Reset the config module's cached _cfg so each test sees a fresh state."""
-    import function.config
+    import vncmd.config
 
-    function.config._cfg = None
+    vncmd.config._cfg = None
 
 
 @pytest.fixture(autouse=True)
@@ -85,7 +85,7 @@ def _reset_check_tools_cache():
     那些测试会 monkeypatch shutil.which 来模拟「装没装」，
     不清就会拿到上一条测试留下的缓存值。
     """
-    from function.checker import clear_check_tools_cache
+    from vncmd.checker import clear_check_tools_cache
 
     clear_check_tools_cache()
     yield
@@ -95,8 +95,8 @@ def _reset_check_tools_cache():
 @pytest.fixture(scope="session", autouse=True)
 def _ensure_dirs():
     """Create default config and required directories for tests."""
-    import function.config
+    import vncmd.config
 
-    function.config.validate_config()
-    for path in (function.config.get_download_dir(), function.config.get_cache_dir()):
+    vncmd.config.validate_config()
+    for path in (vncmd.config.get_download_dir(), vncmd.config.get_cache_dir()):
         Path(path).mkdir(parents=True, exist_ok=True)

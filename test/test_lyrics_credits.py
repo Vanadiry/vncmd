@@ -13,9 +13,9 @@ from pathlib import Path
 
 import pytest
 
-from function import downloader
-from function.downloader import download_song
-from function.lyrics import CREDIT_COMBOS, process_credits
+from vncmd import downloader
+from vncmd.downloader import download_song
+from vncmd.lyrics import CREDIT_COMBOS, process_credits
 
 
 def lrc(*lines):

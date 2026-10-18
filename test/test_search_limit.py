@@ -6,8 +6,8 @@
 
 import pytest
 
-from function.api import SEARCH_LIMIT_MAX
-from vncmd import _search_limit, build_parser
+from vncmd.api import SEARCH_LIMIT_MAX
+from vncmd.cli import _search_limit, build_parser
 
 
 def parse(limit):

@@ -12,7 +12,7 @@ from pathlib import Path
 
 import pytest
 
-from vncmd import build_parser
+from vncmd.cli import build_parser
 
 ROOT = Path(__file__).resolve().parent.parent
 
@@ -108,7 +108,7 @@ class TestDiffNeedsDownload:
     """--diff 只是 -d 的修饰，不是独立动作"""
 
     def test_单独给diff报错(self):
-        from function.tracker import cmd_tracker
+        from vncmd.tracker import cmd_tracker
 
         args = argparse.Namespace(
             name="like",
@@ -124,7 +124,7 @@ class TestDiffNeedsDownload:
         assert exc.value.code == 2
 
     def test_提示要说清要配合d(self, capsys):
-        from function.tracker import cmd_tracker
+        from vncmd.tracker import cmd_tracker
 
         args = argparse.Namespace(
             name="like",
@@ -143,7 +143,7 @@ class TestDiffNeedsDownload:
     def test_检查在询问创建tracker之前(self, monkeypatch):
         """放到存在性判断之后的话，用户会先被问「是否创建 tracker」，
         才发现自己的参数写错了"""
-        from function import tracker
+        from vncmd import tracker
 
         asked = []
 
@@ -170,7 +170,7 @@ class TestDiffNeedsDownload:
 
     def test_配了d就不报(self, monkeypatch):
         """配了 -d 时要走下载分支，不该被参数检查拦下"""
-        from function import tracker
+        from vncmd import tracker
 
         called = []
         monkeypatch.setattr(tracker, "load_settings", lambda name: {"sources": [1]})
@@ -208,8 +208,8 @@ class TestDefaultsStayInSync:
         的兜底，生产代码里 cmd_search 每次都显式传值。
         真正要防的是传出去的值越界，那正是服务端会回 code 400 的地方。
         """
-        import function.commands as commands
-        from function.api import SEARCH_LIMIT_MAX
+        import vncmd.commands as commands
+        from vncmd.api import SEARCH_LIMIT_MAX
 
         for json_flag in (False, True):
             for limit in (None, 1, 50, SEARCH_LIMIT_MAX):

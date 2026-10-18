@@ -3,8 +3,8 @@ import threading
 import pytest
 import requests
 
-from function import api as api_mod
-from function import config as config_mod
+from vncmd import api as api_mod
+from vncmd import config as config_mod
 
 
 @pytest.fixture(autouse=True)

@@ -9,7 +9,7 @@ import json
 
 import pytest
 
-from function import tracker
+from vncmd import tracker
 
 
 def ns(**kw):
@@ -229,7 +229,7 @@ class TestJsonDiff:
 class Testparser:
     def test_help写明配什么(self):
         """从 -d 过来的用户会以为 --diff 只能配 -d"""
-        from vncmd import build_parser
+        from vncmd.cli import build_parser
 
         with pytest.raises(SystemExit):
             build_parser().parse_args(["tracker", "like", "--help"])
@@ -237,7 +237,7 @@ class Testparser:
         assert "--json" in out, "help 要说清还能配 --json"
 
     def test_diff与json不互斥(self):
-        from vncmd import build_parser
+        from vncmd.cli import build_parser
 
         args = build_parser().parse_args(["tracker", "like", "--diff", "--json"])
         assert args.diff and args.json, "两者互补，parser 层不该拦"
@@ -248,7 +248,7 @@ def _out_of(argv):
     import re
     from contextlib import redirect_stdout
 
-    from vncmd import build_parser
+    from vncmd.cli import build_parser
 
     buf = io.StringIO()
     try:

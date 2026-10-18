@@ -10,7 +10,7 @@ import json
 
 import pytest
 
-from function import tracker
+from vncmd import tracker
 
 
 def db(n=5, updated_at="2026-10-01T00:00:00Z"):
@@ -205,21 +205,21 @@ class Testparser:
         ],
     )
     def test_三个选项都在(self, argv, attr, want):
-        from vncmd import build_parser
+        from vncmd.cli import build_parser
 
         assert (
             getattr(build_parser().parse_args(["tracker", "like", *argv]), attr) == want
         )
 
     def test_limit默认是None(self):
-        from vncmd import build_parser
+        from vncmd.cli import build_parser
 
         args = build_parser().parse_args(["tracker", "like"])
         assert args.limit is None, "写成 0 就分不清用户是显式给了 0 还是没给"
 
     def test_json不与动作同组(self):
         """--json 与 --download 的互斥在 cmd_tracker 里手写，不是互斥组"""
-        from vncmd import build_parser
+        from vncmd.cli import build_parser
 
         args = build_parser().parse_args(["tracker", "like", "--json", "-d"])
         assert args.json and args.download, "parser 层不该拦，交给 cmd_tracker 报错"

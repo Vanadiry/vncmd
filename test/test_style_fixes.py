@@ -1,8 +1,8 @@
 import pytest
 
-from function import audio as audio_mod
-from function import commands as commands_mod
-from function import config as config_mod
+from vncmd import audio as audio_mod
+from vncmd import commands as commands_mod
+from vncmd import config as config_mod
 
 
 @pytest.fixture

@@ -9,7 +9,7 @@ import argparse
 
 import pytest
 
-from function import commands
+from vncmd import commands
 
 
 @pytest.fixture
@@ -115,7 +115,7 @@ class TestCookieArgErrors:
     """参数层由 argparse 的互斥组与 cmd_cookie 一起把住"""
 
     def _parse(self, argv):
-        from vncmd import build_parser
+        from vncmd.cli import build_parser
 
         return build_parser().parse_args(argv)
 
@@ -157,7 +157,7 @@ class TestCookieForcesCheck:
     """cookie 这条命令必须绕过磁盘缓存"""
 
     def _run(self, monkeypatch, tmp_path, account):
-        from function import commands
+        from vncmd import commands
 
         monkeypatch.setattr(commands, "VNCMD_HOME", tmp_path)
         monkeypatch.setattr(commands, "COOKIE_FILE", tmp_path / "cookie")
@@ -178,7 +178,7 @@ class TestCookieForcesCheck:
 
     def test_只检查时也强制查(self, monkeypatch, tmp_path):
         good = {"logged_in": True, "vip": True, "vip_type": 11}
-        from function import commands
+        from vncmd import commands
 
         monkeypatch.setattr(commands, "COOKIE_FILE", tmp_path / "cookie")
         seen = []

@@ -15,7 +15,7 @@ from unittest import mock
 
 import pytest
 
-from function import checker
+from vncmd import checker
 
 # ffmpeg 打不开文件时把完整路径写进 stderr，这段是 UTF-8 的
 FFMPEG_ERR = (

@@ -6,8 +6,8 @@ import threading
 
 import pytest
 
-from function import download
-from function.config import get_curl_arg, get_downloader
+from vncmd import download
+from vncmd.config import get_curl_arg, get_downloader
 
 
 class TestCurlArgv:
@@ -134,27 +134,23 @@ class TestFetchAudioDispatch:
 
 class TestConfigGetter:
     def test_missing_downloader_defaults_builtin(self, monkeypatch):
-        monkeypatch.setattr(
-            "function.config._get_cfg", lambda: {"download": {"dir": ""}}
-        )
+        monkeypatch.setattr("vncmd.config._get_cfg", lambda: {"download": {"dir": ""}})
         assert get_downloader() == "builtin"
 
     def test_curl_value_respected(self, monkeypatch):
         monkeypatch.setattr(
-            "function.config._get_cfg", lambda: {"download": {"downloader": "curl"}}
+            "vncmd.config._get_cfg", lambda: {"download": {"downloader": "curl"}}
         )
         assert get_downloader() == "curl"
 
     def test_curl_arg_defaults_empty(self, monkeypatch):
-        monkeypatch.setattr(
-            "function.config._get_cfg", lambda: {"download": {"dir": ""}}
-        )
+        monkeypatch.setattr("vncmd.config._get_cfg", lambda: {"download": {"dir": ""}})
         assert get_curl_arg() == ""
 
 
 class TestParser:
     def _parse(self, argv):
-        from vncmd import build_parser
+        from vncmd.cli import build_parser
 
         return build_parser().parse_args(argv)
 
@@ -179,7 +175,7 @@ class TestValidation:
 
     @pytest.fixture(autouse=True)
     def _isolate(self, monkeypatch):
-        import function.config as cfgmod
+        import vncmd.config as cfgmod
 
         saved = cfgmod._cfg
 
@@ -193,17 +189,17 @@ class TestValidation:
     def _base(self):
         import tomllib
 
-        from function._defaults import CONFIG_TOML
+        from vncmd._defaults import CONFIG_TOML
 
         return tomllib.loads(CONFIG_TOML)
 
     def _check(self, **download_overrides):
-        import function.config as cfgmod
+        import vncmd.config as cfgmod
 
         base = self._base()
         # validate_config 内部会调 load_config 并覆盖 _cfg，所以得替换读配置那一步
         cfg = {**base, "download": {**base["download"], **download_overrides}}
-        import function.config as m
+        import vncmd.config as m
 
         orig = m.load_config
         m.load_config = lambda: cfg
@@ -214,7 +210,7 @@ class TestValidation:
 
     def test_shipped_template_passes(self):
         """模板自身必须过校验，否则新装用户直接起不来"""
-        import function.config as cfgmod
+        import vncmd.config as cfgmod
 
         cfgmod._cfg = self._base()
         cfgmod.validate_config(quiet=True)

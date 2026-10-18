@@ -1,11 +1,11 @@
 import pytest
 from rich.cells import cell_len
 
-from function.downloader import _progress_desc
+from vncmd.downloader import _progress_desc
 
 
 def _limit():
-    from function.output import console
+    from vncmd.output import console
 
     return max(console.width - 60, 30)
 

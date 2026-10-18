@@ -1,6 +1,7 @@
 import pytest
 
-from function.api import (
+from test.conftest import ALBUM_ID, PLAYLIST_ID, SONG_ID
+from vncmd.api import (
     get_album_details,
     get_lyrics,
     get_playlist_details,
@@ -8,7 +9,6 @@ from function.api import (
     get_song_url,
     search,
 )
-from test.conftest import ALBUM_ID, PLAYLIST_ID, SONG_ID
 
 
 @pytest.mark.network

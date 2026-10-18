@@ -1,6 +1,6 @@
 import pytest
 
-from function.checkpoint import (
+from vncmd.checkpoint import (
     create_checkpoint,
     load_checkpoint,
     mark_downloaded,
@@ -14,9 +14,7 @@ def _isolate_checkpoint_dir(monkeypatch, temp_dir):
     from pathlib import Path
 
     checkpoint_dir = Path(temp_dir) / "download"
-    monkeypatch.setattr(
-        "function.checkpoint._get_checkpoint_dir", lambda: checkpoint_dir
-    )
+    monkeypatch.setattr("vncmd.checkpoint._get_checkpoint_dir", lambda: checkpoint_dir)
     checkpoint_dir.mkdir(parents=True, exist_ok=True)
     return checkpoint_dir
 
@@ -129,6 +127,6 @@ class TestSyncCheckpointTracks:
 
 
 def teardown_module():
-    import function.checkpoint as cp
+    import vncmd.checkpoint as cp
 
     cp._CHECKPOINT_DIR = None

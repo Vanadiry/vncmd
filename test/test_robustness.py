@@ -4,8 +4,8 @@ import pytest
 from rich.console import Console
 from rich.progress import BarColumn, Progress, TextColumn
 
-from function import checker, downloader
-from function import output as output_mod
+from vncmd import checker, downloader
+from vncmd import output as output_mod
 
 # ---------- #23 子进程超时 ----------
 

@@ -1,4 +1,4 @@
-from function.audio import (
+from vncmd.audio import (
     _MAX_FILENAME_BYTES,
     build_filename,
     check_filename,

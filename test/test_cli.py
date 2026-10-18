@@ -4,8 +4,8 @@ import sys
 
 import pytest
 
-from function.config import VNCMD_HOME
 from test.conftest import ALBUM_ID, PLAYLIST_ID, PROJECT_ROOT, SONG_ID
+from vncmd.config import VNCMD_HOME
 
 
 def _run(args, timeout=30, **kwargs):

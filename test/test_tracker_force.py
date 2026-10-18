@@ -8,7 +8,7 @@ import argparse
 
 import pytest
 
-from function import tracker
+from vncmd import tracker
 
 
 def ns(**kw):
@@ -87,7 +87,7 @@ class Test修饰必须配fetch:
 
 class Test互斥:
     def test_parser层就拦下(self):
-        from vncmd import build_parser
+        from vncmd.cli import build_parser
 
         with pytest.raises(SystemExit) as exc:
             build_parser().parse_args(
@@ -97,7 +97,7 @@ class Test互斥:
 
     def test_fetch_auto已经不存在(self):
         """退休了就不该再接受这个拼法，否则用户以为还有效"""
-        from vncmd import build_parser
+        from vncmd.cli import build_parser
 
         with pytest.raises(SystemExit):
             build_parser().parse_args(["tracker", "like", "--fetch-auto"])
@@ -221,7 +221,7 @@ class TestHelp:
 
     def test_都不在互斥组里(self):
         """它们是 --fetch 的修饰，与 --fetch 同给才合法，所以不该进顶层组"""
-        from vncmd import build_parser
+        from vncmd.cli import build_parser
 
         args = build_parser().parse_args(["tracker", "like", "-f", "--force"])
         assert args.fetch and args.force
@@ -232,7 +232,7 @@ def _out_of(argv):
     import re
     from contextlib import redirect_stdout
 
-    from vncmd import build_parser
+    from vncmd.cli import build_parser
 
     buf = io.StringIO()
     try:

@@ -3,8 +3,9 @@ from pathlib import Path
 
 import pytest
 
-from function.config import get_quality
-from function.tracker import (
+from test.conftest import SONG_ID
+from vncmd.config import get_quality
+from vncmd.tracker import (
     _settings_path,
     _songs_path,
     _tracker_path,
@@ -18,7 +19,6 @@ from function.tracker import (
     save_songs_db,
     validate_name,
 )
-from test.conftest import SONG_ID
 
 NAME_CRUD = "_test_tracker_crud"
 NAME_DB = "_test_tracker_db"

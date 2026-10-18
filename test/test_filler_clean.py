@@ -8,7 +8,7 @@ U+3164 HANGUL FILLER 看着是空白，Unicode 标它为 Wide，终端按宽渲�
 import pytest
 from rich.cells import cell_len
 
-from function.api import _clean, _normalize_song
+from vncmd.api import _clean, _normalize_song
 
 FILLER = "ㅤ"
 

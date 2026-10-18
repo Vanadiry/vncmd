@@ -11,7 +11,7 @@ from importlib.metadata import version as _pkg_version
 
 import pytest
 
-import vncmd
+import vncmd.cli as vncmd
 
 EXPECTED = f"vncmd {_pkg_version('vncmd')}"
 
