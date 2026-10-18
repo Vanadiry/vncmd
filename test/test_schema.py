@@ -102,12 +102,53 @@ class Test表的形状:
         assert schema.get("不存在的键") is None
 
 
-class Test与模板一致:
-    """表的默认值要与模板里写的相同
+def 模板的全部叶子键() -> list[str]:
+    """模板里的每个叶子键，点号路径
 
-    这是 TODO2 第 2 步要扩大的那条，现在先覆盖手头这六项。
-    表与模板是刻意重复的两份，重复就会漂移，漂移了没人知道
+    只数叶子：download.audio 是一个段不是一个键，
+    它下面的 quality 才是键。段本身不进表 ——
+    段不是表时该报的是「[download.audio] 必须是一段配置」，
+    那是段级的事，与某个键能填什么无关
     """
+    路径 = []
+    for 段, 内容 in 完整配置.items():
+        for 键, 值 in 内容.items():
+            if isinstance(值, dict):
+                路径 += [f"{段}.{键}.{子键}" for 子键 in 值]
+            else:
+                路径.append(f"{段}.{键}")
+    return sorted(路径)
+
+
+class Test与模板一致:
+    """表与 defaults.py 的模板是刻意重复的两份，所以它们会漂移。
+
+    这组测试抓三种漂移：
+    表里没有模板中的某个键（键漏了，getter 会按默认值走而用户填的没人管）、
+    表里有模板中没有的键（改了代码没改模板，用户看不到这个键）、
+    两边默认值不一样（机器读一套、人读另一套）
+
+    前两种现在还不可能发生 —— 表里只有六项，模板里有 18 个。
+    所以用「剩余待进表」的白名单记着，不是假装它们已经对上了。
+    白名单里的键搬完一项就少一项，空了就可以删掉这个检查
+    """
+
+    待进表 = frozenset(
+        {
+            "cache.enabled",
+            "cache.ttl",
+            "display.artist_color",
+            "download.audio.parse_credits",
+            "download.check",
+            "download.concurrency",
+            "download.cover.embed_compress",
+            "download.cover.save_compress",
+            "download.curl_arg",
+            "download.dir",
+            "download.lyric.auto_trim",
+            "download.lyric.credit_scan_lines",
+        }
+    )
 
     def _默认值(self, 路径: str):
         段 = 路径.split(".")
@@ -116,9 +157,44 @@ class Test与模板一致:
             游 = 游[一段]
         return 游
 
+    def test_template的每个叶子键都在表里或白名单里(self):
+        """模板加了键却没进表，那是漏了 —— 白名单以外的全都不该出现在这里"""
+        表里 = {s.path for s in schema.SCHEMA}
+        漏掉 = [p for p in 模板的全部叶子键() if p not in 表里 and p not in self.待进表]
+        assert not 漏掉, (
+            f"模板里有、表里没有：{漏掉}。要么把它加进表，要么明确写进待进表白名单"
+        )
+
+    def test表里没有模板中不存在的键(self):
+        """表里多一个键而模板里没有，用户按注释找不到它
+
+        真要发生的情形是改代码时改了表里的 path，忘了模板那一段
+        """
+        模板键 = set(模板的全部叶子键())
+        多出来 = [s.path for s in schema.SCHEMA if s.path not in 模板键]
+        assert not 多出来, f"表里有、模板里没有：{多出来}。模板是用户看的那一份"
+
+    def test_白名单与实际缺口一致(self):
+        """白名单是「还没搬的」，不是「允许漏的」
+
+        搬完一项就从白名单里划掉一项，两边自动对上。
+        白名单多写一项就会掩盖真的漏键，所以它也得被盯住
+        """
+        表里 = {s.path for s in schema.SCHEMA}
+        实际待搬 = [p for p in 模板的全部叶子键() if p not in 表里]
+        assert sorted(self.待进表) == sorted(实际待搬), (
+            f"实际待搬 {sorted(实际待搬)}，白名单写的是 {sorted(self.待进表)}。"
+            f"多写会掩盖漏键，少写会误报"
+        )
+
     @pytest.mark.parametrize("路径", 六个)
     def test默认值对得上(self, 路径):
         assert schema.get(路径).default == self._默认值(路径)
+
+    @pytest.mark.parametrize("路径", 六个)
+    def test类型也对得上(self, 路径):
+        """模板里是字符串、表里写成整数，校验会一路放行非字符串的那种"""
+        assert type(schema.get(路径).default) is type(self._默认值(路径))
 
     @pytest.mark.parametrize("路径", 六个)
     def test合法值过得了(self, 路径):
