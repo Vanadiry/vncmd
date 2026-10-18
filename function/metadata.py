@@ -119,6 +119,11 @@ def _embed_flac(
     audio = FLAC(music_path)
 
     if cover_data and cover_mime:
+        # 先清后加，与 mp3 侧的 tags.delall("APIC") 同一个道理。
+        # add_picture 是追加语义，不清的话同一个文件 embed 几次就叠几层 ——
+        # 实测八次之后文件从 23.7 KB 涨到 54.8 KB。
+        # _embed_with_retry 会重跑 embed，--force 重下也会再跑一遍
+        audio.clear_pictures()
         pic = Picture()
         pic.type = 3
         pic.mime = cover_mime

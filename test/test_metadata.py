@@ -231,6 +231,61 @@ class TestFlacEmbed:
         assert len(flac.pictures) > 0
         assert "FLACtest" in flac.get("lyrics", [""])[0]
 
+    def test_重跑不叠加封面(self, temp_dir):
+        """add_picture 是追加语义。不清的话 embed 几次就叠几层 ——
+        实测同一个文件连 embed 八次，文件从 23.7 KB 涨到 54.8 KB。
+        _embed_with_retry 会重跑 embed，--force 重下也会再跑一遍，两条路都会命中"""
+        path = self._make(temp_dir)
+        embed(
+            path,
+            "flac",
+            cover_data=self.cover,
+            cover_mime="image/jpeg",
+            lyric_text=None,
+            song_id=1,
+            song_title="T",
+            song_artist="A",
+            song_album=None,
+            publish_time=None,
+        )
+        first_size = Path(path).stat().st_size
+
+        for _ in range(5):
+            embed(
+                path,
+                "flac",
+                cover_data=self.cover,
+                cover_mime="image/jpeg",
+                lyric_text=None,
+                song_id=1,
+                song_title="T",
+                song_artist="A",
+                song_album=None,
+                publish_time=None,
+            )
+
+        assert len(FLAC(path).pictures) == 1, "封面叠加了"
+        assert Path(path).stat().st_size == first_size, "文件在变大，说明有多余的块"
+
+    def test_换封面后不留下旧的(self, temp_dir):
+        path = self._make(temp_dir)
+        for cover in (self.cover, _cover_data()):
+            embed(
+                path,
+                "flac",
+                cover_data=cover,
+                cover_mime="image/jpeg",
+                lyric_text=None,
+                song_id=1,
+                song_title="T",
+                song_artist="A",
+                song_album=None,
+                publish_time=None,
+            )
+        flac = FLAC(path)
+        assert len(flac.pictures) == 1
+        assert flac.pictures[0].data == _cover_data()
+
     def test_credits写进对应的键(self, temp_dir):
         path = self._make(temp_dir)
         embed(
