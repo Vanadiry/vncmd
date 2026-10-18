@@ -18,9 +18,9 @@ from mutagen.id3 import (
 )
 from mutagen.mp3 import MP3
 
-from function.lyrics import CREDIT_FIELDS
+from function.lyrics import CREDIT_ROLES
 
-# CREDIT_FIELDS 里的 mp3 写法只有两种：帧 ID，或者是 TIPL 的角色名
+# CREDIT_ROLES 里的 mp3 写法只有两种：帧 ID，或者是 TIPL 的角色名
 _CREDIT_FRAME_CLASSES = {"TCOM": TCOM, "TEXT": TEXT, "TPE3": TPE3}
 
 
@@ -36,7 +36,7 @@ def _write_credits_mp3(tags, credits: dict[str, str]) -> None:
     # 所以所有走 TIPL 的角色攒进同一个 people 列表
     tipl: list[tuple[str, str]] = []
     for role, value in credits.items():
-        how = CREDIT_FIELDS[role][0]
+        how = CREDIT_ROLES[role][0]
         if how.startswith("TIPL:"):
             tipl.append((how.split(":", 1)[1], value))
             continue
@@ -149,7 +149,7 @@ def _embed_flac(
 
     if credits:
         for role, value in credits.items():
-            audio[CREDIT_FIELDS[role][1]] = value
+            audio[CREDIT_ROLES[role][1]] = value
 
     audio.save()
 

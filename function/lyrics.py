@@ -20,37 +20,28 @@ _CREDIT_LINE_RE = re.compile(
     r"^\[\d{2}:\d{2}[:.]\d{2,3}\]\s*(?P<role>[^:：\[\]]{1,20}?)\s*[:：]\s*(?P<value>.+)$"
 )
 
-# 内部名 → (mp3 写法, flac 键)。简体与繁体共用同一个 tag 键
+# 内部名 → (mp3 写法, flac 键, 歌词里会怎么写)。
+# 简体与繁体共用同一个 tag 键，所以只列一次键名
 # 母带不进表，mp3 与 flac 都没有标准字段，不硬塞
 # 乐器不进表，上游写的是具体乐器名而不是「乐器」这个角色
 # 演唱不进表，库里三行的值与文件已有的 artist 全部不一致
-CREDIT_FIELDS = {
-    "作曲": ("TCOM", "composer"),
-    "作词": ("TEXT", "lyricist"),
-    "编曲": ("TIPL:arranger", "arranger"),
-    "制作人": ("TIPL:producer", "producer"),
-    "混音": ("TIPL:mix", "mixer"),
-    "录音": ("TIPL:engineer", "engineer"),
-    "指挥": ("TPE3", "conductor"),
+CREDIT_ROLES = {
+    "作曲": ("TCOM", "composer", ("作曲",)),
+    "作词": ("TEXT", "lyricist", ("作词", "作詞")),
+    "编曲": ("TIPL:arranger", "arranger", ("编曲", "編曲")),
+    "制作人": ("TIPL:producer", "producer", ("制作人", "製作人", "Producer")),
+    "混音": ("TIPL:mix", "mixer", ("混音", "Mixer")),
+    "录音": ("TIPL:engineer", "engineer", ("录音", "錄音")),
+    "指挥": ("TPE3", "conductor", ("指挥", "指揮")),
 }
 
-# 角色别名 → 内部名。繁体必须一起认，否则繁体歌词的 credit 行会被当成歌词。
+# 歌词里的写法 → 内部名。匹配时是拿歌词那一行的角色名去查，所以要倒排。
+# 繁体必须一起认，否则繁体歌词的 credit 行会被当成歌词。
 # 「作曲」的繁体与简体同形，「作词」的繁体是「作詞」，两者不撞车
 ROLE_ALIASES = {
-    "作曲": "作曲",
-    "作词": "作词",
-    "作詞": "作词",
-    "编曲": "编曲",
-    "編曲": "编曲",
-    "制作人": "制作人",
-    "製作人": "制作人",
-    "Producer": "制作人",
-    "混音": "混音",
-    "Mixer": "混音",
-    "录音": "录音",
-    "錄音": "录音",
-    "指挥": "指挥",
-    "指揮": "指挥",
+    written: role
+    for role, (_mp3, _flac, writings) in CREDIT_ROLES.items()
+    for written in writings
 }
 
 # 连写角色名 → (要记的角色, 保留后剩下的角色名)。
