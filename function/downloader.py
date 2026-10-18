@@ -57,13 +57,14 @@ from function.download import fetch_audio, fetch_cover, fetch_lyrics
 from function.image import detect_format
 from function.image import process_cover as process_cover_image
 from function.lyrics import (
+    has_meaningful_lyrics,
+    process_credits,
+)
+from function.lyrics import (
     output_files as output_lyrics_files,
 )
 from function.lyrics import (
     process as process_lyrics,
-)
-from function.lyrics import (
-    process_credits,
 )
 from function.metadata import embed as embed_metadata
 from function.output import (
@@ -250,6 +251,14 @@ def download_song(
         # 翻译歌词里没有 credit 行，只裁不抽，与 extract_credits 原来的行为一致
         if auto_trim:
             _, tlyric_text = process_credits(tlyric_text, scan_lines, False, True)
+
+    # 裁完没有任何带时间戳的行就不写 lrc 也不嵌空歌词。
+    # 判的是「有没有带时间戳的行」而不是「字符串空不空」——
+    # 删光时 "\n".join([]) 是空串，但残留几个空行时是 "\n" 这种非空串。
+    # 原文没歌词只有译文的情况一并清掉，免得留下有 2.lrc 没 lrc 的怪状态
+    if not has_meaningful_lyrics(lyric_text):
+        lyric_text = ""
+        tlyric_text = ""
 
     # --- Fetch and process cover ---
     cover_data = None

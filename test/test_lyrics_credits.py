@@ -357,7 +357,7 @@ class TestDownloader接线:
 
     @pytest.fixture
     def run(self, tmp_path, monkeypatch):
-        state = {"content": "012", "credits": None}
+        state = {"content": "012", "lyrics": (CREDIT_LYRIC, ""), "credits": None}
 
         def fake_fetch(url, path, label, progress=None, task_id=None, **kw):
             Path(path).write_bytes(AUDIO)
@@ -366,7 +366,7 @@ class TestDownloader接线:
             state["credits"] = args[-1]
 
         monkeypatch.setattr(downloader, "fetch_audio", fake_fetch)
-        monkeypatch.setattr(downloader, "fetch_lyrics", lambda *_a: (CREDIT_LYRIC, ""))
+        monkeypatch.setattr(downloader, "fetch_lyrics", lambda *_a: state["lyrics"])
         monkeypatch.setattr(downloader, "fetch_cover", lambda *_a: b"\x89PNG")
         monkeypatch.setattr(downloader, "embed_metadata", fake_embed)
         monkeypatch.setattr(downloader, "get_check_enabled", lambda: False)
@@ -376,9 +376,12 @@ class TestDownloader接线:
         monkeypatch.setattr(downloader, "get_parse_credits", lambda: True)
         monkeypatch.setattr(downloader, "get_auto_trim", lambda: True)
 
-        def go(content="012"):
+        def go(content="012", lyrics=None):
+            if lyrics is not None:
+                state["lyrics"] = lyrics
             state["content"] = content
-            dl = tmp_path / f"dl{content}"
+            # 每次换个目录，否则 output_lyrics_files 会写成 xxx(1).lrc
+            dl = tmp_path / f"dl{content}{len(state['lyrics'][0])}"
             ok, msg, _ = download_song(
                 song_url="http://x/a.flac",
                 song_title="歌",
@@ -392,32 +395,43 @@ class TestDownloader接线:
                 song_md5=hashlib.md5(AUDIO).hexdigest(),
             )
             assert ok, msg
-            lr = sorted(dl.glob("*.lrc"))
-            assert len(lr) == 1, f"lrc 文件数不对：{[p.name for p in lr]}"
-            return lr[0].read_text(), state["credits"]
+            return sorted(p.read_text() for p in dl.glob("*.lrc")), state["credits"]
 
         go.state = state
         return go
 
+    def test_裁完只剩空行时不写lrc(self, run):
+        """裁光之后 "\n".join([]) 是空串，但上游多给几个空行时是 "\\n" 这种非空串，
+        只判字符串空不空会写出一个只有空行的 lrc 文件"""
+        texts, _ = run("012", ("[00:00.000]纯音乐，请欣赏\n\n\n", ""))
+        assert texts == [], f"该不写却写了：{texts}"
+
+    def test_裁完没内容时译文也一起清掉(self, run):
+        """原文没歌词只有译文时一并清掉，免得留下有 2.lrc 没 lrc 的怪状态"""
+        texts, _ = run("012", ("[00:00.000]纯音乐，请欣赏\n", "[00:00.000]译文\n"))
+        assert texts == [], f"该不写却写了：{texts}"
+
     def test_两个开关开时搬走并裁掉(self, run):
-        text, credits = run("012")
+        texts, credits = run("012")
         assert credits == {
             "作曲": "大瀧詠一",
             "作词": "monii/Neuro-sama/Evil Neuro",
         }
-        assert "大瀧詠一" not in text
-        assert "YOU BURNED MY SOUL AGAIN" in text
-        assert "纯音乐" not in text
+        assert len(texts) == 1
+        assert "大瀧詠一" not in texts[0]
+        assert "YOU BURNED MY SOUL AGAIN" in texts[0]
+        assert "纯音乐" not in texts[0]
 
     def test_仅歌词时角色行不裁(self, run):
         """content 为 1 时不会下音频，抽出来的 credits 没人接收，
         而行被裁掉就是白删。改动前丢的是作曲一行，改动后会丢七个角色"""
-        text, credits = run("1")
+        texts, credits = run("1")
         assert credits is None, "没有音频可写，不该去抽"
-        assert "作曲 : 大瀧詠一" in text
-        assert "YOU BURNED MY SOUL AGAIN" in text
+        assert len(texts) == 1
+        assert "作曲 : 大瀧詠一" in texts[0]
+        assert "YOU BURNED MY SOUL AGAIN" in texts[0]
 
     def test_仅歌词时删除类照裁(self, run):
         """值为无、歌词翻译、纯音乐这三类不依赖标签，该删还是删"""
-        text, _ = run("1")
-        assert "纯音乐" not in text
+        texts, _ = run("1")
+        assert "纯音乐" not in texts[0]
