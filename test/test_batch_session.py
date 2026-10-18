@@ -290,22 +290,51 @@ class Test并发环境准备:
         workers.show(task_id)
         assert workers.progress.tasks[task_id].visible is True
 
-    def test_reset让槽位回到不可见且清空描述(self):
+    def test_release让槽位回到不可见且清空描述(self):
         workers = downloader._prepare_workers(self._tracks(1), 1)
         task_id = workers.slots[0]
         workers.show(task_id)
         workers.describe(task_id, "歌0 - 人")
         assert "歌0" in str(workers.progress.tasks[task_id].description)
-        workers.reset(task_id)
+        workers.release(task_id)
         assert workers.progress.tasks[task_id].visible is False
         assert str(workers.progress.tasks[task_id].description).strip() == ""
 
+    def test_restart只清总长不藏槽位(self):
+        """重试同一首时槽位必须留着可见
+
+        藏了就没法再显出来 —— describe 只写描述、不会把 visible 设回 True，
+        所以那一路的进度会一直看不见，而这正是最需要反馈的时候
+        """
+        workers = downloader._prepare_workers(self._tracks(1), 1)
+        task_id = workers.slots[0]
+        workers.show(task_id)
+        workers.progress.update(task_id, total=100, completed=40)
+        workers.restart(task_id)
+        assert workers.progress.tasks[task_id].visible is True
+        # total 保持原值、completed 归零 —— 下一轮下载会按新的总长重设
+        assert workers.progress.tasks[task_id].completed == 0
+
+    def test_restart之后还能继续写描述(self):
+        """重现真实那条路径：重试 -> 写提示 -> 下载推进进度"""
+        workers = downloader._prepare_workers(self._tracks(1), 1)
+        task_id = workers.slots[0]
+        workers.show(task_id)
+        workers.progress.update(task_id, total=100, completed=40)
+        workers.restart(task_id)
+        workers.describe(task_id, "歌0 - 人（重试 1/3）")
+        assert workers.progress.tasks[task_id].visible is True
+        assert "重试 1/3" in str(workers.progress.tasks[task_id].description)
+
     def test_describe带_markup转义(self):
-        """歌名里有方括号时会被 rich 当成样式标记解析，所以要转义"""
+        """歌名里有方括号时会被 rich 当成样式标记解析，所以要转义
+
+        断言要带上反斜杠 —— 只查 live 的话，转义与否都在，查不出东西
+        """
         workers = downloader._prepare_workers(self._tracks(1), 1)
         task_id = workers.slots[0]
         workers.describe(task_id, "歌[live] - 人")
-        assert "live" in str(workers.progress.tasks[task_id].description)
+        assert "\\[live]" in str(workers.progress.tasks[task_id].description)
 
     def test_零首时开零个槽(self):
         workers = downloader._prepare_workers([], 4)
@@ -356,7 +385,7 @@ class Test取链接重试:
         """永远取不到也只能试三次 —— 上游返回空 url 时不会卡死批次"""
         记录 = self._打桩(monkeypatch, [None])
         downloader._fetch_source_with_retry(1, 999)
-        assert len(记录) == 3
+        assert len(记录) == downloader._LINK_ATTEMPTS
 
     def test_on_retry只在还有下一次时调用(self, monkeypatch):
         """最后一次失败之后不再提示重试，那样会显示「重试 3/3」却不再重试"""
@@ -388,3 +417,49 @@ class Test取链接重试:
         monkeypatch.setattr(downloader, "get_audio_source", 取)
         downloader._fetch_source_with_retry(1, 320000)
         assert 看到的 == [320000]
+
+
+class Test槽位方法的调用点:
+    """钉住 worker 循环里哪一行该调哪个方法
+
+    这段循环在 _download_one 闭包里，要跑它得拉起真线程池、mock 十来个参数，
+    测的就不是真东西了。所以这里直接读源码，钉住约定本身。
+
+    起因是踩过的坑：重试同一首时用了「释放槽位」那个方法，
+    槽位一藏就再也显不出来 —— describe 只写描述、不会把 visible 设回 True。
+    那一路进度就此静默，而那正是最需要反馈的时候。两种方法的单测都拦不住
+    """
+
+    def _源码(self):
+        # 按相对路径找，跟 test_stream_split.py 一个路子 ——
+        # 写死绝对路径换个机器就跑不了了
+        return Path("src/vncmd/downloader.py").read_text(encoding="utf-8")
+
+    def _重试那一段(self):
+        """截出「重试同一首」那段
+
+        从最后一次 download_song 调用，到重试循环里的 restart 及其之后的 describe。
+        上界不能拿 release 当锚 —— 解析失败那处 release 排在重试循环之前，
+        拿它当上界会截掉整段重试逻辑
+        """
+        源码 = self._源码()
+        起 = 源码.rindex("ok, msg, _ = download_song(")
+        止 = 源码.index("if attempt < 3:", 起)
+        return 源码[起:止]
+
+    def test_重试处必须调restart(self):
+        段 = self._重试那一段()
+        assert "workers.restart(task_id)" in 段
+        assert "workers.release(task_id)" not in 段, (
+            "重试同一首不能释放槽位，否则那一路进度就此静默"
+        )
+
+    def test_每首处理完要释放槽位(self):
+        """全文件 release 与 restart 的调用点数必须对得上方法数
+
+        少调 release 槽位不会回收，多调 release 重试会静默 ——
+        两个方向都要有人盯着，所以连数量一起钉住
+        """
+        源码 = self._源码()
+        assert 源码.count("workers.release(task_id)") == 4
+        assert 源码.count("workers.restart(task_id)") == 1

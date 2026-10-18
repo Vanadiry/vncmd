@@ -335,7 +335,7 @@ def download_song(
     if want_song:
         music_type = get_type_from_url(song_url)
         temp_music_path = str(temp_dir / f"{song_id}.{music_type}")
-        落盘 = _download_and_verify(
+        verify_err = _download_and_verify(
             temp_music_path,
             song_url=song_url,
             label=f"{song_title} - {song_artist}",
@@ -346,8 +346,8 @@ def download_song(
             song_md5=song_md5,
             run_check=run_check,
         )
-        if 落盘 is not None:
-            return False, 落盘, None
+        if verify_err is not None:
+            return False, verify_err, None
 
         # Process lyrics for embedding
         embed_mode = get_embed_lyrics_mode()
@@ -497,7 +497,20 @@ class _Workers:
     def describe(self, task_id: int, text: str) -> None:
         self.progress.update(task_id, description=_progress_desc(text))
 
-    def reset(self, task_id: int) -> None:
+    def restart(self, task_id: int) -> None:
+        """同一首重来时清掉上一轮的总长
+
+        不藏槽位 —— 重试这一路还要继续显示，而且这正是最需要反馈的时候。
+        藏了就再也显不出来，因为 describe 只写描述、不碰 visible
+        """
+        self.progress.reset(task_id, total=None)
+
+    def release(self, task_id: int) -> None:
+        """这首歌处理完了，把槽位腾出来给下一首
+
+        隐藏要等下一轮 show 才恢复，所以只在这一首彻底结束时调用 ——
+        中途调用会让用户在重试期间看不到那一路
+        """
         self.progress.update(task_id, description="")
         self.progress.reset(task_id, total=None)
         self.progress.tasks[task_id].visible = False
@@ -611,7 +624,7 @@ def download_song_batch(
                         title = track["title"]
                         artist = track["artist"]
                     except Exception as e:
-                        workers.reset(task_id)
+                        workers.release(task_id)
                         warning(f"跳过 {title}（ID: {sid}）— 获取详情失败：{e}")
                         with counter_lock:
                             fail_count += 1
@@ -645,7 +658,7 @@ def download_song_batch(
                         ),
                     )
                     if not source:
-                        workers.reset(task_id)
+                        workers.release(task_id)
                         warning(f"跳过 {title} - {artist} — 无法获取下载链接")
                         info(f"  请尝试 vncmd song {sid} 手动下载")
                         with counter_lock:
@@ -683,13 +696,13 @@ def download_song_batch(
                         )
                         if ok:
                             break
-                        workers.reset(task_id)
+                        workers.restart(task_id)
                         if attempt < 3:
                             workers.describe(
                                 task_id, f"{title} - {artist}（重试 {attempt}/3）"
                             )
 
-                workers.reset(task_id)
+                workers.release(task_id)
                 if ok:
                     with counter_lock:
                         success(f"{title} - {artist}")
@@ -704,7 +717,7 @@ def download_song_batch(
                 time.sleep(0.3)
             except Exception as e:
                 # 未预期的异常不能让 worker 死掉，它一死队列里剩下的曲目就没人接了
-                workers.reset(task_id)
+                workers.release(task_id)
                 with counter_lock:
                     error(f"「{title} - {artist}」{type(e).__name__}: {e}")
                     fail_count += 1
