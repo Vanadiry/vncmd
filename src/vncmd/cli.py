@@ -3,7 +3,6 @@ import sys
 from importlib.metadata import PackageNotFoundError
 from importlib.metadata import version as _pkg_version
 
-from vncmd.api import SEARCH_LIMIT_MAX
 from vncmd.commands import (
     announce_account,
     cmd_album,
@@ -15,8 +14,9 @@ from vncmd.commands import (
     cmd_search,
     cmd_song,
 )
-from vncmd.config import QUALITY_MAP, acquire_lock, validate_config
-from vncmd.output import err_console, error
+from vncmd.core.config import QUALITY_MAP, acquire_lock, validate_config
+from vncmd.core.output import err_console, error
+from vncmd.net.api import SEARCH_LIMIT_MAX
 from vncmd.tracker import cmd_tracker
 
 
@@ -242,9 +242,9 @@ def build_parser() -> _ArgumentParser:
 
     p_tracker = sub.add_parser("tracker", help="追踪音乐来源变更并批量下载")
     p_tracker.add_argument("name", help="Tracker 名称")
-    # 三个顶层动作只能选一个。命令里是 if / elif / else，同给时前面的分支
-    # 会静默吃掉后面的：-f --fetch-auto 是 fetch_auto 胜出，-f -d 是拉取胜出，
-    # 用户以为两个开关叠加了，实际上只有一个生效
+    # 顶层动作只能选一个。命令里是 if / elif / else，同给时前面的分支
+    # 会静默吃掉后面的：-f -d 是拉取胜出，用户以为两个开关叠加了，
+    # 实际上只有一个生效
     grp_tracker = p_tracker.add_mutually_exclusive_group()
     grp_tracker.add_argument(
         "--fetch",

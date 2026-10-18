@@ -11,23 +11,17 @@ from pathlib import Path
 import questionary
 from rich.markup import escape
 
-from vncmd._defaults import TRACKER_SETTINGS_TOML
-from vncmd.api import (
-    get_album_details,
-    get_playlist_details,
-    get_song_details,
-)
 from vncmd.commands import _dump_json
-from vncmd.config import (
+from vncmd.core.config import (
     QUALITY_MAP,
     VNCMD_HOME,
     abbrev_home,
     get_quality,
     resolve_output_dir,
 )
-from vncmd.downloader import download_song_batch
-from vncmd.jsonstore import read_json_safe, write_json_atomic
-from vncmd.output import (
+from vncmd.core.defaults import TRACKER_SETTINGS_TOML
+from vncmd.core.jsonstore import read_json_safe, write_json_atomic
+from vncmd.core.output import (
     _artist_text,
     _range_suffix,
     console,
@@ -36,6 +30,12 @@ from vncmd.output import (
     info,
     success,
     warning,
+)
+from vncmd.downloader import download_song_batch
+from vncmd.net.api import (
+    get_album_details,
+    get_playlist_details,
+    get_song_details,
 )
 
 TRACKER_DIR = VNCMD_HOME / "tracker"

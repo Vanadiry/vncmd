@@ -5,7 +5,7 @@ import sys
 import pytest
 
 from test.conftest import ALBUM_ID, PLAYLIST_ID, PROJECT_ROOT, SONG_ID
-from vncmd.config import VNCMD_HOME
+from vncmd.core.config import VNCMD_HOME
 
 
 # 入口脚本原先在仓库根目录的 vncmd.py，现在并进了包内的 vncmd.cli。
@@ -49,7 +49,7 @@ class TestCliPreview:
         这个选项，重整之前的代码里也 grep 不到。取链路由 api.py 的单测管，
         那边不受 CLI 参数增删影响
         """
-        from vncmd.api import get_song_url
+        from vncmd.net.api import get_song_url
 
         url = get_song_url(SONG_ID)
         assert url, "取不到单曲的直链"

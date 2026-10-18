@@ -5,7 +5,7 @@ from pathlib import Path
 
 from filelock import FileLock, Timeout
 
-from vncmd._defaults import CONFIG_TOML
+from vncmd.core.defaults import CONFIG_TOML
 
 
 def abbrev_home(path) -> str:
@@ -203,7 +203,7 @@ def validate_config(quiet: bool = False) -> None:
 
 
 def _die(errors: list[str]) -> None:
-    from vncmd.output import err_console, error
+    from vncmd.core.output import err_console, error
 
     err_console.print("[red]配置验证失败：[/]")
     for e in errors:

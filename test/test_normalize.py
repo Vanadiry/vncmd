@@ -1,7 +1,7 @@
 import pytest
 
 from test.conftest import as_tz
-from vncmd.api import _clean, _normalize_song
+from vncmd.net.api import _clean, _normalize_song
 
 BASE = {"id": 1, "name": "歌", "duration": 1000}
 

@@ -209,7 +209,7 @@ class TestDefaultsStayInSync:
         真正要防的是传出去的值越界，那正是服务端会回 code 400 的地方。
         """
         import vncmd.commands as commands
-        from vncmd.api import SEARCH_LIMIT_MAX
+        from vncmd.net.api import SEARCH_LIMIT_MAX
 
         for json_flag in (False, True):
             for limit in (None, 1, 50, SEARCH_LIMIT_MAX):

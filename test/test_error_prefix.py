@@ -11,7 +11,8 @@ import argparse
 
 import pytest
 
-from vncmd import api, commands
+from vncmd import commands
+from vncmd.net import api
 
 
 class Test搜索失败:

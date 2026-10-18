@@ -11,7 +11,7 @@ import pytest
 from rich.console import Console
 
 from vncmd import commands
-from vncmd import output as output_mod
+from vncmd.core import output as output_mod
 
 
 def tracks(n, start=1):

@@ -8,7 +8,45 @@ from pathlib import Path
 
 from rich.markup import escape
 
-from vncmd.api import (
+from vncmd.core.config import (
+    CONFIG_FILE,
+    COOKIE_FILE,
+    QUALITY_MAP,
+    VNCMD_HOME,
+    abbrev_home,
+    get_cache_dir,
+    get_cache_ttl,
+    get_download_content,
+    get_quality,
+    resolve_output_dir,
+    validate_config,
+)
+from vncmd.core.output import (
+    console,
+    display_album,
+    display_download_detail,
+    display_lyrics,
+    display_playlist,
+    display_search_results,
+    display_song_detail,
+    err_console,
+    error,
+    info,
+    success,
+    warning,
+)
+from vncmd.downloader import (
+    download_song,
+    download_song_batch,
+    make_session_dir,
+)
+from vncmd.media.checker import (
+    any_check_tool,
+    check_audio,
+    check_tools,
+    describe_missing_check_tools,
+)
+from vncmd.net.api import (
     SEARCH_LIMIT_MAX,
     account_needs_check,
     account_stamp,
@@ -23,44 +61,6 @@ from vncmd.api import (
     get_song_details,
     permission_verdict,
     search,
-)
-from vncmd.checker import (
-    any_check_tool,
-    check_audio,
-    check_tools,
-    describe_missing_check_tools,
-)
-from vncmd.config import (
-    CONFIG_FILE,
-    COOKIE_FILE,
-    QUALITY_MAP,
-    VNCMD_HOME,
-    abbrev_home,
-    get_cache_dir,
-    get_cache_ttl,
-    get_download_content,
-    get_quality,
-    resolve_output_dir,
-    validate_config,
-)
-from vncmd.downloader import (
-    download_song,
-    download_song_batch,
-    make_session_dir,
-)
-from vncmd.output import (
-    console,
-    display_album,
-    display_download_detail,
-    display_lyrics,
-    display_playlist,
-    display_search_results,
-    display_song_detail,
-    err_console,
-    error,
-    info,
-    success,
-    warning,
 )
 
 

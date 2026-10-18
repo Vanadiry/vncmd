@@ -19,33 +19,13 @@ from rich.progress import (
 )
 from rich.text import Text
 
-from vncmd.api import (
-    EXPECTED_LEVEL,
-    LEVEL_LABEL,
-    get_audio_source,
-    get_lyrics_url,
-    get_song_details,
-)
-from vncmd.audio import (
-    build_filename,
-    cover_ext,
-    get_type_from_url,
-    resolve_path,
-)
-from vncmd.checker import (
-    any_check_tool,
-    check_audio,
-    check_md5,
-    check_tools,
-    describe_missing_check_tools,
-)
 from vncmd.checkpoint import (
     create_checkpoint,
     load_checkpoint,
     mark_downloaded,
     sync_checkpoint_tracks,
 )
-from vncmd.config import (
+from vncmd.core.config import (
     abbrev_home,
     get_auto_trim,
     get_check_enabled,
@@ -59,20 +39,7 @@ from vncmd.config import (
     get_save_cover_compress,
     get_save_lyrics_mode,
 )
-from vncmd.download import fetch_audio, fetch_cover, fetch_lyrics
-from vncmd.image import detect_format
-from vncmd.image import process_cover as process_cover_image
-from vncmd.lyrics import (
-    output_files as output_lyrics_files,
-)
-from vncmd.lyrics import (
-    process as process_lyrics,
-)
-from vncmd.lyrics import (
-    process_credits,
-)
-from vncmd.metadata import embed as embed_metadata
-from vncmd.output import (
+from vncmd.core.output import (
     console,
     err_console,
     error,
@@ -80,6 +47,39 @@ from vncmd.output import (
     success,
     warning,
 )
+from vncmd.media.audio import (
+    build_filename,
+    cover_ext,
+    get_type_from_url,
+    resolve_path,
+)
+from vncmd.media.checker import (
+    any_check_tool,
+    check_audio,
+    check_md5,
+    check_tools,
+    describe_missing_check_tools,
+)
+from vncmd.media.image import detect_format
+from vncmd.media.image import process_cover as process_cover_image
+from vncmd.media.lyrics import (
+    output_files as output_lyrics_files,
+)
+from vncmd.media.lyrics import (
+    process as process_lyrics,
+)
+from vncmd.media.lyrics import (
+    process_credits,
+)
+from vncmd.media.metadata import embed as embed_metadata
+from vncmd.net.api import (
+    EXPECTED_LEVEL,
+    LEVEL_LABEL,
+    get_audio_source,
+    get_lyrics_url,
+    get_song_details,
+)
+from vncmd.net.download import fetch_audio, fetch_cover, fetch_lyrics
 
 _move_lock = Lock()
 

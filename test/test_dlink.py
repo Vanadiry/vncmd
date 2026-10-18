@@ -7,7 +7,7 @@
 import pytest
 from rich.cells import cell_len
 
-from vncmd.output import FEE_NEED, display_download_detail
+from vncmd.core.output import FEE_NEED, display_download_detail
 
 NAME = "PPPP (feat. Hatsune Miku, Kasane Teto)"
 SONG_ID = 2742965504
@@ -186,43 +186,43 @@ class TestNeedTable:
 
 class TestFormatters:
     def test_不足一兆只报字节(self):
-        from vncmd.output import _fmt_size
+        from vncmd.core.output import _fmt_size
 
         assert _fmt_size(500) == "500 字节"
 
     def test_零字节返回空(self):
         """空值会被过滤掉，不能留下「0 字节」这种误导性的显示"""
-        from vncmd.output import _fmt_size
+        from vncmd.core.output import _fmt_size
 
         assert _fmt_size(0) == ""
 
     def test_超过一兆带小数(self):
-        from vncmd.output import _fmt_size
+        from vncmd.core.output import _fmt_size
 
         assert "34.1 MB" in _fmt_size(35772329)
 
     def test_不足一分钟仍报秒(self):
-        from vncmd.output import _fmt_validity
+        from vncmd.core.output import _fmt_validity
 
         assert _fmt_validity(45) == "45 秒内有效"
 
     def test_整分钟不带小数(self):
-        from vncmd.output import _fmt_validity
+        from vncmd.core.output import _fmt_validity
 
         assert _fmt_validity(1200) == "20 分钟内有效"
 
     def test_零秒返回空(self):
-        from vncmd.output import _fmt_validity
+        from vncmd.core.output import _fmt_validity
 
         assert _fmt_validity(0) == ""
 
     def test_比特率带原始值(self):
-        from vncmd.output import _fmt_kbps
+        from vncmd.core.output import _fmt_kbps
 
         assert _fmt_kbps(320000) == "320 kbps (320000 bps)"
 
     def test_比特率为零返回空(self):
-        from vncmd.output import _fmt_kbps
+        from vncmd.core.output import _fmt_kbps
 
         assert _fmt_kbps(0) == ""
 
@@ -287,7 +287,7 @@ class TestSongCommand:
 class TestRawFetch:
     def test_失败响应也带fee(self, monkeypatch):
         """判断为什么下不了不必再发一次请求"""
-        from vncmd import api
+        from vncmd.net import api
 
         class Resp:
             @staticmethod
@@ -308,7 +308,7 @@ class TestRawFetch:
         assert "url" not in got
 
     def test_空响应不炸(self, monkeypatch):
-        from vncmd import api
+        from vncmd.net import api
 
         class Resp:
             @staticmethod

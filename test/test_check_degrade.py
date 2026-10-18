@@ -10,7 +10,7 @@ from unittest import mock
 
 import pytest
 
-from vncmd import checker
+from vncmd.media import checker
 
 
 @pytest.fixture(autouse=True)

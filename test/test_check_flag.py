@@ -4,7 +4,7 @@ import pytest
 
 from test.test_verify_order import AUDIO, run
 from vncmd import downloader
-from vncmd.config import get_check_enabled
+from vncmd.core.config import get_check_enabled
 
 
 @pytest.fixture
@@ -78,7 +78,7 @@ def test_md5_runs_regardless_of_check_flag(harness, monkeypatch):
     calls, tmp = harness
     monkeypatch.setattr(downloader, "get_check_enabled", lambda: False)
     seen = []
-    from vncmd.checker import check_md5 as real
+    from vncmd.media.checker import check_md5 as real
 
     def spy(path, md5, size=0):
         seen.append("md5")
@@ -94,18 +94,20 @@ def test_md5_runs_regardless_of_check_flag(harness, monkeypatch):
 class TestConfigGetter:
     def test_missing_key_defaults_on(self, monkeypatch):
         """老用户的配置文件里没有这个键，不能因此关掉校验"""
-        monkeypatch.setattr("vncmd.config._get_cfg", lambda: {"download": {"dir": ""}})
+        monkeypatch.setattr(
+            "vncmd.core.config._get_cfg", lambda: {"download": {"dir": ""}}
+        )
         assert get_check_enabled() is True
 
     def test_explicit_false_respected(self, monkeypatch):
         monkeypatch.setattr(
-            "vncmd.config._get_cfg", lambda: {"download": {"check": False}}
+            "vncmd.core.config._get_cfg", lambda: {"download": {"check": False}}
         )
         assert get_check_enabled() is False
 
     def test_explicit_true_respected(self, monkeypatch):
         monkeypatch.setattr(
-            "vncmd.config._get_cfg", lambda: {"download": {"check": True}}
+            "vncmd.core.config._get_cfg", lambda: {"download": {"check": True}}
         )
         assert get_check_enabled() is True
 

@@ -1,7 +1,7 @@
 """`--json` 的结构化输出
 
 四条命令各加一个分支，序列化手上的归一化 dict 后退出。
-它服务的是不写 Python 的那批人 —— 会写的人今天就能 `import vncmd.api`，
+它服务的是不写 Python 的那批人 —— 会写的人今天就能 `import vncmd.net.api`，
 而脚本要的是能直接喂给 `jq` 与 `read` 的东西。
 """
 

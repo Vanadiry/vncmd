@@ -166,31 +166,31 @@ class TestArtistColor改名:
     def test_配置键是artist_color(self):
         """表里不只 Vocaloid（37 个名字里 25 个是 PIAPRO 系），
         所以 virtual_singer_color 既不准也不通用"""
-        from vncmd._defaults import CONFIG_TOML
+        from vncmd.core.defaults import CONFIG_TOML
 
         assert "artist_color = true" in CONFIG_TOML
         assert "virtual_singer_color" not in CONFIG_TOML
 
     def test_getter叫is_artist_color(self):
-        from vncmd.config import is_artist_color
+        from vncmd.core.config import is_artist_color
 
         assert callable(is_artist_color)
 
     def test_旧名已经不存在(self):
-        from vncmd import config as config_mod
+        from vncmd.core import config as config_mod
 
         assert not hasattr(config_mod, "is_virtual_singer_color")
 
     def test_注释不再说虚拟歌姬(self):
         """表里 37 个名字只有 12 个是 Vocaloid，25 个是 PIAPRO 系"""
-        from vncmd._defaults import CONFIG_TOML
+        from vncmd.core.defaults import CONFIG_TOML
 
         line = next(ln for ln in CONFIG_TOML.splitlines() if "代表色着色" in ln)
         assert "虚拟歌姬" not in CONFIG_TOML, line
 
     def test_类型错报的是新键名(self, monkeypatch, tmp_path):
         """报旧键名的话，用户会去 config.toml 里找一个不存在的项"""
-        from vncmd import config as config_mod
+        from vncmd.core import config as config_mod
 
         # 走真的 load_config：校验在读文件之后，换掉 _get_cfg 就绕过了
         cfg = tmp_path / "config.toml"
@@ -208,7 +208,7 @@ class TestArtistColor改名:
         所以旧配置里的 virtual_singer_color 会静默失效 ——
         这是项目没发版才付得起的代价，不是 bug。
         """
-        from vncmd import config as config_mod
+        from vncmd.core import config as config_mod
 
         cfg = tmp_path / "config.toml"
         cfg.write_text(
@@ -227,8 +227,8 @@ class TestArtistColor改名:
         分不出两个文件来。drop 两边都有，都是丢弃译文。
         曾把这两行注释合并成一段共用说明，合并之后那层因果就丢了
         """
-        from vncmd._defaults import CONFIG_TOML
-        from vncmd.config import LYRIC_MODES
+        from vncmd.core.config import LYRIC_MODES
+        from vncmd.core.defaults import CONFIG_TOML
 
         embed = set(LYRIC_MODES["embed_mode"])
         save = set(LYRIC_MODES["save_mode"])
@@ -380,7 +380,7 @@ class Test路径缩写:
         assert str(home) not in out, f"路径该缩写成 ~ 开头：{out}"
 
     def test_首次运行的提示也给缩写(self, monkeypatch, capsys, tmp_path):
-        from vncmd import config as config_mod
+        from vncmd.core import config as config_mod
 
         home = self._home(tmp_path)
         monkeypatch.setattr(config_mod, "VNCMD_HOME", home / ".vSoft" / "vncmd")
@@ -402,7 +402,7 @@ class Test路径缩写:
         assert str(home) not in err, f"路径该缩写成 ~ 开头：{err}"
 
     def test_解析失败的提示也给缩写(self, monkeypatch, capsys, tmp_path):
-        from vncmd import config as config_mod
+        from vncmd.core import config as config_mod
 
         home = self._home(tmp_path)
 
@@ -426,7 +426,7 @@ class Test路径缩写:
 
     def test_提示里的命令名是新的(self, monkeypatch, capsys, tmp_path):
         """命令从 vncmd init 改成 vncmd --init，提示里写旧的会让人敲错"""
-        from vncmd import config as config_mod
+        from vncmd.core import config as config_mod
 
         home = self._home(tmp_path)
         monkeypatch.setattr(config_mod, "VNCMD_HOME", home / ".vSoft" / "vncmd")
@@ -496,7 +496,7 @@ class Test艺术家着色:
         # patch 的是 output 模块里那个名字：_artist_text 早就把
         # is_artist_color 绑到自己模块的命名空间了，
         # patch config_mod 那个不改变已绑定的引用
-        monkeypatch.setattr("vncmd.output.is_artist_color", lambda: False)
+        monkeypatch.setattr("vncmd.core.output.is_artist_color", lambda: False)
         out = self._rendered(
             monkeypatch, [{"id": 1, "title": "A", "artist": "なきそ, 初音ミク"}]
         )

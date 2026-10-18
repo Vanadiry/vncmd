@@ -20,11 +20,11 @@ from rich.progress import (
 )
 from urllib3.util.retry import Retry
 
-from vncmd.api import HEADERS
-from vncmd.audio import looks_like_audio
-from vncmd.config import get_curl_arg, get_downloader
-from vncmd.image import detect_format
-from vncmd.output import err_console
+from vncmd.core.config import get_curl_arg, get_downloader
+from vncmd.core.output import err_console
+from vncmd.media.audio import looks_like_audio
+from vncmd.media.image import detect_format
+from vncmd.net.api import HEADERS
 
 _dl_session = None
 

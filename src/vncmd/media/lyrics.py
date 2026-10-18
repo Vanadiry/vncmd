@@ -1,7 +1,7 @@
 import re
 from pathlib import Path
 
-from vncmd.cache import put_raw_lyrics
+from vncmd.net.cache import put_raw_lyrics
 
 _TIMESTAMP_RE = re.compile(r"^\[(\d{2}):(\d{2})[:.](\d{2,3})\](.*)")
 _META_RE = re.compile(r"^\[(ti|ar|al|offset|length|re|ve):")

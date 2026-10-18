@@ -1,6 +1,6 @@
 import pytest
 
-from vncmd import config as config_mod
+from vncmd.core import config as config_mod
 
 
 @pytest.fixture

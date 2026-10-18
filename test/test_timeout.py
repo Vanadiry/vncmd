@@ -8,7 +8,7 @@ import inspect
 
 import pytest
 
-from vncmd.download import _get_dl_session
+from vncmd.net.download import _get_dl_session
 
 
 class _Resp:
@@ -39,7 +39,7 @@ class _Session:
 
 @pytest.fixture
 def session(monkeypatch, tmp_path):
-    import vncmd.download as dl
+    import vncmd.net.download as dl
 
     fake = _Session()
     monkeypatch.setattr(dl, "_get_dl_session", lambda: fake)
@@ -48,7 +48,7 @@ def session(monkeypatch, tmp_path):
 
 
 def test_read_timeout_is_thirty_seconds(session, monkeypatch):
-    import vncmd.download as dl
+    import vncmd.net.download as dl
 
     monkeypatch.setattr("sys.stdout.isatty", lambda: False)
     fake, path = session
@@ -60,7 +60,7 @@ def test_read_timeout_is_thirty_seconds(session, monkeypatch):
 
 def test_read_timeout_matches_curl_speed_floor(session, monkeypatch):
     """两条路径对卡死的容忍度应当相当，curl 侧是 --speed-time 30"""
-    import vncmd.download as dl
+    import vncmd.net.download as dl
 
     monkeypatch.setattr("sys.stdout.isatty", lambda: False)
     fake, path = session
@@ -80,7 +80,7 @@ def test_builtin_still_retries_on_server_errors():
 
 def test_no_other_tight_timeouts_in_transfer_path():
     """封面对歌词用的是整请求超时，与流式读超时是两回事，别被一起改掉"""
-    import vncmd.download as dl
+    import vncmd.net.download as dl
 
     # 读超时现在住在续传循环里，不再在 fetch_audio 本体
     src = inspect.getsource(dl._fetch_audio_builtin)

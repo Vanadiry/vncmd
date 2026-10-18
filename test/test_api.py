@@ -1,7 +1,7 @@
 import pytest
 
 from test.conftest import ALBUM_ID, PLAYLIST_ID, SONG_ID
-from vncmd.api import (
+from vncmd.net.api import (
     get_album_details,
     get_lyrics,
     get_playlist_details,

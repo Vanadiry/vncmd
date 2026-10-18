@@ -11,7 +11,7 @@ from typing import ClassVar
 
 import pytest
 
-from vncmd import download
+from vncmd.net import download
 
 
 def _read(p):
@@ -182,7 +182,7 @@ class TestBuiltinResume:
 
         with open(dst, "wb") as f:
             f.write(b"fLaC")
-        import vncmd.download as dl
+        import vncmd.net.download as dl
 
         old = dl._get_dl_session
         dl._get_dl_session = lambda: Html()

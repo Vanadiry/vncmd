@@ -1,7 +1,7 @@
 import pytest
 
-from vncmd.api import get_playlist_details, get_song_details, search
 from vncmd.downloader import download_song
+from vncmd.net.api import get_playlist_details, get_song_details, search
 
 
 @pytest.mark.network

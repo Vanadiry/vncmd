@@ -1,6 +1,6 @@
 from pathlib import Path
 
-from vncmd.lyrics import clean, interleave, output_files, parse, process
+from vncmd.media.lyrics import clean, interleave, output_files, parse, process
 
 LRC = """[by:Someone]
 [00:00.000] 作词 : 测试

@@ -1,8 +1,8 @@
 import pytest
 from rich.console import Console
 
-from vncmd import output as output_mod
-from vncmd.api import _clean
+from vncmd.core import output as output_mod
+from vncmd.net.api import _clean
 
 TRACKS = [
     {

@@ -77,4 +77,4 @@ ignore = [
 
 [tool.setuptools]
 package-dir = { "" = "src" }
-packages = ["vncmd"]
+packages = ["vncmd", "vncmd.core", "vncmd.net", "vncmd.media"]

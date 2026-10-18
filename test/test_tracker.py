@@ -4,7 +4,7 @@ from pathlib import Path
 import pytest
 
 from test.conftest import SONG_ID
-from vncmd.config import get_quality
+from vncmd.core.config import get_quality
 from vncmd.tracker import (
     _settings_path,
     _songs_path,

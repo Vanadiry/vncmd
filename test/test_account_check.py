@@ -21,7 +21,7 @@ import time
 import pytest
 
 from vncmd import downloader
-from vncmd.api import EXPECTED_LEVEL, LEVEL_LABEL
+from vncmd.net.api import EXPECTED_LEVEL, LEVEL_LABEL
 
 
 @pytest.fixture(autouse=True)
@@ -37,8 +37,8 @@ def disk(tmp_path, monkeypatch):
     不隔离的话，测试会读到用户真目录里的 account.json，
     请求次数与状态断言全都不可靠。
     """
-    import vncmd.api as api
-    from vncmd import cache
+    import vncmd.net.api as api
+    from vncmd.net import cache
 
     root = tmp_path / "cache"
     root.mkdir()
@@ -53,7 +53,7 @@ def disk(tmp_path, monkeypatch):
 
 def _responder(monkeypatch, payload=None, boom=False):
     """装一个计数的假会话，返回调用次数的取值器"""
-    import vncmd.api as api
+    import vncmd.net.api as api
 
     calls = {"n": 0}
 
@@ -82,7 +82,7 @@ def _write_cache(path, *, checked_at, **state):
 
 class TestAccountOnDisk:
     def test_命中缓存不发请求(self, disk, monkeypatch):
-        import vncmd.api as api
+        import vncmd.net.api as api
 
         _write_cache(
             disk["path"],
@@ -100,7 +100,7 @@ class TestAccountOnDisk:
         assert count() == 0, "一天内不该重复问"
 
     def test_查完写进缓存(self, disk, monkeypatch):
-        import vncmd.api as api
+        import vncmd.net.api as api
 
         _responder(monkeypatch, {"code": 200, "account": {"vipType": 11}})
         api.get_account_info()
@@ -111,14 +111,14 @@ class TestAccountOnDisk:
 
     def test_缓存写在缓存根目录(self, disk, monkeypatch):
         """cache --clear 是 rmtree 整个根目录，放对位置才顺带清掉"""
-        import vncmd.api as api
+        import vncmd.net.api as api
 
         _responder(monkeypatch, {"code": 200, "account": {"vipType": 11}})
         api.get_account_info()
         assert disk["path"].parent == disk["root"]
 
     def test_超过一天重新查(self, disk, monkeypatch):
-        import vncmd.api as api
+        import vncmd.net.api as api
 
         _write_cache(
             disk["path"],
@@ -133,7 +133,7 @@ class TestAccountOnDisk:
 
     def test_cookie改过就重新查(self, disk, monkeypatch):
         """记 set_at 覆盖不到手工编辑这条途径，会拿着旧账号状态去下音频"""
-        import vncmd.api as api
+        import vncmd.net.api as api
 
         _write_cache(
             disk["path"],
@@ -149,7 +149,7 @@ class TestAccountOnDisk:
         assert got["vip"] is False
 
     def test_cookie没动过就不查(self, disk, monkeypatch):
-        import vncmd.api as api
+        import vncmd.net.api as api
 
         _write_cache(
             disk["path"],
@@ -164,7 +164,7 @@ class TestAccountOnDisk:
 
     def test_cookie文件不见了重新查(self, disk, monkeypatch):
         """换了一份 cookie 等于换了个人"""
-        import vncmd.api as api
+        import vncmd.net.api as api
 
         _write_cache(
             disk["path"],
@@ -180,7 +180,7 @@ class TestAccountOnDisk:
 
     def test_残缺的缓存当没有(self, disk, monkeypatch):
         """手工编辑过或写坏了的半份数据，重新查比拿它拼状态安全"""
-        import vncmd.api as api
+        import vncmd.net.api as api
 
         disk["path"].write_text(json.dumps({"checked_at": int(time.time())}), "utf-8")
         count = _responder(monkeypatch, {"code": 200, "account": {"vipType": 11}})
@@ -189,7 +189,7 @@ class TestAccountOnDisk:
         assert got["vip"] is True
 
     def test_坏掉的json当没有(self, disk, monkeypatch, capsys):
-        import vncmd.api as api
+        import vncmd.net.api as api
 
         disk["path"].write_text("{ 坏的", encoding="utf-8")
         count = _responder(monkeypatch, {"code": 200, "account": {"vipType": 11}})
@@ -201,7 +201,7 @@ class TestAccountOnDisk:
 class TestAccountCheckFailed:
     def test_保留上一次的好值(self, disk, monkeypatch):
         """一次网络抖动不该让用户一整天看不到权限状态"""
-        import vncmd.api as api
+        import vncmd.net.api as api
 
         _write_cache(
             disk["path"],
@@ -216,7 +216,7 @@ class TestAccountCheckFailed:
 
     def test_失败也把时间戳推进(self, disk, monkeypatch):
         """否则下次运行还会因为「过期」再失败一次，永远走不到好值"""
-        import vncmd.api as api
+        import vncmd.net.api as api
 
         before = time.time() - 90000
         _write_cache(
@@ -234,7 +234,7 @@ class TestAccountCheckFailed:
 
     def test_失败时标为来自缓存(self, disk, monkeypatch):
         """提示要能说出这份数据不是刚查的"""
-        import vncmd.api as api
+        import vncmd.net.api as api
 
         _write_cache(
             disk["path"],
@@ -249,14 +249,14 @@ class TestAccountCheckFailed:
 
     def test_没有旧值就返回失败(self, disk, monkeypatch):
         """没有好值可留，就老实说查不成"""
-        import vncmd.api as api
+        import vncmd.net.api as api
 
         _responder(monkeypatch, boom=True)
         assert api.get_account_info() is None
         assert not disk["path"].exists(), "没有好值可保留就不该写文件"
 
     def test_刚查成功的不标为缓存(self, disk, monkeypatch):
-        import vncmd.api as api
+        import vncmd.net.api as api
 
         _responder(monkeypatch, {"code": 200, "account": {"vipType": 11}})
         api.get_account_info()
@@ -266,7 +266,7 @@ class TestAccountCheckFailed:
 class TestForceCheck:
     def test_强制时缓存再新也查(self, disk, monkeypatch):
         """cookie 刚被改过，缓存里那份描述的是另一个人"""
-        import vncmd.api as api
+        import vncmd.net.api as api
 
         _write_cache(
             disk["path"],
@@ -282,7 +282,7 @@ class TestForceCheck:
 
     def test_强制查失败不拿旧值顶替(self, disk, monkeypatch):
         """强制检查要的是当下的真相，拿一小时前的状态顶替等于没查"""
-        import vncmd.api as api
+        import vncmd.net.api as api
 
         _write_cache(
             disk["path"],
@@ -295,7 +295,7 @@ class TestForceCheck:
         assert api.get_account_info(force=True) is None
 
     def test_强制查完更新缓存(self, disk, monkeypatch):
-        import vncmd.api as api
+        import vncmd.net.api as api
 
         _write_cache(
             disk["path"],
@@ -315,12 +315,12 @@ class TestAccountNeedsCheck:
     """预告「正在检查」之前要先知道这次会不会真发请求"""
 
     def test_没有缓存说要查(self, disk):
-        import vncmd.api as api
+        import vncmd.net.api as api
 
         assert api.account_needs_check() is True
 
     def test_缓存新鲜说不用查(self, disk):
-        import vncmd.api as api
+        import vncmd.net.api as api
 
         _write_cache(
             disk["path"],
@@ -332,7 +332,7 @@ class TestAccountNeedsCheck:
         assert api.account_needs_check() is False
 
     def test_缓存过期说要查(self, disk):
-        import vncmd.api as api
+        import vncmd.net.api as api
 
         _write_cache(
             disk["path"],
@@ -344,7 +344,7 @@ class TestAccountNeedsCheck:
         assert api.account_needs_check() is True
 
     def test_cookie改过说要查(self, disk):
-        import vncmd.api as api
+        import vncmd.net.api as api
 
         _write_cache(
             disk["path"],
@@ -357,7 +357,7 @@ class TestAccountNeedsCheck:
         assert api.account_needs_check() is True
 
     def test_进程内已有结果说不查(self, disk, monkeypatch):
-        import vncmd.api as api
+        import vncmd.net.api as api
 
         _write_cache(
             disk["path"],
@@ -373,7 +373,7 @@ class TestAccountNeedsCheck:
 
     def test_与实际请求一致(self, disk, monkeypatch):
         """预告说查却没发请求，或者不预告却发了，都会让人以为出了问题"""
-        import vncmd.api as api
+        import vncmd.net.api as api
 
         count = _responder(monkeypatch, {"code": 200, "account": {"vipType": 11}})
         assert api.account_needs_check() is True
@@ -673,7 +673,7 @@ class TestNotifyDowngrade:
 class TestAccountInfoCache:
     def test_结果在进程内缓存(self, monkeypatch):
         """批量下载只能发一次请求，这是放在 api 层缓存的原因"""
-        import vncmd.api as api
+        import vncmd.net.api as api
 
         calls = {"n": 0}
 
@@ -694,7 +694,7 @@ class TestAccountInfoCache:
         assert calls["n"] == 1
 
     def test_失败也缓存以免刷请求(self, monkeypatch, disk):
-        import vncmd.api as api
+        import vncmd.net.api as api
 
         calls = {"n": 0}
 
@@ -710,7 +710,7 @@ class TestAccountInfoCache:
         assert calls["n"] == 1
 
     def test_查不到与未登录要分得开(self, monkeypatch):
-        import vncmd.api as api
+        import vncmd.net.api as api
 
         class Resp:
             @staticmethod
@@ -729,7 +729,7 @@ class TestAccountInfoCache:
 
     def test_不能拿code判登录(self, monkeypatch):
         """这个接口无论登录与否都返回 code=200"""
-        import vncmd.api as api
+        import vncmd.net.api as api
 
         class Resp:
             @staticmethod
@@ -750,12 +750,12 @@ class TestAccountInfoCache:
 
 class TestAudioSourceCarriesLevel:
     def test_带level字段(self):
-        from vncmd.api import AudioSource
+        from vncmd.net.api import AudioSource
 
         src = AudioSource("http://x/a.flac", level="exhigh")
         assert src.level == "exhigh"
 
     def test_缺省为空串(self):
-        from vncmd.api import AudioSource
+        from vncmd.net.api import AudioSource
 
         assert AudioSource("http://x/a.flac").level == ""

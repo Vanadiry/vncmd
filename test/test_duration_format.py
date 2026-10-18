@@ -10,8 +10,8 @@ release_date 被 except ValueError 静默吞掉。
 
 import pytest
 
-from vncmd.api import _fmt_duration
-from vncmd.output import _trim_midnight
+from vncmd.core.output import _trim_midnight
+from vncmd.net.api import _fmt_duration
 
 
 class TestDuration:

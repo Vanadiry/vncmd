@@ -2,8 +2,7 @@ from pathlib import Path
 
 import pytest
 
-from vncmd._defaults import CONFIG_TOML
-from vncmd.config import (
+from vncmd.core.config import (
     CONFIG_FILE,
     CONTENT_LETTERS,
     FILENAME_ARTIST,
@@ -23,6 +22,7 @@ from vncmd.config import (
     load_config,
     validate_config,
 )
+from vncmd.core.defaults import CONFIG_TOML
 
 
 class TestConfigFile:

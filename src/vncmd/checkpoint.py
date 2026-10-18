@@ -1,8 +1,8 @@
 from pathlib import Path
 
-from vncmd.config import get_cache_dir
-from vncmd.jsonstore import read_json_safe, write_json_atomic
-from vncmd.output import info
+from vncmd.core.config import get_cache_dir
+from vncmd.core.jsonstore import read_json_safe, write_json_atomic
+from vncmd.core.output import info
 
 _CHECKPOINT_DIR = None
 

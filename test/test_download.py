@@ -3,9 +3,9 @@ from pathlib import Path
 import pytest
 
 from test.conftest import SONG_ID
-from vncmd.api import get_lyrics_url, get_song_details, get_song_url
-from vncmd.download import fetch_cover, fetch_lyrics
 from vncmd.downloader import download_song
+from vncmd.net.api import get_lyrics_url, get_song_details, get_song_url
+from vncmd.net.download import fetch_cover, fetch_lyrics
 
 
 @pytest.mark.network

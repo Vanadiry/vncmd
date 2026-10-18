@@ -15,7 +15,7 @@ import pytest
 
 from vncmd import downloader
 from vncmd.downloader import download_song
-from vncmd.lyrics import CREDIT_COMBOS, process_credits
+from vncmd.media.lyrics import CREDIT_COMBOS, process_credits
 
 
 def lrc(*lines):

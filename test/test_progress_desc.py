@@ -5,7 +5,7 @@ from vncmd.downloader import _progress_desc
 
 
 def _limit():
-    from vncmd.output import console
+    from vncmd.core.output import console
 
     return max(console.width - 60, 30)
 

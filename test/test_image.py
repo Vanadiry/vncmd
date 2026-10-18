@@ -2,7 +2,7 @@ import io
 
 from PIL import Image as PILImage
 
-from vncmd.image import process_cover
+from vncmd.media.image import process_cover
 
 
 def _make_jpeg(size=800):

@@ -6,8 +6,8 @@ from rich.panel import Panel
 from rich.table import Table
 from rich.text import Text
 
-from vncmd.config import is_artist_color
-from vncmd.vocals import colorize
+from vncmd.core.config import is_artist_color
+from vncmd.core.vocals import colorize
 
 console = Console()
 
@@ -216,7 +216,7 @@ def _download_lines(
     取不到 URL 时照样组装，那是最需要看的时候：费用类型与是否购买
     都在响应里，不必再发一次请求去问为什么。
     """
-    from vncmd.api import LEVEL_LABEL
+    from vncmd.net.api import LEVEL_LABEL
 
     url = info.get("url") or ""
     fee = info.get("fee")

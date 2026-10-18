@@ -73,9 +73,9 @@ def temp_dir():
 @pytest.fixture(autouse=True)
 def _reset_config_cache():
     """Reset the config module's cached _cfg so each test sees a fresh state."""
-    import vncmd.config
+    import vncmd.core.config
 
-    vncmd.config._cfg = None
+    vncmd.core.config._cfg = None
 
 
 @pytest.fixture(autouse=True)
@@ -85,7 +85,7 @@ def _reset_check_tools_cache():
     那些测试会 monkeypatch shutil.which 来模拟「装没装」，
     不清就会拿到上一条测试留下的缓存值。
     """
-    from vncmd.checker import clear_check_tools_cache
+    from vncmd.media.checker import clear_check_tools_cache
 
     clear_check_tools_cache()
     yield
@@ -95,8 +95,11 @@ def _reset_check_tools_cache():
 @pytest.fixture(scope="session", autouse=True)
 def _ensure_dirs():
     """Create default config and required directories for tests."""
-    import vncmd.config
+    import vncmd.core.config
 
-    vncmd.config.validate_config()
-    for path in (vncmd.config.get_download_dir(), vncmd.config.get_cache_dir()):
+    vncmd.core.config.validate_config()
+    for path in (
+        vncmd.core.config.get_download_dir(),
+        vncmd.core.config.get_cache_dir(),
+    ):
         Path(path).mkdir(parents=True, exist_ok=True)

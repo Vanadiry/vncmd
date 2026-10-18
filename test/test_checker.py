@@ -2,7 +2,7 @@ from pathlib import Path
 
 import pytest
 
-from vncmd.checker import (
+from vncmd.media.checker import (
     check_audio,
     ffprobe_info,
     has_ffmpeg,

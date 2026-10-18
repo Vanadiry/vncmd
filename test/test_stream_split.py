@@ -12,7 +12,7 @@ from pathlib import Path
 
 import pytest
 
-from vncmd.output import (
+from vncmd.core.output import (
     display_album,
     display_download_detail,
     display_lyrics,
@@ -188,7 +188,7 @@ class Test账号播报:
 class Test配置坏了:
     def test_验证失败走stderr(self, capsys):
         """否则 `vncmd x > out.txt` 会把报错当结果留在文件里"""
-        from vncmd import config
+        from vncmd.core import config
 
         with pytest.raises(SystemExit):
             config._die(["[download] dir 缺失"])
@@ -208,11 +208,11 @@ class Test进度条绑在stderr:
         assert "console=err_console" in src
 
     def test_单文件进度条显式绑err_console(self):
-        src = Path("src/vncmd/download.py").read_text(encoding="utf-8")
+        src = Path("src/vncmd/net/download.py").read_text(encoding="utf-8")
         assert src.count("console=err_console") == 2
 
     def test_闸门判的是stderr不是stdout(self):
-        src = Path("src/vncmd/download.py").read_text(encoding="utf-8")
+        src = Path("src/vncmd/net/download.py").read_text(encoding="utf-8")
         assert "sys.stderr.isatty()" in src
         assert "sys.stdout.isatty()" not in src, (
             "闸门还判着 stdout，`> file` 时会把进度条误关掉"

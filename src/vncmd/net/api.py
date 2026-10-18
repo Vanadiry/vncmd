@@ -9,22 +9,22 @@ import requests
 from requests.adapters import HTTPAdapter
 from urllib3.util.retry import Retry
 
-from vncmd.cache import (
+from vncmd.core.config import get_cookie
+from vncmd.core.output import warning
+from vncmd.net.cache import (
     _STATE_KEYS,
     account_is_fresh,
     load_account,
     save_account,
 )
-from vncmd.cache import (
+from vncmd.net.cache import (
     get_lyrics as cache_get_lyrics,
 )
-from vncmd.cache import get_song as cache_get_song
-from vncmd.cache import (
+from vncmd.net.cache import get_song as cache_get_song
+from vncmd.net.cache import (
     put_lyrics as cache_put_lyrics,
 )
-from vncmd.cache import put_song as cache_put_song
-from vncmd.config import get_cookie
-from vncmd.output import warning
+from vncmd.net.cache import put_song as cache_put_song
 
 _BASE_URL = "https://music.163.com"
 # 批量查详情的分片大小，一次 100 个 id 实测约 1300 字符的 URL

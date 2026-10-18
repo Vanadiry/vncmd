@@ -4,8 +4,8 @@ import hashlib
 
 import pytest
 
-from vncmd.api import AudioSource
-from vncmd.checker import check_md5
+from vncmd.media.checker import check_md5
+from vncmd.net.api import AudioSource
 
 
 @pytest.fixture
@@ -88,7 +88,7 @@ def test_md5_mismatch_shows_prefix_only(sample):
 
 def test_short_digest_not_padded():
     """异常短的摘要不该被硬加省略号，那会把它伪装成正常长度"""
-    from vncmd.checker import _short_digest
+    from vncmd.media.checker import _short_digest
 
     assert _short_digest("abc") == "abc"
     assert _short_digest("1234567") == "1234567"

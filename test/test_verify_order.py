@@ -5,8 +5,9 @@ import inspect
 
 import pytest
 
-from vncmd import downloader, metadata
-from vncmd.checker import check_md5 as real_check_md5
+from vncmd import downloader
+from vncmd.media import metadata
+from vncmd.media.checker import check_md5 as real_check_md5
 
 AUDIO = b"vncmd-test-audio" * 1000
 

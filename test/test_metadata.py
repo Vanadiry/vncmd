@@ -7,7 +7,7 @@ from mutagen.flac import FLAC
 from mutagen.mp3 import MP3
 from PIL import Image as PILImage
 
-from vncmd.metadata import embed
+from vncmd.media.metadata import embed
 
 # MPEG1 Layer3 128kbps 44100Hz 一帧：帧头 4 字节加 413 字节数据。
 # mutagen 要连续两帧才认得出帧边界，一帧会抛 HeaderNotFoundError，

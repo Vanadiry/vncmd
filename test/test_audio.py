@@ -1,4 +1,4 @@
-from vncmd.audio import (
+from vncmd.media.audio import (
     _MAX_FILENAME_BYTES,
     build_filename,
     check_filename,
