@@ -61,7 +61,7 @@ Cookie 存放在 `~/.vSoft/vncmd/cookie`，纯文本。
 仅在 `downloader` 为 `"curl"` 时生效。  
 按 shell 的切分规则解析，可以写多个参数。
 
-## [download.song]
+## [download.audio]
 
 ### quality
 

@@ -140,7 +140,7 @@ check = true
 downloader = "builtin"
 curl_arg = ""
 
-[download.song]
+[download.audio]
 quality = "max"
 parse_credits = false
 

@@ -134,16 +134,16 @@ def validate_config(quiet: bool = False) -> None:
     if not isinstance(dl.get("curl_arg", ""), str):
         errors.append("[download] curl_arg 必须是字符串")
 
-    # [download.song]
-    ds = dl.get("song", {})
+    # [download.audio]
+    ds = dl.get("audio", {})
     if not ds.get("quality"):
-        errors.append("[download.song] quality 缺失或为空")
+        errors.append("[download.audio] quality 缺失或为空")
     elif ds["quality"] not in QUALITY_MAP:
         errors.append(
-            f"[download.song] quality 必须为以下之一：{', '.join(QUALITY_MAP)}"
+            f"[download.audio] quality 必须为以下之一：{', '.join(QUALITY_MAP)}"
         )
     if not isinstance(ds.get("parse_credits"), bool):
-        errors.append("[download.song] parse_credits 缺失或不为布尔值")
+        errors.append("[download.audio] parse_credits 缺失或不为布尔值")
 
     # [download.lyric]
     dly = dl.get("lyric", {})
@@ -239,7 +239,7 @@ def resolve_output_dir(value: str | None) -> str:
 
 
 def get_quality() -> int:
-    return QUALITY_MAP[_get_cfg()["download"]["song"]["quality"]]
+    return QUALITY_MAP[_get_cfg()["download"]["audio"]["quality"]]
 
 
 def get_cookie() -> str:
@@ -276,7 +276,7 @@ def get_save_cover_compress() -> bool:
 
 
 def get_parse_credits() -> bool:
-    return _get_cfg()["download"]["song"]["parse_credits"]
+    return _get_cfg()["download"]["audio"]["parse_credits"]
 
 
 def get_auto_trim() -> bool:

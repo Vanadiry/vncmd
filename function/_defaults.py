@@ -15,7 +15,7 @@ downloader = "builtin"
 # 追加给 curl 的参数，仅从配置读取，不接受命令行传入
 curl_arg = ""
 
-[download.song]
+[download.audio]
 # 音质：128、192、320（kbps），或 max（可用的最高质量）
 quality = "max"
 # 从歌词头解析“作曲人”并嵌入元数据
