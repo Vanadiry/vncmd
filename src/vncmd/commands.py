@@ -38,7 +38,6 @@ from vncmd.core.output import (
 from vncmd.downloader import (
     download_song,
     download_song_batch,
-    make_session_dir,
 )
 from vncmd.media.checker import (
     any_check_tool,
@@ -62,6 +61,7 @@ from vncmd.net.api import (
     permission_verdict,
     search,
 )
+from vncmd.session import make_session_dir
 
 
 def _resolve_quality(args: argparse.Namespace) -> int:

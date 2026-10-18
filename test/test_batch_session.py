@@ -7,7 +7,7 @@
 
 from pathlib import Path
 
-from vncmd import downloader
+from vncmd import downloader, session
 
 
 def _tracks(n):
@@ -16,7 +16,7 @@ def _tracks(n):
 
 class Test无断点时新建目录:
     def test_不给dl_type就全新下载(self, tmp_path):
-        session_dir, selected, offset = downloader._setup_session(
+        session_dir, selected, offset = session._setup_session(
             _tracks(3), str(tmp_path), None, None, None, 0
         )
         assert Path(session_dir).is_dir()
@@ -25,7 +25,7 @@ class Test无断点时新建目录:
         assert offset == 0
 
     def test_目录名是时间戳(self, tmp_path):
-        session_dir, _, _ = downloader._setup_session(
+        session_dir, _, _ = session._setup_session(
             _tracks(1), str(tmp_path), None, None, None, 0
         )
         # 形如 2026-10-18_15-43-09
@@ -36,21 +36,21 @@ class Test无断点时新建目录:
         assert stamp[4] == stamp[7] == "-"
 
     def test_切片只取指定的一段(self, tmp_path):
-        _, selected, offset = downloader._setup_session(
+        _, selected, offset = session._setup_session(
             _tracks(10), str(tmp_path), None, None, 3, 2
         )
         assert [t["id"] for t in selected] == [102, 103, 104]
         assert offset == 2
 
     def test_limit比总数还多时切出全量(self, tmp_path):
-        _, selected, offset = downloader._setup_session(
+        _, selected, offset = session._setup_session(
             _tracks(3), str(tmp_path), None, None, 99, 0
         )
         assert len(selected) == 3
         assert offset == 0
 
     def test_空曲目表也能建目录(self, tmp_path):
-        session_dir, selected, _ = downloader._setup_session(
+        session_dir, selected, _ = session._setup_session(
             [], str(tmp_path), None, None, None, 0
         )
         assert Path(session_dir).is_dir()
@@ -60,24 +60,22 @@ class Test无断点时新建目录:
 class Test续传:
     def _断点(self, monkeypatch, session_dir):
         monkeypatch.setattr(
-            downloader, "load_checkpoint", lambda *_a: {"download_dir": session_dir}
+            session, "load_checkpoint", lambda *_a: {"download_dir": session_dir}
         )
 
     def test_目录还在就沿用(self, tmp_path, monkeypatch):
         旧的 = tmp_path / "上一轮"
         旧的.mkdir()
         self._断点(monkeypatch, str(旧的))
-        monkeypatch.setattr(
-            downloader, "sync_checkpoint_tracks", lambda *_a: ([], False)
-        )
-        session_dir, _, _ = downloader._setup_session(
+        monkeypatch.setattr(session, "sync_checkpoint_tracks", lambda *_a: ([], False))
+        session_dir, _, _ = session._setup_session(
             _tracks(3), str(tmp_path), "playlist", "p1", None, 0
         )
         assert session_dir == str(旧的)
 
     def test_目录丢了就重新开始(self, tmp_path, monkeypatch):
         self._断点(monkeypatch, str(tmp_path / "早没了"))
-        session_dir, _, _ = downloader._setup_session(
+        session_dir, _, _ = session._setup_session(
             _tracks(3), str(tmp_path), "playlist", "p1", None, 0
         )
         assert session_dir != str(tmp_path / "早没了")
@@ -91,8 +89,8 @@ class Test续传:
         别处.mkdir()
         self._断点(monkeypatch, str(别处))
         warns = []
-        monkeypatch.setattr(downloader, "warning", lambda s: warns.append(s))
-        session_dir, _, _ = downloader._setup_session(
+        monkeypatch.setattr(session, "warning", lambda s: warns.append(s))
+        session_dir, _, _ = session._setup_session(
             _tracks(3), str(本次), "playlist", "p1", None, 0
         )
         assert session_dir != str(别处)
@@ -104,27 +102,25 @@ class Test续传:
         半截 = 旧的 / "_temp" / "123.flac"
         半截.write_bytes(b"partial")
         self._断点(monkeypatch, str(旧的))
-        monkeypatch.setattr(
-            downloader, "sync_checkpoint_tracks", lambda *_a: ([], False)
-        )
-        downloader._setup_session(_tracks(3), str(tmp_path), "playlist", "p1", None, 0)
+        monkeypatch.setattr(session, "sync_checkpoint_tracks", lambda *_a: ([], False))
+        session._setup_session(_tracks(3), str(tmp_path), "playlist", "p1", None, 0)
         assert not 半截.exists(), "上轮的半截文件要清掉，否则重下会撞同名"
         assert (旧的 / "_temp").is_dir()
 
     def test_全新下载不动别的_temp(self, tmp_path, monkeypatch):
         """没有断点时不该去动任何 _temp，只有续传才清"""
-        monkeypatch.setattr(downloader, "load_checkpoint", lambda *_a: None)
+        monkeypatch.setattr(session, "load_checkpoint", lambda *_a: None)
         别人的 = tmp_path / "别人的" / "_temp"
         别人的.mkdir(parents=True)
         (别人的 / "x").write_bytes(b"x")
-        downloader._setup_session(_tracks(3), str(tmp_path), "playlist", "p1", None, 0)
+        session._setup_session(_tracks(3), str(tmp_path), "playlist", "p1", None, 0)
         assert (别人的 / "x").exists()
 
     def test_断点为空就是全新下载(self, tmp_path, monkeypatch):
-        monkeypatch.setattr(downloader, "load_checkpoint", lambda *_a: None)
+        monkeypatch.setattr(session, "load_checkpoint", lambda *_a: None)
         seen = []
-        monkeypatch.setattr(downloader, "create_checkpoint", lambda *a: seen.append(a))
-        session_dir, _, _ = downloader._setup_session(
+        monkeypatch.setattr(session, "create_checkpoint", lambda *a: seen.append(a))
+        session_dir, _, _ = session._setup_session(
             _tracks(3), str(tmp_path), "album", "a1", None, 0
         )
         assert Path(session_dir).is_dir()
@@ -135,25 +131,25 @@ class Test断点与切片的配合:
     """切片只影响本次下哪几首，断点仍记录全部曲目"""
 
     def test_断点记全量(self, tmp_path, monkeypatch):
-        monkeypatch.setattr(downloader, "load_checkpoint", lambda *_a: None)
+        monkeypatch.setattr(session, "load_checkpoint", lambda *_a: None)
         seen = []
-        monkeypatch.setattr(downloader, "create_checkpoint", lambda *a: seen.append(a))
+        monkeypatch.setattr(session, "create_checkpoint", lambda *a: seen.append(a))
         tracks = _tracks(10)
-        downloader._setup_session(tracks, str(tmp_path), "playlist", "p1", 3, 0)
+        session._setup_session(tracks, str(tmp_path), "playlist", "p1", 3, 0)
         assert sorted(seen[0][3]) == [t["id"] for t in tracks]
 
     def test_续传时按断点过滤(self, tmp_path, monkeypatch):
         旧的 = tmp_path / "上一轮"
         旧的.mkdir()
         monkeypatch.setattr(
-            downloader, "load_checkpoint", lambda *_a: {"download_dir": str(旧的)}
+            session, "load_checkpoint", lambda *_a: {"download_dir": str(旧的)}
         )
         monkeypatch.setattr(
-            downloader,
+            session,
             "sync_checkpoint_tracks",
             lambda *_a: (["101", "103"], False),
         )
-        _, selected, _ = downloader._setup_session(
+        _, selected, _ = session._setup_session(
             _tracks(6), str(tmp_path), "playlist", "p1", None, 0
         )
         assert [t["id"] for t in selected] == [101, 103], "下过的要从这批里剔掉"
@@ -163,12 +159,12 @@ class Test断点与切片的配合:
         旧的 = tmp_path / "上一轮"
         旧的.mkdir()
         monkeypatch.setattr(
-            downloader, "load_checkpoint", lambda *_a: {"download_dir": str(旧的)}
+            session, "load_checkpoint", lambda *_a: {"download_dir": str(旧的)}
         )
         monkeypatch.setattr(
-            downloader, "sync_checkpoint_tracks", lambda *_a: (["101", "105"], False)
+            session, "sync_checkpoint_tracks", lambda *_a: (["101", "105"], False)
         )
-        _, selected, offset = downloader._setup_session(
+        _, selected, offset = session._setup_session(
             _tracks(6), str(tmp_path), "playlist", "p1", 3, 1
         )
         # 切片先取 1..3 即 101/102/103，再与断点取交集只剩 101
@@ -178,7 +174,7 @@ class Test断点与切片的配合:
 
 class Test收尾打印:
     def _跑(self, capsys, ok, fail, ids=()):
-        downloader._summarize(ok, fail, list(ids))
+        session._summarize(ok, fail, list(ids))
         return capsys.readouterr().err
 
     def test_全成功(self, capsys):
@@ -218,7 +214,7 @@ class Test收尾打印:
         monkeypatch.setattr(
             downloader.err_console, "print", lambda *a: 收到的.extend(a)
         )
-        downloader._summarize(ok, fail, list(ids))
+        session._summarize(ok, fail, list(ids))
         return " ".join(收到的)
 
     def test_成功那档用green(self, monkeypatch):
