@@ -396,18 +396,6 @@ wheels = [
 ]
 
 [[package]]
-name = "deprecation"
-version = "2.1.0"
-source = { registry = "https://pypi.org/simple" }
-dependencies = [
-    { name = "packaging" },
-]
-sdist = { url = "https://files.pythonhosted.org/packages/5a/d3/8ae2869247df154b64c1884d7346d412fed0c49df84db635aab2d1c40e62/deprecation-2.1.0.tar.gz", hash = "sha256:72b3bde64e5d778694b0cf68178aed03d15e15477116add3fb773e581f9518ff", size = 173788, upload-time = "2020-04-20T14:23:38.738Z" }
-wheels = [
-    { url = "https://files.pythonhosted.org/packages/02/c3/253a89ee03fc9b9682f1541728eb66db7db22148cd94f89ab22528cd1e1b/deprecation-2.1.0-py2.py3-none-any.whl", hash = "sha256:a10811591210e1fb0e768a8c25517cabeabcba6f0bf96564f8ff45189f90b14a", size = 11178, upload-time = "2020-04-20T14:23:36.581Z" },
-]
-
-[[package]]
 name = "docutils"
 version = "0.23"
 source = { registry = "https://pypi.org/simple" }
@@ -417,34 +405,12 @@ wheels = [
 ]
 
 [[package]]
-name = "eyed3"
-version = "0.9.9"
-source = { registry = "https://pypi.org/simple" }
-dependencies = [
-    { name = "deprecation" },
-    { name = "filetype" },
-]
-sdist = { url = "https://files.pythonhosted.org/packages/ee/aa/5873b98fa5f570724a65757987c155dea68d27f0acae17da1b1ffc8cd0d2/eyed3-0.9.9.tar.gz", hash = "sha256:a8affaae19384aca66f6efef3babd705042a76e546f08e886f5f28691ac62a3b", size = 216352, upload-time = "2025-11-16T16:08:38.134Z" }
-wheels = [
-    { url = "https://files.pythonhosted.org/packages/96/7f/b5b1b4c21dcb1eb1cc0d5a6d5d1eccc680fce7229d7ecd7719cbc1365495/eyed3-0.9.9-py3-none-any.whl", hash = "sha256:84c576c60c3e66b1be3d5c9ce942b690977692b91a19e4f55871f2956afc388c", size = 140397, upload-time = "2025-11-16T16:08:34.066Z" },
-]
-
-[[package]]
 name = "filelock"
 version = "4.2.0"
 source = { registry = "https://pypi.org/simple" }
 sdist = { url = "https://files.pythonhosted.org/packages/f4/a9/1af41b37c3279712b22cdc63aac78a52432202b6fe1f9666a2a3d2831fb4/filelock-4.2.0.tar.gz", hash = "sha256:7a60906c75227cf04d0c273afadc8219400f11aeb13cc69591d4f6cdc6c8036e", size = 569667, upload-time = "2026-10-14T20:57:13.11Z" }
 wheels = [
     { url = "https://files.pythonhosted.org/packages/8e/a3/9bc26acff301fe1aaea1cc3d82a1d57e0a34df3e1cadbfa91ac2dbcdde5c/filelock-4.2.0-py3-none-any.whl", hash = "sha256:2ff5690882e8cdb00ef31fb3d01a3094c29f30985426c59495afb1733f3b7238", size = 135032, upload-time = "2026-10-14T20:57:11.349Z" },
-]
-
-[[package]]
-name = "filetype"
-version = "1.2.0"
-source = { registry = "https://pypi.org/simple" }
-sdist = { url = "https://files.pythonhosted.org/packages/bb/29/745f7d30d47fe0f251d3ad3dc2978a23141917661998763bebb6da007eb1/filetype-1.2.0.tar.gz", hash = "sha256:66b56cd6474bf41d8c54660347d37afcc3f7d1970648de365c102ef77548aadb", size = 998020, upload-time = "2022-11-02T17:34:04.141Z" }
-wheels = [
-    { url = "https://files.pythonhosted.org/packages/18/79/1b8fa1bb3568781e84c9200f951c735f3f157429f44be0495da55894d620/filetype-1.2.0-py2.py3-none-any.whl", hash = "sha256:7ce71b6880181241cf7ac8697a2f1eb6a8bd9b429f7ad6d27b8db9ba5f1c2d25", size = 19970, upload-time = "2022-11-02T17:34:01.425Z" },
 ]
 
 [[package]]
@@ -991,7 +957,6 @@ name = "vncmd"
 version = "0.4.2"
 source = { editable = "." }
 dependencies = [
-    { name = "eyed3" },
     { name = "filelock" },
     { name = "mutagen" },
     { name = "pillow" },
@@ -1010,8 +975,7 @@ dev = [
 
 [package.metadata]
 requires-dist = [
-    { name = "eyed3", specifier = ">=0.9.9" },
-    { name = "filelock", specifier = ">=3.32.5" },
+    { name = "filelock", specifier = ">=4.2.0" },
     { name = "mutagen", specifier = ">=1.48.1" },
     { name = "pillow", specifier = ">=12.3.0" },
     { name = "prompt-toolkit", specifier = ">=3.0.53" },

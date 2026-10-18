@@ -12,8 +12,7 @@ authors = [
 keywords = ["cli", "download", "lyrics", "metadata", "music", "netease"]
 urls = { Documentation = "https://magic.vanadiry.com/wiki/vncmd", Repository = "https://github.com/Vanadiry/vncmd" }
 dependencies = [
-  "eyed3>=0.9.9",
-  "filelock>=3.32.5",
+  "filelock>=4.2.0",
   "mutagen>=1.48.1",
   "pillow>=12.3.0",
   "prompt-toolkit>=3.0.53",
