@@ -127,16 +127,17 @@ Cookie 存放在 `~/.vSoft/vncmd/cookie`，纯文本。
 
 ## [download.cover]
 
-### embed_quality
+### embed_compress
 
-嵌入音频的封面质量。默认 `"1"`。
+嵌入音频的封面缩放。默认 `true`。
 
-- `"0"`：原图，不做任何处理。
-- `"1"`：等比缩放至 500px 以内（小图忽略），转换为 JPEG，透明通道替换为白色背景，质量自适应（60–85）。
+- `true`：等比缩放至 500px 以内（小图忽略），转换为 JPEG，透明通道替换为白色背景，质量自适应（60–85）。
+- `false`：原图，不做任何处理。
 
-### save_quality
+### save_compress
 
-独立封面质量。默认 `"0"`。规则同 `embed_quality`。
+独立封面文件缩放。默认 `false`。  
+规则同 `embed_compress`。
 
 ## [cache]
 
@@ -145,14 +146,6 @@ Cookie 存放在 `~/.vSoft/vncmd/cookie`，纯文本。
 本地缓存。默认 `true`。
 
 关闭后，歌词、曲目详情每次都会从 API 拉取，更慢但更实时。
-
-### dir
-
-缓存目录。默认 `"cache"`。
-
-支持绝对路径和基于 `~/.vSoft/vncmd` 的相对路径。
-
-### ttl
 
 缓存有效期，单位为天。默认 `3`。
 

@@ -86,8 +86,20 @@ def test_默认配置含ttl():
 
 
 def test_旧配置没有ttl时用默认值(monkeypatch):
-    monkeypatch.setattr(config_mod, "_cfg", {"cache": {"dir": "cache"}})
+    monkeypatch.setattr(config_mod, "_cfg", {"cache": {"enabled": True}})
     assert config_mod.get_cache_ttl() == 3
+
+
+def test_cache段里不再有dir():
+    """dir 这个键拆掉了 —— 缓存固定在 VNCMD_HOME 下。
+
+    留着它会让人以为改它有用，而它早就不被读了
+    """
+    import tomllib
+
+    from function._defaults import CONFIG_TOML
+
+    assert "dir" not in tomllib.loads(CONFIG_TOML)["cache"]
 
 
 @pytest.mark.parametrize("bad", ["3", 1.5, True, -1])

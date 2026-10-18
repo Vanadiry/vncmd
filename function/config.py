@@ -162,8 +162,6 @@ def validate_config(quiet: bool = False) -> None:
     cc = cfg.get("cache", {})
     if "enabled" not in cc:
         errors.append("[cache] enabled 缺失")
-    if not cc.get("dir"):
-        errors.append("[cache] dir 缺失或为空")
     ttl = cc.get("ttl", DEFAULT_CACHE_TTL)
     if not isinstance(ttl, int) or isinstance(ttl, bool) or ttl < 0:
         errors.append("[cache] ttl 不为非负整数")
@@ -284,8 +282,13 @@ def get_cache_ttl() -> int:
 
 
 def get_cache_dir() -> str:
-    # 不展开 ~ 会在 VNCMD_HOME 下建出名为 ~ 的目录
-    return str(_user_path(_get_cfg()["cache"]["dir"]))
+    """缓存固定在 VNCMD_HOME 下，不再是配置项。
+
+    一首歌的缓存是三个小文件、一个歌一个目录，实测 592 首 2.3 MB，
+    上限是曲库有多少首而不是用了多久 —— 这样大的东西没有搬家的理由。
+    真要换地方，把这个目录做成软链接就行，比配置键还灵活。
+    """
+    return str(VNCMD_HOME / "cache")
 
 
 def is_cache_enabled() -> bool:

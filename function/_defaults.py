@@ -40,8 +40,6 @@ save_compress = false
 [cache]
 # 启用本地缓存（曲目详情和歌词）
 enabled = true
-# 绝对路径，或相对于 VNCMD_HOME 的路径
-dir = "cache"
 # 缓存有效期，单位为天，0 表示永不过期
 ttl = 3
 
