@@ -80,8 +80,37 @@ class TestProcess:
         r2 = process(LRC, TLYRIC, "2", 99999999)
         assert len(r2) == 2 and "lrc" in r2 and "2.lrc" in r2
 
+    def test_mode_2无译文时不出第二个文件(self):
+        """出的是一个 0 字节的 .2.lrc，播放器会把它当成一首独立的翻译歌词。
+        库里没有的译文很常见，而 clean() 只删 [by:] 行，所以这一路是空的"""
+        r2 = process(LRC, "", "2", 99999999)
+        assert list(r2) == ["lrc"]
+        assert r2["lrc"].strip()
+
+    def test_mode_2译文只有空白也算没有(self):
+        r2 = process(LRC, "\n  \n", "2", 99999999)
+        assert list(r2) == ["lrc"]
+
+    def test_mode_0与1不受影响(self):
+        """这两个模式两个流合成一个文件，本来就不分家"""
+        for mode in ("0", "1"):
+            assert list(process(LRC, "", mode, 99999999)) == ["lrc"]
+
 
 class TestOutputFiles:
+    def test_mode_2无译文时不落盘空文件(self, temp_dir):
+        r2 = process(LRC, "", "2", 99999999)
+        base = str(Path(temp_dir) / "X")
+        paths = output_files(r2, base)
+        assert [Path(p).name for p in paths] == ["X.lrc"]
+        assert not Path(base + ".2.lrc").exists()
+
+    def test_mode_2有译文时两个文件都在(self, temp_dir):
+        base = str(Path(temp_dir) / "X")
+        paths = output_files(process(LRC, TLYRIC, "2", 99999999), base)
+        assert [Path(p).name for p in paths] == ["X.lrc", "X.2.lrc"]
+        assert all(Path(p).stat().st_size > 0 for p in paths)
+
     def test_creates_file(self, temp_dir):
         paths = output_files(
             {"lrc": "test content"}, str(Path(temp_dir) / "lyric_test")

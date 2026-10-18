@@ -228,7 +228,7 @@ def process(lrc_raw: str, tlyric_raw: str, mode: str, song_id: int) -> dict[str,
     Returns dict of {suffix: text} for output_files():
       mode "0": {"lrc": interleaved_text}
       mode "1": {"lrc": lrc_clean + "\n" + tlyric_clean}
-      mode "2": {"lrc": lrc_clean, "2.lrc": tlyric_clean}
+      mode "2": {"lrc": lrc_clean} 加上有译文时的 {"2.lrc": tlyric_clean}
     """
     lrc_clean = clean(lrc_raw)
     tlyric_clean = clean(tlyric_raw)
@@ -240,6 +240,17 @@ def process(lrc_raw: str, tlyric_raw: str, mode: str, song_id: int) -> dict[str,
         return {"lrc": interleave(lrc_clean, tlyric_clean)}
     if mode == "1":
         return {"lrc": lrc_clean + "\n" + tlyric_clean}
+    # mode "2" 每个流各出一个文件。译文没有内容时不出那个 ——
+    # 照样写会得到一个 0 字节的 .2.lrc，播放器会把它当成一首独立的翻译歌词。
+    # 判空要 strip：clean() 刻意留着空行，删掉 [by:] 之后可能只剩换行与空格
+    #
+    # lrc 那侧不这么判。调用方 downloader 已经用 want_lyrics and lyric_text
+    # 挡住了空原文，而 clean() 只删 [by:] 行 —— 实测库里 307 个 lrc
+    # 经过 clean 之后没有一个变空
+    #
+    # 键的插入顺序不能换，output_files 靠它决定先写哪个
+    if not tlyric_clean.strip():
+        return {"lrc": lrc_clean}
     return {"lrc": lrc_clean, "2.lrc": tlyric_clean}
 
 
