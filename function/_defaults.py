@@ -32,10 +32,10 @@ auto_trim = false
 credit_scan_lines = 10
 
 [download.cover]
-# 嵌入封面质量：0=原图，1=缩放至最大 500x500 JPEG
-embed_quality = "1"
-# 独立封面文件质量：0=原图，1=缩放至最大 500x500 JPEG
-save_quality = "0"
+# 嵌入封面压缩：false=原图，true=缩放至最大 500x500 JPEG
+embed_compress = true
+# 独立封面文件压缩，规则同 embed_compress
+save_compress = false
 
 [cache]
 # 启用本地缓存（曲目详情和歌词）

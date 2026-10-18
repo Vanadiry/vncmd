@@ -53,10 +53,10 @@ from function.config import (
     get_credit_scan_lines,
     get_download_content,
     get_download_dir,
-    get_embed_cover_quality,
+    get_embed_cover_compress,
     get_embed_lyrics_mode,
     get_parse_credits,
-    get_save_cover_quality,
+    get_save_cover_compress,
     get_save_lyrics_mode,
 )
 from function.download import fetch_audio, fetch_cover, fetch_lyrics
@@ -218,7 +218,7 @@ def download_song(
     """
     Download a song with metadata, lyrics, and cover.
 
-    Respects config: filename_format, download_content, lyrics_mode, cover_quality.
+    Respects config: filename_format, download_content, lyrics_mode, cover_compress.
     Returns (success: bool, message: str, file_path: str | None)
     """
     if download_dir is None:
@@ -276,10 +276,10 @@ def download_song(
         # 封面坏了不该连累音频，降级为不嵌封面
         try:
             embed_cover_data, embed_cover_mime = process_cover_image(
-                cover_data, cover_url, get_embed_cover_quality()
+                cover_data, cover_url, get_embed_cover_compress()
             )
             save_cover_data, _ = process_cover_image(
-                cover_data, cover_url, get_save_cover_quality()
+                cover_data, cover_url, get_save_cover_compress()
             )
         except Exception as e:
             warning(f"封面处理失败，本次不嵌入封面：{e}")
@@ -369,7 +369,7 @@ def download_song(
 
     # --- Save cover to temp ---
     if want_cover and save_cover_data:
-        if get_save_cover_quality() == "1":
+        if get_save_cover_compress():
             cover_ext_val = "jpg"
         else:
             fmt = detect_format(save_cover_data)

@@ -151,8 +151,8 @@ auto_trim = false
 credit_scan_lines = 10
 
 [download.cover]
-embed_quality = "0"
-save_quality = "0"
+embed_compress = false
+save_compress = false
 
 [cache]
 enabled = true

@@ -26,24 +26,24 @@ def _mime_from_url(url: str | None) -> str:
 
 
 def process_cover(
-    cover_data: bytes, cover_url: str | None, quality: str
+    cover_data: bytes, cover_url: str | None, compress: bool
 ) -> tuple[bytes, str]:
     """
     Process cover image.
 
-    quality "0": return as-is.
-    quality "1": resize to max 500x500, convert to JPEG, compress smaller than
-                 original without being too blurry.
+    compress false: return as-is.
+    compress true: resize to max 500x500, convert to JPEG, compress smaller than
+                   original without being too blurry.
 
     Returns (data: bytes, mime_type: str)
     """
-    if quality == "0":
+    if not compress:
         fmt = detect_format(cover_data)
         if fmt:
             return cover_data, fmt[1]
         return cover_data, _mime_from_url(cover_url)
 
-    # quality "1": resize + compress
+    # compress true: resize + compress
     img = Image.open(io.BytesIO(cover_data))
     original_size = len(cover_data)
     w, h = img.size

@@ -148,12 +148,15 @@ def validate_config(quiet: bool = False) -> None:
         errors.append("[download.lyric] credit_scan_lines 缺失或不为正整数")
 
     # [download.cover]
+    # 判缺失用 `key not in dc` 而不是 `not dc.get(key)`。
+    # 这两个键的合法值里有 false，「取不到就是空」那种写法会把 false
+    # 当成没写，而 false 恰好是「用原图」那一档
     dc = dl.get("cover", {})
-    for key in ("embed_quality", "save_quality"):
-        if not dc.get(key):
-            errors.append(f"[download.cover] {key} 缺失或为空")
-        elif dc[key] not in ("0", "1"):
-            errors.append(f'[download.cover] {key} 必须为 "0" 或 "1"')
+    for key in ("embed_compress", "save_compress"):
+        if key not in dc:
+            errors.append(f"[download.cover] {key} 缺失")
+        elif not isinstance(dc[key], bool):
+            errors.append(f"[download.cover] {key} 必须为 true 或 false")
 
     # [cache]
     cc = cfg.get("cache", {})
@@ -255,12 +258,12 @@ def get_save_lyrics_mode() -> str:
     return _get_cfg()["download"]["lyric"]["save_mode"]
 
 
-def get_embed_cover_quality() -> str:
-    return _get_cfg()["download"]["cover"]["embed_quality"]
+def get_embed_cover_compress() -> bool:
+    return _get_cfg()["download"]["cover"]["embed_compress"]
 
 
-def get_save_cover_quality() -> str:
-    return _get_cfg()["download"]["cover"]["save_quality"]
+def get_save_cover_compress() -> bool:
+    return _get_cfg()["download"]["cover"]["save_compress"]
 
 
 def get_parse_credits() -> bool:

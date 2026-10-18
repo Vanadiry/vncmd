@@ -1,5 +1,8 @@
 from pathlib import Path
 
+import pytest
+
+from function._defaults import CONFIG_TOML
 from function.config import (
     CONFIG_FILE,
     QUALITY_MAP,
@@ -7,11 +10,11 @@ from function.config import (
     get_cookie,
     get_download_content,
     get_download_dir,
-    get_embed_cover_quality,
+    get_embed_cover_compress,
     get_embed_lyrics_mode,
     get_filename_format,
     get_quality,
-    get_save_cover_quality,
+    get_save_cover_compress,
     get_save_lyrics_mode,
     is_cache_enabled,
     load_config,
@@ -62,11 +65,11 @@ class TestGetters:
     def test_save_lyrics_mode(self):
         assert get_save_lyrics_mode() in ("0", "1", "2")
 
-    def test_embed_cover_quality(self):
-        assert get_embed_cover_quality() in ("0", "1")
+    def test_embed_cover_compress(self):
+        assert isinstance(get_embed_cover_compress(), bool)
 
-    def test_save_cover_quality(self):
-        assert get_save_cover_quality() in ("0", "1")
+    def test_save_cover_compress(self):
+        assert isinstance(get_save_cover_compress(), bool)
 
     def test_cache_enabled(self):
         assert isinstance(is_cache_enabled(), bool)
@@ -77,3 +80,56 @@ class TestGetters:
     def test_cookie(self):
         cookie = get_cookie()
         assert isinstance(cookie, str)
+
+
+class Test封面缩放的布尔校验:
+    """embed_compress 与 save_compress 的合法值里有 false。
+
+    校验一开始写的是 `not dc.get(key)`，那种写法把 false 当成没写，
+    于是「用原图」那一档根本配不进去 —— 而那恰好是 save_compress 的默认值。
+    改成 `key not in dc` 之后两个方向都算数
+    """
+
+    @pytest.fixture
+    def 配置文件(self):
+        原样 = CONFIG_FILE.read_text(encoding="utf-8")
+        yield
+        CONFIG_FILE.write_text(原样, encoding="utf-8")
+
+    def _写(self, embed: str, save: str) -> None:
+        CONFIG_FILE.write_text(
+            CONFIG_TOML.replace(
+                "embed_compress = true", f"embed_compress = {embed}"
+            ).replace("save_compress = false", f"save_compress = {save}"),
+            encoding="utf-8",
+        )
+
+    @pytest.mark.parametrize(
+        ("embed", "save"),
+        [
+            ("true", "false"),
+            ("false", "true"),
+            ("false", "false"),
+            ("true", "true"),
+        ],
+    )
+    def test两个方向都算数(self, 配置文件, embed, save):
+        self._写(embed, save)
+        validate_config(quiet=True)
+
+    @pytest.mark.parametrize("bad", ['"1"', '"0"', "1", "0", '"true"'])
+    def test非布尔值被拦下(self, 配置文件, bad):
+        self._写(bad, "false")
+        with pytest.raises(SystemExit):
+            validate_config(quiet=True)
+
+    @pytest.mark.parametrize("key", ["embed_compress", "save_compress"])
+    def test键整个缺失被拦下(self, 配置文件, key):
+        行 = (
+            "embed_compress = true"
+            if key == "embed_compress"
+            else "save_compress = false"
+        )
+        CONFIG_FILE.write_text(CONFIG_TOML.replace(f"{行}\n", ""), encoding="utf-8")
+        with pytest.raises(SystemExit):
+            validate_config(quiet=True)
