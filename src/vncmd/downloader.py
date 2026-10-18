@@ -271,7 +271,8 @@ def download_song(
     """
     Download a song with metadata, lyrics, and cover.
 
-    Respects config: filename_artist, download_content, lyrics_mode, cover_compress.
+    Respects config: filename_artist, content, embed_mode, save_mode,
+    embed_compress, save_compress.
     Returns (success: bool, message: str, file_path: str | None)
     """
     if download_dir is None:

@@ -106,12 +106,19 @@ def validate_config(quiet: bool = False) -> None:
 
     errors = []
 
-    # [download]
+    # 段本身写错类型时先拦下。下面全是 dl.get(key)、key not in dl 这类写法，
+    # 段不是表的话它们会抛 TypeError 或 AttributeError，用户看到的是一整段调用栈，
+    # 而不是「[download] 这一段写错了」
     dl = cfg.get("download", {})
+    if not isinstance(dl, dict):
+        _die([f"[download] 必须是一段配置，实际是 {type(dl).__name__}"])
+        dl = {}
 
     # 留空表示用 ~/Downloads，键本身必须在
     if "dir" not in dl:
         errors.append("[download] dir 缺失")
+    elif not isinstance(dl["dir"], str):
+        errors.append(f"[download] dir 必须是字符串，实际是 {type(dl['dir']).__name__}")
 
     if not dl.get("filename_artist"):
         errors.append("[download] filename_artist 缺失或为空")
@@ -131,9 +138,14 @@ def validate_config(quiet: bool = False) -> None:
         dup = "、".join(sorted({c for c in content if content.count(c) > 1}))
         errors.append(f"[download] content 里 {dup} 重复了，每个字母最多一次")
 
-    ccy = dl.get("concurrency", 4)
-    if not isinstance(ccy, int) or ccy < 1 or ccy > 16:
-        errors.append("[download] concurrency 必须为 1-16 的整数")
+    # 缺键要报错而不是默认 4 —— getter 是直接下标取的，
+    # 校验放行的话，等到真下载时才炸，而那时候用户看不到是哪句配置写错了
+    ccy = dl.get("concurrency")
+    # isinstance(ccy, bool) 那道不能省：布尔是 int 的子类，
+    # concurrency = true 会一路通过 isinstance 检查，min(True, 曲数) 得 1，
+    # 静默降成单线程还不给任何提示
+    if not isinstance(ccy, int) or isinstance(ccy, bool) or not 1 <= ccy <= 16:
+        errors.append(f"[download] concurrency 必须为 1-16 的整数，实际是 {ccy!r}")
 
     chk = dl.get("check", True)
     if not isinstance(chk, bool):
@@ -148,17 +160,26 @@ def validate_config(quiet: bool = False) -> None:
 
     # [download.audio]
     ds = dl.get("audio", {})
+    if not isinstance(ds, dict):
+        _die([f"[download.audio] 必须是一段配置，实际是 {type(ds).__name__}"])
+        ds = {}
     if not ds.get("quality"):
         errors.append("[download.audio] quality 缺失或为空")
     elif ds["quality"] not in QUALITY_MAP:
+        # 带上实际值：写 quality = 320 的人看到的是「必须为 128、192、320」，
+        # 只差一对引号，报错里不写实际值就让人以为键名也错了
         errors.append(
-            f"[download.audio] quality 必须为以下之一：{', '.join(QUALITY_MAP)}"
+            f"[download.audio] quality 必须为以下之一：{', '.join(QUALITY_MAP)}，"
+            f"实际是 {ds['quality']!r}"
         )
     if not isinstance(ds.get("parse_credits"), bool):
         errors.append("[download.audio] parse_credits 缺失或不为布尔值")
 
     # [download.lyric]
     dly = dl.get("lyric", {})
+    if not isinstance(dly, dict):
+        _die([f"[download.lyric] 必须是一段配置，实际是 {type(dly).__name__}"])
+        dly = {}
     # line 与 block 两边共有，第三档不同：embed 是不要译文，save 是分两个文件。
     # 用 if key not in dly 判缺失而不是 not dly.get(key) ——
     # 合法值里没有空串，但那种写法对空值才成立，将来加了空值就会重蹈覆辙
@@ -166,7 +187,10 @@ def validate_config(quiet: bool = False) -> None:
         if key not in dly:
             errors.append(f"[download.lyric] {key} 缺失")
         elif dly[key] not in allowed:
-            errors.append(f"[download.lyric] {key} 必须为 {'、'.join(allowed)}")
+            errors.append(
+                f"[download.lyric] {key} 必须为 {'、'.join(allowed)}，"
+                f"实际是 {dly[key]!r}"
+            )
     if not isinstance(dly.get("auto_trim"), bool):
         errors.append("[download.lyric] auto_trim 缺失或不为布尔值")
     scan = dly.get("credit_scan_lines")
@@ -178,16 +202,28 @@ def validate_config(quiet: bool = False) -> None:
     # 这两个键的合法值里有 false，「取不到就是空」那种写法会把 false
     # 当成没写，而 false 恰好是「用原图」那一档
     dc = dl.get("cover", {})
+    if not isinstance(dc, dict):
+        _die([f"[download.cover] 必须是一段配置，实际是 {type(dc).__name__}"])
+        dc = {}
     for key in ("embed_compress", "save_compress"):
         if key not in dc:
             errors.append(f"[download.cover] {key} 缺失")
         elif not isinstance(dc[key], bool):
-            errors.append(f"[download.cover] {key} 必须为 true 或 false")
+            errors.append(
+                f"[download.cover] {key} 必须为 true 或 false，实际是 {dc[key]!r}"
+            )
 
     # [cache]
     cc = cfg.get("cache", {})
+    if not isinstance(cc, dict):
+        _die([f"[cache] 必须是一段配置，实际是 {type(cc).__name__}"])
+        cc = {}
+    # enabled 要判类型：写成带引号的 "false" 时字符串非空、是真值，
+    # 用户以为关了缓存实际照开，而这种错在界面上完全看不出来
     if "enabled" not in cc:
         errors.append("[cache] enabled 缺失")
+    elif not isinstance(cc["enabled"], bool):
+        errors.append(f"[cache] enabled 必须为 true 或 false，实际是 {cc['enabled']!r}")
     ttl = cc.get("ttl", DEFAULT_CACHE_TTL)
     if not isinstance(ttl, int) or isinstance(ttl, bool) or ttl < 0:
         errors.append("[cache] ttl 不为非负整数")

@@ -530,7 +530,7 @@ class TestDownloader接线:
         assert "纯音乐" not in texts[0]
 
     def test_仅歌词时角色行不裁(self, run):
-        """content 为 1 时不会下音频，抽出来的 credits 没人接收，
+        """content 只含 l 时不会下音频，抽出来的 credits 没人接收，
         而行被裁掉就是白删。改动前丢的是作曲一行，改动后会丢七个角色"""
         texts, credits = run("l")
         assert credits is None, "没有音频可写，不该去抽"

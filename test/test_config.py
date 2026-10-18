@@ -302,3 +302,123 @@ class Test文件名里的艺术家位置:
         )
         with pytest.raises(SystemExit):
             validate_config(quiet=True)
+
+
+class Test没拦住的类型:
+    """几处校验漏掉的写法，每一条都在真跑时炸给用户一整段调用栈
+
+    这些不是假想的边界：缺键、写成整数、忘了引号，都是手改配置时
+    最常见的几种错，而校验放行的后果是崩溃推迟到下载那一刻
+    """
+
+    @pytest.fixture
+    def 配置文件(self):
+        原样 = CONFIG_FILE.read_text(encoding="utf-8")
+        yield
+        CONFIG_FILE.write_text(原样, encoding="utf-8")
+
+    def _写(self, 文本: str) -> None:
+        CONFIG_FILE.write_text(文本, encoding="utf-8")
+
+    def test_concurrency缺键要报错(self, 配置文件):
+        """getter 是直接下标取的，校验放行等于把崩溃推迟到下载那一刻"""
+        self._写(CONFIG_TOML.replace("concurrency = 4\n", ""))
+        with pytest.raises(SystemExit):
+            validate_config(quiet=True)
+
+    def test_concurrency写成布尔要报错(self, 配置文件):
+        """布尔是 int 的子类，不单独拦一路过关；
+        min(True, 曲数) 得 1，静默降成单线程还不给任何提示
+        """
+        self._写(CONFIG_TOML.replace("concurrency = 4", "concurrency = true"))
+        with pytest.raises(SystemExit):
+            validate_config(quiet=True)
+
+    def test_concurrency越界要报错(self, 配置文件):
+        for 值 in ("0", "17", "-1"):
+            self._写(CONFIG_TOML.replace("concurrency = 4", f"concurrency = {值}"))
+            with pytest.raises(SystemExit):
+                validate_config(quiet=True)
+
+    def test_cache的enabled写成字符串要报错(self, 配置文件):
+        """最阴的一条：'false' 是非空字符串、真值为真，
+        用户以为关了缓存而缓存照开，界面上完全看不出来
+        """
+        self._写(CONFIG_TOML.replace("enabled = true", 'enabled = "false"'))
+        with pytest.raises(SystemExit):
+            validate_config(quiet=True)
+
+    def test_dir写成整数要报错(self, 配置文件):
+        self._写(CONFIG_TOML.replace('dir = ""', "dir = 123"))
+        with pytest.raises(SystemExit):
+            validate_config(quiet=True)
+
+    @pytest.mark.parametrize(
+        "行",
+        [
+            "download = 5",
+            "download.audio = 5",
+            "download.lyric = 5",
+            "download.cover = 5",
+            "cache = 5",
+        ],
+    )
+    def test段被写成标量要报错(self, 配置文件, 行):
+        """段写成数字时，下面 dl.get(key) 与 key not in dl 会抛 TypeError，
+        用户看到的是调用栈而不是哪一段写错了
+
+        触发方式是让段被重新赋值，而不是在段里塞野键 ——
+        [download] value = 5 解析出来仍是 dict，那样测不到这条检查
+        """
+        self._写(行 + "\n")
+        with pytest.raises(SystemExit):
+            validate_config(quiet=True)
+
+    def test_段是标量时不说成键缺失(self, 配置文件, capsys):
+        """报错要指明是段写错了，而不是列一堆「xx 缺失」让人以为是键少了"""
+        self._写("download = 5\n")
+        with pytest.raises(SystemExit):
+            validate_config(quiet=True)
+        出错 = capsys.readouterr().err
+        assert "必须是一段配置" in 出错
+        assert "dir 缺失" not in 出错
+
+
+class Test报错带实际值:
+    """报错里要写用户实际填了什么
+
+    只说「必须为 128、192、320」的话，写了 320 的人会以为键名也错了。
+
+    断言要写全「实际是」那几个字 —— 只查 320 会被允许值列表里的 320 骗过，
+    那种断言加不加实际值都在，等于没测
+    """
+
+    @pytest.fixture
+    def 配置文件(self):
+        原样 = CONFIG_FILE.read_text(encoding="utf-8")
+        yield
+        CONFIG_FILE.write_text(原样, encoding="utf-8")
+
+    def _报错(self, 改前, 改后, capsys):
+        CONFIG_FILE.write_text(CONFIG_TOML.replace(改前, 改后), encoding="utf-8")
+        with pytest.raises(SystemExit):
+            validate_config(quiet=True)
+        return capsys.readouterr().err
+
+    def test_quality报错带出实际值(self, 配置文件, capsys):
+        出错 = self._报错('quality = "max"', "quality = 320", capsys)
+        assert "实际是 320" in 出错
+
+    def test_歌词模式报错带出实际值(self, 配置文件, capsys):
+        出错 = self._报错('embed_mode = "drop"', 'embed_mode = "inline"', capsys)
+        assert "实际是 'inline'" in 出错
+
+    def test_concurrency报错带出实际值(self, 配置文件, capsys):
+        出错 = self._报错("concurrency = 4", "concurrency = 99", capsys)
+        assert "实际是 99" in 出错
+
+    def test_cache布尔报错带出实际值(self, 配置文件, capsys):
+        """enabled 写成带引号的 false 时，报错里要原样写出来，
+        用户才看得出自己多打了引号 —— 而那串字符串是真值，缓存会照开"""
+        出错 = self._报错("enabled = true", 'enabled = "false"', capsys)
+        assert "实际是 'false'" in 出错
