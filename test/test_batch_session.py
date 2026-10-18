@@ -1,11 +1,13 @@
-"""download_song_batch 里会话目录与收尾打印两块
+"""download_song_batch 里会话准备、并发环境、收尾打印三块
 
-这两块以前埋在函数中间，抽出来之后能直接测 —— 全是文件与断点操作，
-一条都不用联网。之前它们跟着整个批次一起没被测到，
+这三块以前埋在函数中间，抽出来之后能直接测 ——
+会话与收尾全是文件操作与格式化，并发环境只建槽位与队列，
+都不联网也不碰音频。之前它们跟着整个批次一起没被测到，
 而 download_song_batch 的覆盖率长期只有 50%
 """
 
 from pathlib import Path
+from queue import Empty
 
 from vncmd import downloader, session
 
@@ -233,3 +235,78 @@ class Test收尾打印:
         assert "[dim]0 失败[/]" in 全部
         assert "[green]" not in 全部
         assert "[red]" not in 全部
+
+
+class Test并发环境准备:
+    """槽位数与提交的 worker 数必须相等
+
+    多提交一个 worker，它取到任务后取槽位就越界 —— 那一首会随线程一起
+    消失，既不计入成功也不计入失败，用户看不到任何提示
+    """
+
+    def _tracks(self, n):
+        return [{"id": 100 + i, "title": f"歌{i}", "artist": "人"} for i in range(n)]
+
+    def test_并发数大于曲目数时按曲目数开槽(self):
+        workers = downloader._prepare_workers(self._tracks(3), 8)
+        assert workers.count == 3
+        assert len(workers.slots) == workers.count
+
+    def test_并发数小于曲目数时按并发数开槽(self):
+        workers = downloader._prepare_workers(self._tracks(20), 4)
+        assert workers.count == 4
+        assert len(workers.slots) == workers.count
+
+    def test_槽位数永远等于worker数(self):
+        """这一条就是那个静默丢歌的约束"""
+        for 曲目数 in (1, 2, 3, 7, 16):
+            for 并发 in (1, 2, 4, 8, 16):
+                workers = downloader._prepare_workers(self._tracks(曲目数), 并发)
+                assert len(workers.slots) == workers.count, (
+                    f"{曲目数} 首配 {并发} 并发时对不上"
+                )
+                assert workers.count == min(并发, 曲目数)
+
+    def test_曲目全部装进队列(self):
+        workers = downloader._prepare_workers(self._tracks(5), 2)
+        剩下的 = []
+        while True:
+            try:
+                剩下的.append(workers.queue.get_nowait())
+            except Empty:
+                break
+        assert [t["id"] for t in 剩下的] == [100, 101, 102, 103, 104]
+
+    def test_每个槽位起始时不可见(self):
+        """不可见的槽位不占进度条的一行，空闲时不该刷屏"""
+        workers = downloader._prepare_workers(self._tracks(3), 3)
+        for task_id in workers.slots:
+            assert workers.progress.tasks[task_id].visible is False
+
+    def test_show让槽位可见(self):
+        workers = downloader._prepare_workers(self._tracks(1), 1)
+        task_id = workers.slots[0]
+        workers.show(task_id)
+        assert workers.progress.tasks[task_id].visible is True
+
+    def test_reset让槽位回到不可见且清空描述(self):
+        workers = downloader._prepare_workers(self._tracks(1), 1)
+        task_id = workers.slots[0]
+        workers.show(task_id)
+        workers.describe(task_id, "歌0 - 人")
+        assert "歌0" in str(workers.progress.tasks[task_id].description)
+        workers.reset(task_id)
+        assert workers.progress.tasks[task_id].visible is False
+        assert str(workers.progress.tasks[task_id].description).strip() == ""
+
+    def test_describe带_markup转义(self):
+        """歌名里有方括号时会被 rich 当成样式标记解析，所以要转义"""
+        workers = downloader._prepare_workers(self._tracks(1), 1)
+        task_id = workers.slots[0]
+        workers.describe(task_id, "歌[live] - 人")
+        assert "live" in str(workers.progress.tasks[task_id].description)
+
+    def test_零首时开零个槽(self):
+        workers = downloader._prepare_workers([], 4)
+        assert workers.count == 0
+        assert workers.slots == []

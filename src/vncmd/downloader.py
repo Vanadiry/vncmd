@@ -4,6 +4,7 @@ import sys
 import time
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from contextlib import suppress
+from dataclasses import dataclass
 from pathlib import Path
 from queue import Empty, Queue
 from threading import Event, Lock
@@ -405,6 +406,62 @@ def download_song(
     return True, "\n".join(lines), music_path
 
 
+@dataclass
+class _Workers:
+    """一批下载的并发执行环境
+
+    把进度条、槽位、任务队列与重置动作收成一个整体，
+    下载主体里就不用各自拿着 progress、slots、queue 三个散值
+    """
+
+    progress: Progress
+    slots: list[int]
+    queue: Queue
+    count: int
+
+    def show(self, task_id: int) -> None:
+        """占上槽位开始显示
+
+        rich 未提供切换任务可见性的接口，只能直接写属性。
+        渲染侧只在取表格时读它，写入是单次属性赋值，最坏情况少渲染一帧
+        """
+        self.progress.tasks[task_id].visible = True
+
+    def describe(self, task_id: int, text: str) -> None:
+        self.progress.update(task_id, description=_progress_desc(text))
+
+    def reset(self, task_id: int) -> None:
+        self.progress.update(task_id, description="")
+        self.progress.reset(task_id, total=None)
+        self.progress.tasks[task_id].visible = False
+
+
+def _prepare_workers(tracks: list[dict], concurrency: int) -> _Workers:
+    """建进度条、按并发数开槽位、把曲目装进队列
+
+    槽位数与提交的 worker 数取同一个值 —— 多提交的 worker 取到任务后
+    索引越界，那首曲目会随线程一起消失，不计入成功也不计入失败
+    """
+    progress = Progress(
+        TextColumn("  [progress.description]{task.description}"),
+        BarColumn(),
+        TextColumn("[progress.percentage]{task.percentage:>3.0f}%"),
+        TimeRemainingColumn(),
+        console=err_console,
+    )
+    count = min(concurrency, len(tracks))
+    slots = []
+    for _ in range(count):
+        tid = progress.add_task("", total=None, visible=False)
+        slots.append(tid)
+
+    queue = Queue()
+    for track in tracks:
+        queue.put(track)
+
+    return _Workers(progress=progress, slots=slots, queue=queue, count=count)
+
+
 def download_song_batch(
     tracks: list[dict],
     quality: int,
@@ -459,33 +516,9 @@ def download_song_batch(
         success(f"所有曲目已下载完毕，位于 {session_dir}")
         return success_count, fail_count, session_dir
 
-    # --- Concurrent download with worker slots ---
+    workers = _prepare_workers(tracks, concurrency)
+    # 成功数、失败数与失败 id 是几个 worker 共享的，写入必须串行
     counter_lock = Lock()
-    progress = Progress(
-        TextColumn("  [progress.description]{task.description}"),
-        BarColumn(),
-        TextColumn("[progress.percentage]{task.percentage:>3.0f}%"),
-        TimeRemainingColumn(),
-        console=err_console,
-    )
-    slots = []
-    # 槽位数与提交的 worker 数必须一致，多提交的 worker 取到任务后
-    # 索引越界，该曲目会随线程一起消失且不计入成功也不计入失败
-    worker_count = min(concurrency, total)
-    for _ in range(worker_count):
-        tid = progress.add_task("", total=None, visible=False)
-        slots.append(tid)
-
-    queue = Queue()
-    for track in tracks:
-        queue.put(track)
-
-    def _reset_slot(task_id):
-        progress.update(task_id, description="")
-        progress.reset(task_id, total=None)
-        # rich 未提供切换任务可见性的接口，只能直接写属性。
-        # 渲染侧只在取表格时读它，写入是单次属性赋值，最坏情况少渲染一帧
-        progress.tasks[task_id].visible = False
 
     def _download_one(slot_id):
         nonlocal success_count, fail_count, fail_ids
@@ -493,37 +526,32 @@ def download_song_batch(
             if _cancelled.is_set():
                 return
             try:
-                track = queue.get_nowait()
+                track = workers.queue.get_nowait()
             except Empty:
                 return
 
             sid = track["id"]
-            task_id = slots[slot_id]
+            task_id = workers.slots[slot_id]
             title = track.get("title", "?")
             artist = track.get("artist", "")
-            # 见 _reset_slot 的注释，可见性只能直接写属性
-            progress.tasks[task_id].visible = True
+            workers.show(task_id)
 
             try:
                 if not artist:
-                    progress.update(
-                        task_id, description=_progress_desc(f"解析中…（ID: {sid}）")
-                    )
+                    workers.describe(task_id, f"解析中…（ID: {sid}）")
                     try:
                         track = get_song_details(sid)
                         title = track["title"]
                         artist = track["artist"]
                     except Exception as e:
-                        _reset_slot(task_id)
+                        workers.reset(task_id)
                         warning(f"跳过 {title}（ID: {sid}）— 获取详情失败：{e}")
                         with counter_lock:
                             fail_count += 1
                             fail_ids.append(sid)
                         continue
 
-                progress.update(
-                    task_id, description=_progress_desc(f"{title} - {artist}")
-                )
+                workers.describe(task_id, f"{title} - {artist}")
 
                 if not want_song:
                     lyrics_api = get_lyrics_url(sid)
@@ -547,14 +575,12 @@ def download_song_batch(
                         if source:
                             break
                         if attempt < 3:
-                            progress.update(
+                            workers.describe(
                                 task_id,
-                                description=_progress_desc(
-                                    f"{title} - {artist}（获取链接重试 {attempt}/3）"
-                                ),
+                                f"{title} - {artist}（获取链接重试 {attempt}/3）",
                             )
                     if not source:
-                        _reset_slot(task_id)
+                        workers.reset(task_id)
                         warning(f"跳过 {title} - {artist} — 无法获取下载链接")
                         info(f"  请尝试 vncmd song {sid} 手动下载")
                         with counter_lock:
@@ -579,7 +605,7 @@ def download_song_batch(
                             lyrics_api_url=lyrics_api,
                             publish_time=track.get("publish_time", ""),
                             download_dir=session_dir,
-                            progress=progress,
+                            progress=workers.progress,
                             task_id=task_id,
                             track_no=track.get("track_no"),
                             cd_no=track.get("cd_no"),
@@ -592,16 +618,13 @@ def download_song_batch(
                         )
                         if ok:
                             break
-                        progress.reset(task_id, total=None)
+                        workers.reset(task_id)
                         if attempt < 3:
-                            progress.update(
-                                task_id,
-                                description=_progress_desc(
-                                    f"{title} - {artist}（重试 {attempt}/3）"
-                                ),
+                            workers.describe(
+                                task_id, f"{title} - {artist}（重试 {attempt}/3）"
                             )
 
-                _reset_slot(task_id)
+                workers.reset(task_id)
                 if ok:
                     with counter_lock:
                         success(f"{title} - {artist}")
@@ -616,17 +639,17 @@ def download_song_batch(
                 time.sleep(0.3)
             except Exception as e:
                 # 未预期的异常不能让 worker 死掉，它一死队列里剩下的曲目就没人接了
-                _reset_slot(task_id)
+                workers.reset(task_id)
                 with counter_lock:
                     error(f"「{title} - {artist}」{type(e).__name__}: {e}")
                     fail_count += 1
                     fail_ids.append(sid)
 
-    executor = ThreadPoolExecutor(max_workers=worker_count)
+    executor = ThreadPoolExecutor(max_workers=workers.count)
     interrupted = False
-    with progress:
+    with workers.progress:
         try:
-            futures = [executor.submit(_download_one, i) for i in range(worker_count)]
+            futures = [executor.submit(_download_one, i) for i in range(workers.count)]
             # 不读 Future 的异常会被线程池吞掉，worker 死掉时队列里剩下的曲目就没人接了
             for future in as_completed(futures):
                 exc = future.exception()
