@@ -428,7 +428,7 @@ class TestDownloader接线:
     @pytest.fixture
     def run(self, tmp_path, monkeypatch):
         state = {
-            "content": "012",
+            "content": "alc",
             "lyrics": (CREDIT_LYRIC, ""),
             "credits": None,
             "mode": "0",
@@ -453,7 +453,7 @@ class TestDownloader接线:
         monkeypatch.setattr(downloader, "get_save_lyrics_mode", lambda: state["mode"])
         monkeypatch.setattr(downloader, "get_embed_lyrics_mode", lambda: "2")
 
-        def go(content="012", lyrics=None, mode="0"):
+        def go(content="alc", lyrics=None, mode="0"):
             if lyrics is not None:
                 state["lyrics"] = lyrics
             state["mode"] = mode
@@ -481,12 +481,12 @@ class TestDownloader接线:
     def test_裁完只剩空行时不写lrc(self, run):
         """裁光之后 "\n".join([]) 是空串，但上游多给几个空行时是 "\\n" 这种非空串，
         只判字符串空不空会写出一个只有空行的 lrc 文件"""
-        texts, _ = run("012", ("[00:00.000]纯音乐，请欣赏\n\n\n", ""))
+        texts, _ = run("alc", ("[00:00.000]纯音乐，请欣赏\n\n\n", ""))
         assert texts == [], f"该不写却写了：{texts}"
 
     def test_裁完没内容时译文也一起清掉(self, run):
         """原文没歌词只有译文时一并清掉，免得留下有 2.lrc 没 lrc 的怪状态"""
-        texts, _ = run("012", ("[00:00.000]纯音乐，请欣赏\n", "[00:00.000]译文\n"))
+        texts, _ = run("alc", ("[00:00.000]纯音乐，请欣赏\n", "[00:00.000]译文\n"))
         assert texts == [], f"该不写却写了：{texts}"
 
     @pytest.mark.parametrize(
@@ -508,11 +508,11 @@ class TestDownloader接线:
         mode 为 2 时会多产出一个空的 2.lrc（既有问题），所以断言「原文在不在」
         而不是「第一个文件是不是原文」
         """
-        texts, _ = run("012", (lyric, ""), mode="2")
+        texts, _ = run("alc", (lyric, ""), mode="2")
         assert lyric.rstrip("\n") in texts, f"歌词被丢了：{lyric!r}，写出的是 {texts}"
 
     def test_两个开关开时搬走并裁掉(self, run):
-        texts, credits = run("012")
+        texts, credits = run("alc")
         assert credits == {
             "作曲": "大瀧詠一",
             "作词": "monii/Neuro-sama/Evil Neuro",
@@ -525,7 +525,7 @@ class TestDownloader接线:
     def test_仅歌词时角色行不裁(self, run):
         """content 为 1 时不会下音频，抽出来的 credits 没人接收，
         而行被裁掉就是白删。改动前丢的是作曲一行，改动后会丢七个角色"""
-        texts, credits = run("1")
+        texts, credits = run("l")
         assert credits is None, "没有音频可写，不该去抽"
         assert len(texts) == 1
         assert "作曲 : 大瀧詠一" in texts[0]
@@ -533,5 +533,5 @@ class TestDownloader接线:
 
     def test_仅歌词时删除类照裁(self, run):
         """值为无、歌词翻译、纯音乐这三类不依赖标签，该删还是删"""
-        texts, _ = run("1")
+        texts, _ = run("l")
         assert "纯音乐" not in texts[0]

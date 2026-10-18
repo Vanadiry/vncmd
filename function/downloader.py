@@ -229,11 +229,11 @@ def download_song(
     temp_dir.mkdir(parents=True, exist_ok=True)
 
     content = get_download_content()
-    want_song = "0" in content
+    want_song = "a" in content
     if want_song:
         _notify_downgrade(EXPECTED_LEVEL.get(want_br, ""), song_level)
-    want_lyrics = "1" in content
-    want_cover = "2" in content
+    want_lyrics = "l" in content
+    want_cover = "c" in content
 
     filename_base, full_name = build_filename(song_title, song_artist)
 
@@ -540,7 +540,7 @@ def download_song_batch(
 
     info(f'下载到 "{abbrev_home(session_dir)}"')
 
-    want_song = "0" in get_download_content()
+    want_song = "a" in get_download_content()
     total = len(tracks)
     _cancelled.clear()
     success_count = 0

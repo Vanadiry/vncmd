@@ -51,6 +51,12 @@ QUALITY_MAP = {
     "max": 2147483647,
 }
 
+# 下载内容。三个字母任意组合，"alc" 是全要，"cl" 只要歌词和封面。
+# 用字母而不是数字：数字串读起来就是个带前导零的数，
+# 有人会当成整数写上引号就忘了，而 alc 一眼知道不是数字。
+# 三个字母没有天然顺序，所以读的时候按包含判断，顺序无所谓
+CONTENT_LETTERS = "alc"
+
 _cfg: dict | None = None
 
 
@@ -100,13 +106,18 @@ def validate_config(quiet: bool = False) -> None:
     elif dl["filename_format"] not in ("10", "01", "1"):
         errors.append('[download] filename_format 必须为 "10"、"01" 或 "1"')
 
-    if not dl.get("content"):
-        errors.append("[download] content 缺失或为空")
-    else:
-        for c in dl["content"]:
-            if c not in "012":
-                errors.append("[download] content 只能包含 0、1、2")
-                break
+    # 不是字符串要单独拦：content = 12 会被 tomllib 读成整数，
+    # 下面 set() 它会抛 TypeError，用户看到的是一整段调用栈而不是配置写错了
+    content = dl.get("content")
+    if not isinstance(content, str) or not content:
+        errors.append("[download] content 缺失或为空，且必须是带引号的字符串")
+    elif set(content) - set(CONTENT_LETTERS):
+        allowed = "、".join(CONTENT_LETTERS)
+        extra = "、".join(sorted(set(content) - set(CONTENT_LETTERS)))
+        errors.append(f"[download] content 只能包含 {allowed}，多余的字符：{extra}")
+    elif len(set(content)) != len(content):
+        dup = "、".join(sorted({c for c in content if content.count(c) > 1}))
+        errors.append(f"[download] content 里 {dup} 重复了，每个字母最多一次")
 
     ccy = dl.get("concurrency", 4)
     if not isinstance(ccy, int) or ccy < 1 or ccy > 16:

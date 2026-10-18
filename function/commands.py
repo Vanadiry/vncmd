@@ -236,7 +236,7 @@ def cmd_song(args: argparse.Namespace) -> None:
     if not args.download:
         return
 
-    want_song = "0" in get_download_content()
+    want_song = "a" in get_download_content()
     quality = _resolve_quality(args)
     source = None
     if want_song:

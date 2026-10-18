@@ -134,7 +134,7 @@ _MINIMAL_CFG = """\
 [download]
 dir = ""
 filename_format = "10"
-content = "012"
+content = "alc"
 concurrency = 4
 check = true
 downloader = "builtin"

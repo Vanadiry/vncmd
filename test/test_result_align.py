@@ -35,7 +35,7 @@ def arrow_column(line: str) -> int:
 @pytest.fixture
 def song(tmp_path, monkeypatch):
     """跑一次 download_song，返回它给出的结果文本与当前配置状态"""
-    state = {"content": "012", "lyrics": (LYRIC, "")}
+    state = {"content": "alc", "lyrics": (LYRIC, "")}
 
     def fake_fetch(url, path, label, progress=None, task_id=None, **kw):
         # fetch_audio 的约定是「错误说明或 None」，写成功不能返回字节数
@@ -123,7 +123,7 @@ class TestArrowAlignment:
         assert len(set(rest)) == 1
 
     def test_什么都没下时报原有错误(self, song):
-        song.state["content"] = "1"
+        song.state["content"] = "l"
         ok, msg = song(lyrics=("", ""))
         assert not ok
         assert "未下载任何内容" in msg

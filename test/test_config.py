@@ -5,6 +5,7 @@ import pytest
 from function._defaults import CONFIG_TOML
 from function.config import (
     CONFIG_FILE,
+    CONTENT_LETTERS,
     QUALITY_MAP,
     get_cache_dir,
     get_cookie,
@@ -71,7 +72,9 @@ class TestGetters:
 
     def test_download_content(self):
         content = get_download_content()
-        assert all(c in "012" for c in content)
+        assert content == "alc"
+        assert len(set(content)) == len(content), "字母不该重复"
+        assert set(content) <= set(CONTENT_LETTERS)
 
     def test_embed_lyrics_mode(self):
         assert get_embed_lyrics_mode() in ("0", "1", "2")
@@ -145,5 +148,61 @@ class Test封面缩放的布尔校验:
             else "save_compress = false"
         )
         CONFIG_FILE.write_text(CONFIG_TOML.replace(f"{行}\n", ""), encoding="utf-8")
+        with pytest.raises(SystemExit):
+            validate_config(quiet=True)
+
+
+class Test下载内容的字母:
+    """content 从 012 换成 alc。
+
+    校验一开始只查「字符在不在 012 里」，重复拦不住 ——
+    `content = "00"` 能过校验，含义是「音频」，多半不是用户想写的
+    """
+
+    @pytest.fixture
+    def 配置文件(self):
+        原样 = CONFIG_FILE.read_text(encoding="utf-8")
+        yield
+        CONFIG_FILE.write_text(原样, encoding="utf-8")
+
+    def _写(self, value: str) -> None:
+        CONFIG_FILE.write_text(
+            CONFIG_TOML.replace('content = "alc"', f"content = {value}"),
+            encoding="utf-8",
+        )
+
+    @pytest.mark.parametrize(
+        "value",
+        ['"alc"', '"cl"', '"al"', '"a"', '"lc"', '"cal"', '"lca"', '"ac"'],
+    )
+    def test各种组合与顺序都算数(self, 配置文件, value):
+        """三个字母没有天然顺序，cal 与 alc 应该是同一个意思"""
+        self._写(value)
+        validate_config(quiet=True)
+
+    @pytest.mark.parametrize("value", ['"x"', '"alx"', '"0"', '"012"', '"a1"'])
+    def test多余字符被拦下(self, 配置文件, value):
+        self._写(value)
+        with pytest.raises(SystemExit):
+            validate_config(quiet=True)
+
+    @pytest.mark.parametrize("value", ['"aa"', '"ll"', '"cc"', '"aalc"'])
+    def test重复字母被拦下(self, 配置文件, value):
+        self._写(value)
+        with pytest.raises(SystemExit):
+            validate_config(quiet=True)
+
+    def test没写被拦下(self, 配置文件):
+        self._写("")
+        CONFIG_FILE.write_text(
+            CONFIG_TOML.replace('content = "alc"\n', ""), encoding="utf-8"
+        )
+        with pytest.raises(SystemExit):
+            validate_config(quiet=True)
+
+    def test漏了引号写成了数字(self, 配置文件):
+        """content = 12 会被 tomllib 读成整数，
+        下面 set() 它会抛 TypeError，用户看到的是一整段调用栈"""
+        self._写("12")
         with pytest.raises(SystemExit):
             validate_config(quiet=True)
