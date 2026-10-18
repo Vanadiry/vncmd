@@ -60,7 +60,14 @@ def check_tools() -> dict[str, bool]:
 
 
 def any_check_tool() -> bool:
-    return any(check_tools().values())
+    """三样里有没有一样能真正做校验的。
+
+    ffprobe 不算 —— 它只给时长，用来和 ffmpeg 的解码结果交叉比对。
+    单独装 ffprobe 时 check_audio 拿不到 actual，比对那一步直接跳过，
+    于是每首歌都 fork 一个 ffprobe 然后一律放行，白跑还给出假的通过。
+    """
+    tools = check_tools()
+    return tools["ffmpeg"] or tools["flac"]
 
 
 def missing_check_tools() -> list[str]:

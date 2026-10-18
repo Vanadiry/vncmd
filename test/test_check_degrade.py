@@ -97,6 +97,23 @@ class Test逐段降级:
         assert ok, msg
         assert seen == ["flac"]
 
+    def test_只装ffprobe时ffprobe不算有工具(self, tools):
+        """ffprobe 只给时长，要和 ffmpeg 的解码结果交叉比对才有意义。
+        单独装它的话 check_audio 拿不到 actual，比对那步跳过，
+        每首歌白 fork 一个 ffprobe 还一律放行"""
+        tools("ffprobe")
+        assert checker.any_check_tool() is False
+
+    def test_只装flac时算有工具(self, tools):
+        tools("flac")
+        assert checker.any_check_tool() is True
+
+    def test_ffmpeg与flac都缺才算没有(self, tools):
+        tools("ffprobe")
+        assert checker.any_check_tool() is False
+        tools("ffprobe", "ffmpeg")
+        assert checker.any_check_tool() is True
+
     def test_只装ffmpeg时不做flac那步(self, tools, tmp_path):
         tools("ffmpeg", "ffprobe")
         seen = []
