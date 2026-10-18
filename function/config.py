@@ -57,10 +57,11 @@ QUALITY_MAP = {
 # 三个字母没有天然顺序，所以读的时候按包含判断，顺序无所谓
 CONTENT_LETTERS = "alc"
 
-# 译文歌词的处理方式。第三档两边不同：embed 是不要译文，save 是分两个文件
+# 译文歌词的处理方式。embed 只有 drop 一档不要译文；
+# save 多一档 split 是分两个文件，另有一档 drop 同样不要译文
 LYRIC_MODES = {
     "embed_mode": ("line", "block", "drop"),
-    "save_mode": ("line", "block", "split"),
+    "save_mode": ("line", "block", "split", "drop"),
 }
 
 _cfg: dict | None = None

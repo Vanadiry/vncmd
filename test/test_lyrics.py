@@ -122,3 +122,26 @@ class TestOutputFiles:
             {"lrc": "test content"}, str(Path(temp_dir) / "lyric_test")
         )
         assert Path(paths[0]).read_text(encoding="utf-8") == "test content"
+
+
+class TestProcessDrop:
+    """save_mode = "drop"：只要原文的歌词文件，不写 .2.lrc
+
+    产出的内容与 split 遇到没译文时一模一样，区别在语义：
+    split 是「译文暂时没有」，drop 是「明确不要译文」
+    """
+
+    def test_drop有译文也不出第二个文件(self):
+        r = process(LRC, TLYRIC, "drop", 99999999)
+        assert list(r) == ["lrc"]
+        assert "Nihao World" not in r["lrc"]
+
+    def test_drop与split无译文时结果一致(self):
+        无译文 = process(LRC, "", "split", 99999999)
+        assert list(无译文) == ["lrc"]
+
+    def test_drop落盘只有一个文件(self, temp_dir):
+        base = str(Path(temp_dir) / "X")
+        paths = output_files(process(LRC, TLYRIC, "drop", 99999999), base)
+        assert [Path(p).name for p in paths] == ["X.lrc"]
+        assert not Path(base + ".2.lrc").exists()

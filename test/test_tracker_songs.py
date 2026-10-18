@@ -221,21 +221,21 @@ class TestArtistColor改名:
         assert not caught, caught
 
     def test_两个歌词模式各说各的(self):
-        """embed_mode 的 drop 是不要译文，save_mode 的 split 是分两个文件
+        """两边的值域是包含关系：embed 是 save 的子集，save 多一档 split
 
-        曾把这两行合并成一段共用说明，合并之后「嵌入只能写一个歌词字段」
-        那层因果丢了，读者会以为 embed 的第三档也是分开两个文件。
-        数字当值的时候两边的第三档字面相同，更容易看混，
-        所以这一条要一直盯着
+        split 只对存文件有意义 —— 嵌进音频的只有一个歌词字段，
+        分不出两个文件来。drop 两边都有，都是丢弃译文。
+        曾把这两行注释合并成一段共用说明，合并之后那层因果就丢了
         """
         from function._defaults import CONFIG_TOML
         from function.config import LYRIC_MODES
 
-        assert LYRIC_MODES["embed_mode"] == ("line", "block", "drop")
-        assert LYRIC_MODES["save_mode"] == ("line", "block", "split")
-        # 两边的前两档必须一致，第三档必须不同
-        assert LYRIC_MODES["embed_mode"][:2] == LYRIC_MODES["save_mode"][:2]
-        assert LYRIC_MODES["embed_mode"][2] != LYRIC_MODES["save_mode"][2]
+        embed = set(LYRIC_MODES["embed_mode"])
+        save = set(LYRIC_MODES["save_mode"])
+        assert embed == {"line", "block", "drop"}
+        assert save == {"line", "block", "split", "drop"}
+        assert embed < save, "embed 的每一档 save 都该认"
+        assert save - embed == {"split"}, "split 只属于存文件"
         assert 'embed_mode = "drop"' in CONFIG_TOML
         assert 'save_mode = "line"' in CONFIG_TOML
 

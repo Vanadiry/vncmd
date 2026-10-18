@@ -244,13 +244,13 @@ class Test歌词模式的取值:
         ("embed", "save"),
         [
             ('"split"', '"line"'),
-            ('"line"', '"drop"'),
             ('"0"', '"line"'),
             ('"line"', '"2"'),
+            ('"line"', '"only"'),
         ],
     )
     def test串了档被拦下(self, 配置文件, embed, save):
-        """split 只属于 save，drop 只属于 embed，旧数字一律不认"""
+        """split 只属于存文件，旧数字一律不认，没实现的 only 也不认"""
         self._写(embed, save)
         with pytest.raises(SystemExit):
             validate_config(quiet=True)
