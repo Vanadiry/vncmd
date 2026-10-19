@@ -243,6 +243,23 @@ def get(path: str) -> Setting | None:
     return _BY_PATH.get(path)
 
 
+def section_names() -> tuple[str, ...]:
+    """表里用到的每一个段名，含子表
+
+    从 SCHEMA 推而不是手写清单 —— 手写过一次就漏了 display，
+    而漏掉的那一段写成标量时校验完全静默，是审查时才发现的。
+    加了新的子表，这里自动跟着变
+    """
+    top = set()
+    sub = set()
+    for setting in SCHEMA:
+        parts = setting.path.split(".")
+        top.add(parts[0])
+        for part in parts[1:-1]:
+            sub.add(f"{parts[0]}.{part}")
+    return tuple(sorted(top | sub))
+
+
 def check_content(value: Any, letters: str) -> str | None:
     """content 的规则不是取值集合，返回错误说明或 None
 
