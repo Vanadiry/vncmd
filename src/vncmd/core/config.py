@@ -85,6 +85,18 @@ def validate_config(quiet: bool = False) -> None:
         _die([f"解析 {abbrev_home(CONFIG_FILE)} 失败：{e}"])
         return
 
+    check_config(cfg)
+
+
+def check_config(cfg: dict) -> None:
+    """校验一份已经在内存里的配置，有错就退出
+
+    与 validate_config 分开是为了让「读文件」与「校验」能各自独立 ——
+    `--config` 要在两者之间插一步替换，那条链路需要一个只收 dict 的入口。
+
+    校验通过之后这份配置成为进程内唯一的那一份，getter 都从这里取。
+    所以调用方传进来的 dict 会被记住，不必自己再设一遍。
+    """
     global _cfg
     _cfg = cfg
 

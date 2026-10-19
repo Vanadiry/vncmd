@@ -508,3 +508,77 @@ class Test报错带实际值:
         用户才看得出自己多打了引号 —— 而那串字符串是真值，缓存会照开"""
         出错 = self._报错("enabled = true", 'enabled = "false"', capsys)
         assert "实际是 'false'" in 出错
+
+
+class TestCheckConfig收一份现成的配置:
+    """校验与读文件分开，为 --config 那条链路留入口
+
+    --config 要在「读文件」与「校验」之间插一步替换，
+    所以校验得能直接收一份已经在内存里的 dict。
+    """
+
+    def test_合法的dict直接过(self, monkeypatch):
+        import tomllib
+
+        from vncmd.core import config as config_mod
+        from vncmd.core.defaults import CONFIG_TOML
+
+        cfg = tomllib.loads(CONFIG_TOML)
+        monkeypatch.setattr(config_mod, "_die", lambda lines: pytest.fail(str(lines)))
+        config_mod.check_config(cfg)
+
+    def test_不合法的dict被拦下(self, monkeypatch):
+        import tomllib
+
+        from vncmd.core import config as config_mod
+        from vncmd.core.defaults import CONFIG_TOML
+
+        cfg = tomllib.loads(CONFIG_TOML)
+        cfg["download"]["audio"]["quality"] = "999"
+        caught = []
+        monkeypatch.setattr(config_mod, "_die", lambda lines: caught.extend(lines))
+        config_mod.check_config(cfg)
+        assert any("quality" in ln for ln in caught), caught
+
+    def test_校验通过后成为进程内那一份(self, monkeypatch):
+        """不必再自己设 _cfg —— 传进去的那份就是之后 getter 读的那份"""
+        import tomllib
+
+        from vncmd.core import config as config_mod
+        from vncmd.core.defaults import CONFIG_TOML
+
+        cfg = tomllib.loads(CONFIG_TOML)
+        cfg["download"]["concurrency"] = 7
+        monkeypatch.setattr(config_mod, "_die", lambda lines: pytest.fail(str(lines)))
+        config_mod.check_config(cfg)
+        assert config_mod.get_concurrency() == 7
+
+    def test_不读文件(self, monkeypatch):
+        """这个入口只管校验，不许偷偷去读磁盘上的那一份
+
+        真去读了的话，测试里传进来的配置就成了摆设
+        """
+        import tomllib
+
+        from vncmd.core import config as config_mod
+        from vncmd.core.defaults import CONFIG_TOML
+
+        monkeypatch.setattr(
+            config_mod, "load_config", lambda: pytest.fail("不该读文件")
+        )
+        monkeypatch.setattr(config_mod, "_die", lambda lines: pytest.fail(str(lines)))
+        config_mod.check_config(tomllib.loads(CONFIG_TOML))
+
+    def test_顶层拼错的键在这个入口也报(self, monkeypatch):
+        """两个入口走的是同一套检查，不该有哪个漏掉一层"""
+        import tomllib
+
+        from vncmd.core import config as config_mod
+        from vncmd.core.defaults import CONFIG_TOML
+
+        cfg = tomllib.loads(CONFIG_TOML)
+        cfg["qualty"] = "max"
+        caught = []
+        monkeypatch.setattr(config_mod, "_die", lambda lines: caught.extend(lines))
+        config_mod.check_config(cfg)
+        assert any("qualty" in ln for ln in caught), caught
