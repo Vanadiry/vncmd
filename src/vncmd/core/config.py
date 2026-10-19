@@ -13,6 +13,7 @@ from vncmd.core.schema import CONTENT_LETTERS as CONTENT_LETTERS
 from vncmd.core.schema import FILENAME_ARTIST as FILENAME_ARTIST
 from vncmd.core.schema import LYRIC_MODES as LYRIC_MODES
 from vncmd.core.schema import QUALITY_MAP as QUALITY_MAP
+from vncmd.core.schema import unknown_keys as unknown_keys
 from vncmd.core.schema import validate as schema_validate
 from vncmd.core.schema import value_of as value_of
 
@@ -97,28 +98,32 @@ def validate_config(quiet: bool = False) -> None:
         errors.extend(schema_validate(cfg))
 
     # 段本身写错类型时先拦下，它得排在逐项校验之前 ——
-    # 段不是表时表里那几项取不到值，会报出一堆「xx 缺失」，
-    # 而真正的问题只是那一段写错了
-    段名与内容 = (("download", cfg.get("download")), ("cache", cfg.get("cache")))
-    子段 = (
+    # 段不是表时表里那几项取不到值，只能当作缺键放过，
+    # 而真正的问题只是那一段写坏了，不报就等于没看见
+    sections = (("download", cfg.get("download")), ("cache", cfg.get("cache")))
+    subsections = (
         ("download.audio", "audio"),
         ("download.lyric", "lyric"),
         ("download.cover", "cover"),
     )
-    for 名, 值 in 段名与内容:
-        if not isinstance(值, dict):
-            _die([f"[{名}] 必须是一段配置，实际是 {type(值).__name__}"])
-    for 名, 键 in 子段:
-        值 = cfg["download"].get(键)
-        # 值是 None 表示这一段没写，不是写坏了 —— 没写的段按缺键处理，
-        # 由表里那几项各报自己的缺键
-        if 值 is not None and not isinstance(值, dict):
-            _die([f"[{名}] 必须是一段配置，实际是 {type(值).__name__}"])
+    for name, value in sections:
+        if not isinstance(value, dict):
+            _die([f"[{name}] 必须是一段配置，实际是 {type(value).__name__}"])
+    for name, key in subsections:
+        value = cfg["download"].get(key)
+        # 值是 None 表示这一段没写，不是写坏了 —— 没写就按缺键处理，
+        # 由表里那几项各取各自的默认值
+        if value is not None and not isinstance(value, dict):
+            _die([f"[{name}] 必须是一段配置，实际是 {type(value).__name__}"])
 
     # 十八项的逐项知识都在 schema 的表里。段检查放前面就是为这一步 ——
     # 表按点号路径取值，那几段不是表时它取不到值只能跳过，
     # 跳过与「该段没写」分不清，段检查就是替它分的那道
     errors.extend(schema_validate(cfg))
+
+    # 表里没有的段与键一律报错，点名是哪个 ——
+    # 静默放过的话，用户照抄新键名却忘了删旧的，那种配置看不出问题
+    errors.extend(f"{item}，表里没有这个键" for item in unknown_keys(cfg))
 
     # 剩下的只有这一件：段写错类型就地退出，逐项错攒起来一起报
     if errors:

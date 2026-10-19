@@ -202,11 +202,15 @@ class TestArtistColor改名:
         assert any("artist_color" in ln for ln in caught), caught
         assert not any("virtual_singer" in ln for ln in caught), caught
 
-    def test_旧键名会被当成未知键放行(self, monkeypatch, tmp_path):
-        """validate_config 只检查认识的键、从不拒绝多余的
+    def test_旧键名会被当成未知键报错(self, monkeypatch, tmp_path):
+        """旧键不再静默放过
 
-        所以旧配置里的 virtual_singer_color 会静默失效 ——
-        这是项目没发版才付得起的代价，不是 bug。
+        以前这里断言的是「未知键放行」，理由是项目没发版、付得起那个代价。
+        现在不这么看了：静默失效的代价是用户以为改了而实际没改，
+        比报一个错难查得多。
+
+        virtual_singer_color 是 artist_color 改名前的键名，
+        这里拿它当样本 —— 真正会踩到的正是这一类改名后的残留
         """
         from vncmd.core import config as config_mod
 
@@ -218,7 +222,27 @@ class TestArtistColor改名:
         caught = []
         monkeypatch.setattr(config_mod, "_die", lambda lines: caught.extend(lines))
         config_mod.validate_config(quiet=True)
-        assert not caught, caught
+        assert any("virtual_singer_color" in ln for ln in caught), caught
+
+    def test_报错里点名是哪个键(self, monkeypatch, tmp_path):
+        """只说「有未知键」等于让人自己猜，报错里要写出是哪个
+
+        项目还没发版，不做旧键到新键的对照表那种迁移提示 ——
+        点名到键就够了，用户对着文档改
+        """
+        from vncmd.core import config as config_mod
+
+        cfg = tmp_path / "config.toml"
+        cfg.write_text(
+            _MINIMAL_CFG + "[display]\nvirtual_singer_color = false\n", "utf-8"
+        )
+        monkeypatch.setattr(config_mod, "CONFIG_FILE", cfg)
+        caught = []
+        monkeypatch.setattr(config_mod, "_die", lambda lines: caught.extend(lines))
+        config_mod.validate_config(quiet=True)
+        assert any("virtual_singer_color" in ln for ln in caught), caught
+        # 不认识的那几项之外的键不该被连带点名
+        assert not any("artist_color" in ln for ln in caught), caught
 
     def test_两个歌词模式各说各的(self):
         """两边的值域是包含关系：embed 是 save 的子集，save 多一档 split

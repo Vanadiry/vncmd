@@ -562,3 +562,65 @@ class Test类型与范围:
             cfg2["download"] = copy.deepcopy(完整配置["download"])
             cfg2["download"]["audio"] = 5
             assert schema.validate(cfg2) == [], "子段写成标量时表里多报了"
+
+
+class Test未知键:
+    """表里没有的段与键一律报错
+
+    静默放过的那几年里，改名之后照抄了新键名却忘了删旧的，
+    那种配置静默失效 —— 用户以为改了而实际没改，比报一个错难查得多
+    """
+
+    def test_完整的配置没有未知键(self):
+        assert schema.unknown_keys(完整配置) == []
+
+    def test_多余的键被列出来(self):
+        cfg = copy.deepcopy(完整配置)
+        cfg["download"]["新加的键"] = 1
+        assert schema.unknown_keys(cfg) == ["[download.新加的键]"]
+
+    @pytest.mark.parametrize(
+        ("段", "子表", "键"),
+        [
+            ("download", "audio", "parse_credits_旧名"),
+            ("download", "lyric", "auto_trim_旧名"),
+            ("download", "cover", "embed_compress_旧名"),
+        ],
+    )
+    def test_子表里的键也查(self, 段, 子表, 键):
+        """键在子表里也要查 —— 漏了子表就等于只查了顶层那一层
+
+        子表用的是真名（audio、lyric、cover），造一个不存在的段名的话
+        报出来的会是「这个段不认识」，那与本条要验的不是一回事
+        """
+        cfg = copy.deepcopy(完整配置)
+        cfg[段][子表][键] = 1
+        assert schema.unknown_keys(cfg) == [f"[{段}.{子表}.{键}]"]
+
+    def test_顶层与子表的多余键分开列(self):
+        """两个都多的时候要报两条 —— 少报一条用户改完还是跑不起来"""
+        cfg = copy.deepcopy(完整配置)
+        cfg["download"]["多余的顶层"] = 1
+        cfg["download"]["audio"]["多余的歌"] = 2
+        assert schema.unknown_keys(cfg) == [
+            "[download.audio.多余的歌]",
+            "[download.多余的顶层]",
+        ], "顶层与子表的多余项都要报出来，少报一个用户改完还是跑不起来"
+
+    def test_多余的整段被列出来(self):
+        cfg = copy.deepcopy(完整配置)
+        cfg["tracker"] = {"description": "x"}
+        # 只报段名不报里面每一项 —— 整段都要删，点名段名就够了
+        assert schema.unknown_keys(cfg) == ["[tracker]"]
+
+    def test_子表本身不算多余的键(self):
+        """download.audio 是一个段不是键，
+        把它当成键报「不认识」就等于把用户往错的方向引"""
+        assert schema.unknown_keys(完整配置) == []
+
+    def test_段不是表时不由这里报(self):
+        """那是 validate_config 的「必须是一段配置」那一句的事，
+        两边都报就是同一条错说两遍"""
+        cfg = copy.deepcopy(完整配置)
+        cfg["download"] = 5
+        assert schema.unknown_keys(cfg) == []

@@ -277,12 +277,12 @@ def check_content(value: Any, letters: str) -> str | None:
     """
     if not isinstance(value, str) or not value:
         return "缺失或为空，且必须是带引号的字符串"
-    多余 = sorted(set(value) - set(letters))
-    if 多余:
-        return f"只能包含 {'、'.join(letters)}，多余的字符：{'、'.join(多余)}"
-    重复 = sorted({c for c in value if value.count(c) > 1})
-    if 重复:
-        return f"里 {'、'.join(重复)} 重复了，每个字母最多一次"
+    extra = sorted(set(value) - set(letters))
+    if extra:
+        return f"只能包含 {'、'.join(letters)}，多余的字符：{'、'.join(extra)}"
+    dup = sorted({c for c in value if value.count(c) > 1})
+    if dup:
+        return f"里 {'、'.join(dup)} 重复了，每个字母最多一次"
     return None
 
 
@@ -383,15 +383,79 @@ def _locate(cfg: dict, path: str) -> tuple[list[str], str, Any]:
     返回 (段名列表, 键名, 值)。段名多于一层时就是 download.audio 这种，
     `download.filename_artist` 那种两段的则是 download 本身作为段
     """
-    段 = path.split(".")
-    容器 = cfg
-    for 一段 in 段[:-1]:
-        if not isinstance(容器, dict):
+    parts = path.split(".")
+    container = cfg
+    for part in parts[:-1]:
+        if not isinstance(container, dict):
             return [], path, None
-        容器 = 容器.get(一段, {})
-    if not isinstance(容器, dict):
+        container = container.get(part, {})
+    if not isinstance(container, dict):
         return [], path, None
-    return 段[:-1], 段[-1], 容器.get(段[-1], None)
+    return parts[:-1], parts[-1], container.get(parts[-1], None)
+
+
+def unknown_keys(cfg: dict) -> list[str]:
+    """列出配置里表里没有的段与键
+
+    未知键一律报错，不静默吞掉。这一轮改名改了八个键，
+    照抄了新键名却忘了删旧的 —— 那种配置静默失效，
+    用户以为改了其实没改，比直接报错难查得多
+
+    碰到不认识的键就点名报出来，让用户自己对着文档改 ——
+    项目还没发版，不做旧键到新键的对照表那种迁移提示
+
+    tracker 的 settings.toml 里有 `[sources.song]` 这类段，
+    但那份文件不经过 validate_config，两者不相干 ——
+    所以这张表只管 config.toml 的键，不必给 tracker 的段留位置
+    """
+    extra = []
+    for name, table in cfg.items():
+        if not isinstance(table, dict):
+            # 段不是表由 validate_config 报「必须是一段配置」，
+            # 这里再报一遍未知键就是重复了
+            continue
+        if _has_known_keys(name):
+            extra += _scan_table(name, table)
+        else:
+            # 整段都不认识，含空段。只报段名不报里面每一项：
+            # 那一整段都要删，点名段名用户就知道该删哪里。
+            # 空段也报，多半是加了段却忘了填
+            extra.append(f"[{name}]")
+    return extra
+
+
+def _scan_table(prefix: str, table: dict) -> list[str]:
+    """查一层的键，子表递归下去
+
+    参数是这一层自己的名字而不是叶子键 —— download.audio 传进来时
+    prefix 是 "download.audio"，它里面的键才拼成 [download.audio] quality
+    """
+    extra = []
+    for key, value in table.items():
+        path = f"{prefix}.{key}"
+        if path in _BY_PATH:
+            # 认识的叶子键。它是子表的话继续往下查 ——
+            # 键值都是 dict 的那种写法在 TOML 里不存在，防御一下
+            if isinstance(value, dict):
+                extra += _scan_table(path, value)
+            continue
+        if isinstance(value, dict):
+            if _has_known_keys(path):
+                # 是表里也有的子表，只是里面多了键
+                extra += _scan_table(path, value)
+            else:
+                # 整段都不认识，含空段 —— 只报段名不报里面每一项：
+                # 那一整段都要删，点名段名用户就知道该删哪里。
+                # 空段也报，多半是加了段却忘了填
+                extra.append(f"[{path}]")
+        else:
+            extra.append(f"[{path}]")
+    return extra
+
+
+def _has_known_keys(prefix: str) -> bool:
+    """这个段下面有没有表里认得的键"""
+    return any(s.path.startswith(f"{prefix}.") for s in SCHEMA)
 
 
 def value_of(cfg: dict, path: str) -> Any:
@@ -401,18 +465,17 @@ def value_of(cfg: dict, path: str) -> Any:
     之前 getter 是直接下标取的，缺一个键就是 KeyError ——
     缺键在第 3 步之前会被校验拦下所以看不出来，而校验一放开就是真崩
 
-    default 为 None 表示那一项还没搬完、还没有默认值可回落，
-    取到 None 是应有之义 —— 那是第 3 步之后的状态
+    default 为 None 表示那一项还没有默认值可回落，取到 None 是应有之义
     """
-    项 = get(path)
-    if 项 is None:
+    setting = get(path)
+    if setting is None:
         # 不在表里的键：原样返回取到的值，让调用方自己处理。
         # 表搬完这个分支就没人走了，但留着比抛异常好
         return _locate(cfg, path)[2]
-    _, _, 值 = _locate(cfg, path)
-    if 值 is None:
-        return 项.default
-    return 值
+    _, _, value = _locate(cfg, path)
+    if value is None:
+        return setting.default
+    return value
 
 
 def validate(cfg: dict) -> list[str]:
@@ -424,17 +487,17 @@ def validate(cfg: dict) -> list[str]:
     段本身不是表仍然报，那是另一回事：那一段整个写坏了，
     与「某个键没写」不同。这里跳过，交给 validate_config 的段检查
     """
-    错误 = []
+    errors = []
     for setting in SCHEMA:
-        段, 键, 值 = _locate(cfg, setting.path)
-        if not 段:
+        parts, key, value = _locate(cfg, setting.path)
+        if not parts:
             continue
 
-        if 值 is None:
+        if value is None:
             continue
 
-        说明 = validate_entry(setting, 值)
-        if 说明:
-            段名 = "[" + ".".join(段) + "]" if len(段) > 1 else f"[{段[0]}]"
-            错误.append(f"{段名} {键} {说明}")
-    return 错误
+        message = validate_entry(setting, value)
+        if message:
+            name = "[" + ".".join(parts) + "]" if len(parts) > 1 else f"[{parts[0]}]"
+            errors.append(f"{name} {key} {message}")
+    return errors
