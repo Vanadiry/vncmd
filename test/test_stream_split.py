@@ -220,18 +220,78 @@ class Test进度条绑在stderr:
 
 
 class Test下载降级提示:
-    def test_走stderr(self, capsys):
+    """降级时要说一声，且要说得准
+
+    「没登录」与「权限不够」原来一律说成「Cookie 权限不支持」，
+    没 Cookie 的人看到那句只会奇怪我明明没有 Cookie。
+    判据是本地有没有 Cookie 文件，不看接口给的字段 ——
+    实测过 fee 与 payed，未登录与登录但无权限这两种情况那两个字段完全一样
+    """
+
+    @pytest.fixture(autouse=True)
+    def 重置开关(self, monkeypatch):
+        """降级提示是整个进程只报一次的，所以每条测试都要把它放回去
+
+        不重置的话第二条测试会因为第一条已经报过而一声不吭，
+        那不是产品行为，是测试之间互相污染
+        """
+        from vncmd import downloader
+
+        monkeypatch.setattr(downloader, "_downgrade_notified", False)
+
+    def test_走stderr(self, capsys, monkeypatch):
         """进度条与完成摘要是同一个视觉单元，都不该进 stdout"""
         from vncmd import downloader
 
+        monkeypatch.setattr(downloader, "get_cookie", lambda: "NMTID=xxx")
         downloader._notify_downgrade("lossless", "exhigh")
         out, err = capsys.readouterr()
         assert out == ""
         assert "无损音质" in err
 
-    def test_没有降级时不说话(self, capsys):
+    def test_有Cookie时说权限(self, capsys, monkeypatch):
+        """登录了还是拿不到那一档，那就是权限的事"""
         from vncmd import downloader
 
+        monkeypatch.setattr(downloader, "get_cookie", lambda: "NMTID=xxx")
+        downloader._notify_downgrade("lossless", "exhigh")
+        assert "Cookie 权限" in capsys.readouterr().err
+
+    def test_没Cookie时说未登录(self, capsys, monkeypatch):
+        """没登录时提权限是空的，一句「Cookie 权限不支持」只会让人奇怪"""
+        from vncmd import downloader
+
+        monkeypatch.setattr(downloader, "get_cookie", lambda: "")
+        downloader._notify_downgrade("lossless", "exhigh")
+        出错 = capsys.readouterr().err
+        assert "未登录" in 出错
+        assert "Cookie 权限" not in 出错
+
+    def test_没Cookie时仍然说清降到了哪一档(self, capsys, monkeypatch):
+        """光说「未登录」不够，用户还得知道拿到了什么"""
+        from vncmd import downloader
+
+        monkeypatch.setattr(downloader, "get_cookie", lambda: "")
+        downloader._notify_downgrade("lossless", "exhigh")
+        assert "超高音质" in capsys.readouterr().err
+
+    def test_没有降级时不说话(self, capsys, monkeypatch):
+        from vncmd import downloader
+
+        monkeypatch.setattr(downloader, "get_cookie", lambda: "")
         downloader._notify_downgrade("lossless", "lossless")
         out, err = capsys.readouterr()
         assert out == "" and err == ""
+
+    def test_整个进程只报一次(self, capsys, monkeypatch):
+        """一次下载里降级二十次，用户看到一条就够
+
+        那个开关是有意的，删了就变成每首歌刷一行
+        """
+        from vncmd import downloader
+
+        monkeypatch.setattr(downloader, "get_cookie", lambda: "NMTID=xxx")
+        downloader._notify_downgrade("lossless", "exhigh")
+        capsys.readouterr()
+        downloader._notify_downgrade("lossless", "exhigh")
+        assert capsys.readouterr().err == ""

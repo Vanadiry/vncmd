@@ -638,6 +638,23 @@ class TestAnnounceAccount:
 
 
 class TestNotifyDowngrade:
+    """降级提示什么时候说、说什么、说几次
+
+    「有 Cookie」与「没 Cookie」两种话分在 test_stream_split.py 那组，
+    这里只管与登录态无关的那部分：什么时候该说、说几次、level 认不出来时怎么兜底
+    """
+
+    @pytest.fixture(autouse=True)
+    def 重置开关(self, monkeypatch):
+        """提示整个进程只报一次，所以每条测试都要把它放回去。
+
+        顺带把 get_cookie 打桩成有登录态 —— 这组验的不是那句话怎么分岔，
+        分岔那几条在 test_stream_split.py。不打桩的话它会跟着本机有没有 Cookie 变，
+        那不是这组要验的东西
+        """
+        monkeypatch.setattr(downloader, "_downgrade_notified", False)
+        monkeypatch.setattr(downloader, "get_cookie", lambda: "NMTID=xxx")
+
     def test_降级时说清前后(self, capsys):
         downloader._notify_downgrade("lossless", "exhigh")
         out = _cap(capsys)
@@ -665,6 +682,8 @@ class TestNotifyDowngrade:
         assert _cap(capsys).count("不支持无损音质") == 1
 
     def test_未知level用原名兜底(self, capsys):
+        """服务端要是哪天回一个表里没有的 level 名，
+        得把它原样印出来而不是空着 —— 空着的话用户只看到「本次已按下载」"""
         downloader._notify_downgrade("weird", "other")
         out = _cap(capsys)
         assert "weird" in out and "other" in out

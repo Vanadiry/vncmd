@@ -27,6 +27,7 @@ from vncmd.core.config import (
     get_auto_trim,
     get_check_enabled,
     get_concurrency,
+    get_cookie,
     get_credit_scan_lines,
     get_download_content,
     get_download_dir,
@@ -128,6 +129,13 @@ def _notify_downgrade(want_level: str, got_level: str) -> None:
 
     服务端不会因为权限不足报错，只是悄悄降级，不提示的话用户
     只能等看到文件名后缀才发现。
+
+    话分两种，因为「没登录」与「权限不够」要做的不是同一件事：
+    前者去登录，后者去续费或单曲购买。原来一律说「Cookie 权限不支持」，
+    没 Cookie 的人看到那句只会奇怪我明明没有 Cookie。
+    判据是本地有没有 Cookie 文件，不看接口给的字段 ——
+    实测过 fee 与 payed：未登录与登录但无权限这两种情况那两个字段完全一样，
+    分不出来
     """
     global _downgrade_notified
     if not want_level or not got_level or got_level == want_level:
@@ -137,7 +145,10 @@ def _notify_downgrade(want_level: str, got_level: str) -> None:
     _downgrade_notified = True
     want_label = LEVEL_LABEL.get(want_level, want_level)
     got_label = LEVEL_LABEL.get(got_level, got_level)
-    warning(f"当前 Cookie 权限不支持{want_label}，本次已按{got_label}下载")
+    if get_cookie():
+        warning(f"当前 Cookie 权限不支持{want_label}，本次已按{got_label}下载")
+    else:
+        warning(f"未登录，本次只能按最高可用的{got_label}下载")
 
 
 def _discard_temp(paths: list[str]) -> None:
