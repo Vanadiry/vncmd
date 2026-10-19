@@ -854,3 +854,77 @@ class Testvalue_of的边界:
         所以别拿它当正常路径用
         """
         assert schema.value_of({"download": {}}, "download.不在表里") is None
+
+
+class Test命令行的键值解析:
+    """--config 传进来的 键=值 要在 CLI 那层就解析干净
+
+    路径与类型都在这层查掉：写错一个键名要立刻有话说，
+    流到校验那一步只会报成笼统的「未知键」，而且是在读了配置之后
+    """
+
+    def test_按第一个等号切(self):
+        """值里还可能有等号，比如 curl_arg 要带的请求头"""
+        assert schema.split_override("curl_arg=-H X=1") == ("curl_arg", "-H X=1")
+
+    def test_没有等号算写法错(self):
+        with pytest.raises(ValueError, match="不是 键=值"):
+            schema.split_override("download.concurrency")
+
+    def test_等号前面空着算写法错(self):
+        """--config =5 是漏了键名，不能当成给空键赋值"""
+        with pytest.raises(ValueError, match="少了等号前面的键"):
+            schema.split_override("=5")
+
+    def test_值可以是空串(self):
+        """dir 留空是合法的，意思是「用 ~/Downloads」"""
+        assert schema.split_override("download.dir=") == ("download.dir", "")
+
+
+class Test按类型转换命令行给的值:
+    """CLI 传来的永远是字符串，按表里的 kind 转
+
+    不转的话 `--config download.concurrency=4` 会让校验说
+    「必须为 1-16 的整数，实际是 '4'」—— 用户明明写的是 4
+    """
+
+    @pytest.mark.parametrize(
+        ("raw", "期望"),
+        [("true", True), ("false", False)],
+    )
+    def test_布尔认小写(self, raw, 期望):
+        assert schema.coerce("download.check", raw) is 期望
+
+    @pytest.mark.parametrize("raw", ["True", "False", "yes", "1", ""])
+    def test_布尔不认别的写法(self, raw):
+        """与 TOML 一致：True 在那里本来就不是合法值，照抄过去也过不了校验"""
+        with pytest.raises(ValueError, match="只能是 true 或 false"):
+            schema.coerce("download.check", raw)
+
+    def test_整数要转成整数(self):
+        assert schema.coerce("download.concurrency", "4") == 4
+        assert isinstance(schema.coerce("download.concurrency", "4"), int)
+
+    @pytest.mark.parametrize("raw", ["abc", "4.5", "", "true"])
+    def test_整数转不动就报错(self, raw):
+        with pytest.raises(ValueError, match="要整数"):
+            schema.coerce("download.concurrency", raw)
+
+    @pytest.mark.parametrize(
+        ("路径", "raw"),
+        [
+            ("download.audio.quality", "128"),
+            ("download.content", "lc"),
+            ("download.dir", "/tmp/x"),
+            ("download.filename_artist", "front"),
+        ],
+    )
+    def test_字符串原样留着(self, 路径, raw):
+        """quality 的值是 "128"、content 是 "lc"，转成数字反而错"""
+        值 = schema.coerce(路径, raw)
+        assert 值 == raw and isinstance(值, str)
+
+    def test_不认识的路径立刻报(self):
+        """拼错的键名在这里就该有话说，别等校验那一步"""
+        with pytest.raises(ValueError, match=r"没有 .* 这一项"):
+            schema.coerce("download.audio.qualty", "max")

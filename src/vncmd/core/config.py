@@ -1,3 +1,4 @@
+import copy
 import os
 import sys
 import tomllib
@@ -68,8 +69,15 @@ def _get_cfg() -> dict:
     return _cfg
 
 
-def validate_config(quiet: bool = False) -> None:
-    """Check config file has all required keys.  Auto-creates on first run."""
+def validate_config(quiet: bool = False, overrides: dict | None = None) -> None:
+    """读配置并校验，首次运行时先写出默认模板
+
+    `overrides` 是 `--config` 给的临时覆盖，形如
+    `{"download.audio.quality": "128"}`，值是已经转好类型的。
+    它叠在读出来的那份之上，**在校验之前** —— 所以它能盖掉一处写坏的值。
+
+    只覆盖不新增段：路径不在表里的在 CLI 那层就被拦下了
+    """
     if not CONFIG_FILE.exists():
         VNCMD_HOME.mkdir(parents=True, exist_ok=True)
         CONFIG_FILE.write_text(CONFIG_TOML, encoding="utf-8")
@@ -85,7 +93,35 @@ def validate_config(quiet: bool = False) -> None:
         _die([f"解析 {abbrev_home(CONFIG_FILE)} 失败：{e}"])
         return
 
-    check_config(cfg)
+    check_config(apply_overrides(cfg, overrides or {}))
+
+
+def apply_overrides(cfg: dict, overrides: dict) -> dict:
+    """把 `--config` 的覆盖叠到配置上，返回新的那一份
+
+    按点号路径走进去，缺的中间层建出来。
+    值是已经按表里的类型转好的，所以这里只管放进去。
+
+    返回深拷贝，不改调用方那份 —— `--config` 是临时覆盖，
+    把原配置改花了会让「这一项原本是什么」变得查不清
+    """
+    if not overrides:
+        return cfg
+    out = copy.deepcopy(cfg)
+    for path, value in overrides.items():
+        *parents, leaf = path.split(".")
+        container = out
+        for part in parents:
+            child = container.get(part)
+            if not isinstance(child, dict):
+                # 中间层不存在或写坏了，建一个新的继续往下走 ——
+                # 写坏了的那一段原本就会被校验报出来，
+                # 这里建新的是为了让覆盖本身能落下去
+                child = {}
+                container[part] = child
+            container = child
+        container[leaf] = value
+    return out
 
 
 def check_config(cfg: dict) -> None:

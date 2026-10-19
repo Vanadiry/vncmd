@@ -582,3 +582,162 @@ class TestCheckConfig收一份现成的配置:
         monkeypatch.setattr(config_mod, "_die", lambda lines: caught.extend(lines))
         config_mod.check_config(cfg)
         assert any("qualty" in ln for ln in caught), caught
+
+
+class TestApplyOverrides:
+    """把 --config 的覆盖叠到配置上
+
+    它在校验之前跑，所以写坏的值也能被盖掉 —— 那正是「临时覆盖」的意思
+    """
+
+    def test_按点号路径放进去(self):
+        from vncmd.core.config import apply_overrides
+
+        cfg = {"download": {"audio": {"quality": "max"}}}
+        出 = apply_overrides(cfg, {"download.audio.quality": "128"})
+        assert 出["download"]["audio"]["quality"] == "128"
+
+    def test_不改调用方那一份(self):
+        """--config 是临时覆盖，把原配置改花了会让「原本是什么」查不清"""
+        from vncmd.core.config import apply_overrides
+
+        cfg = {"download": {"audio": {"quality": "max"}}}
+        apply_overrides(cfg, {"download.audio.quality": "128"})
+        assert cfg["download"]["audio"]["quality"] == "max"
+
+    def test_中间层不存在时建出来(self):
+        from vncmd.core.config import apply_overrides
+
+        出 = apply_overrides({}, {"download.audio.quality": "128"})
+        assert 出 == {"download": {"audio": {"quality": "128"}}}
+
+    def test_中间层写坏了也能盖(self):
+        """cache 写成标量时，往里放一个键把那一层重建出来
+
+        写坏的那一段照样会被校验报出来 —— 这里建新的只是为了让覆盖能落下去
+        """
+        from vncmd.core.config import apply_overrides
+
+        出 = apply_overrides({"cache": 5}, {"cache.ttl": 7})
+        assert 出["cache"] == {"ttl": 7}
+
+    def test_空覆盖原样返回(self):
+        from vncmd.core.config import apply_overrides
+
+        cfg = {"a": 1}
+        assert apply_overrides(cfg, {}) is cfg
+
+
+class TestOverrides在校验之前:
+    """覆盖要能盖掉一处写坏的值
+
+    顺序是「读 → 覆盖 → 校验」，所以校验看到的是盖过之后的配置。
+    反过来先校验的话，配置文件里某个值写坏了就再也救不回来，
+    而临时覆盖恰恰应该能救这种情况
+    """
+
+    def test_盖掉一处写坏的值(self, monkeypatch, tmp_path):
+        import tomllib
+
+        from vncmd.core import config as config_mod
+        from vncmd.core.defaults import CONFIG_TOML
+
+        cfg = tomllib.loads(CONFIG_TOML)
+        cfg["download"]["audio"]["quality"] = "999"  # 写坏了
+
+        monkeypatch.setattr(config_mod, "CONFIG_FILE", tmp_path / "config.toml")
+        monkeypatch.setattr(config_mod, "load_config", lambda: cfg)
+        monkeypatch.setattr(config_mod, "_die", lambda lines: pytest.fail(str(lines)))
+        config_mod.validate_config(
+            quiet=True, overrides={"download.audio.quality": "320"}
+        )
+        assert config_mod.get_quality() == 320000
+
+    def test_不盖的话照样报错(self, monkeypatch, tmp_path):
+        """对照：上面那条不是靠「校验变松了」过的"""
+        import tomllib
+
+        from vncmd.core import config as config_mod
+        from vncmd.core.defaults import CONFIG_TOML
+
+        cfg = tomllib.loads(CONFIG_TOML)
+        cfg["download"]["audio"]["quality"] = "999"
+        caught = []
+        monkeypatch.setattr(config_mod, "CONFIG_FILE", tmp_path / "config.toml")
+        monkeypatch.setattr(config_mod, "load_config", lambda: cfg)
+        monkeypatch.setattr(config_mod, "_die", lambda lines: caught.extend(lines))
+        config_mod.validate_config(quiet=True)
+        assert any("quality" in ln for ln in caught), caught
+
+
+class Test命令行的config参数:
+    """--config 的解析与那两条约束
+
+    解析放在 CLI 那层（`_config_overrides`），因为它在读配置之前跑
+    """
+
+    def test_解析成点号路径到值的映射(self):
+        from vncmd.cli import _config_overrides
+
+        assert _config_overrides(["download.audio.quality=128"]) == {
+            "download.audio.quality": "128"
+        }
+
+    def test_重复传同一个键后者生效(self):
+        from vncmd.cli import _config_overrides
+
+        出 = _config_overrides(
+            ["download.audio.quality=128", "download.audio.quality=320"]
+        )
+        assert 出 == {"download.audio.quality": "320"}
+
+    @pytest.mark.parametrize(
+        ("参数", "该说的"),
+        [
+            ("download.concurrency=abc", "要整数"),
+            ("download.check=yes", "只能是 true 或 false"),
+            ("download.audio.qualty=max", "没有"),
+            ("download.concurrency", "不是 键=值"),
+            ("=5", "少了等号前面的键"),
+        ],
+    )
+    def test_写错了就退出(self, 参数, 该说的, capsys):
+        from vncmd.cli import _config_overrides
+
+        with pytest.raises(SystemExit) as e:
+            _config_overrides([参数])
+        assert e.value.code == 2
+        # 退出码之外还得有话说，否则脚本只知道「参数不对」不知道哪不对
+        assert 该说的 in capsys.readouterr().err, 参数
+
+    def test_没有参数时是空映射(self):
+        from vncmd.cli import _config_overrides
+
+        assert _config_overrides([]) == {}
+
+    def test_init拒绝config(self, monkeypatch, capsys):
+        """--init 只写默认模板，覆盖没有意义；给一起多半是误会了它的用途
+
+        这一条走真的 main()，因为拒绝发生在 parse_args 之后、
+        validate_config 之前 —— 只测解析函数看不到这个约束
+        """
+        import vncmd.cli as vncmd_mod
+
+        跑过 = {"init": False}
+        monkeypatch.setattr(
+            vncmd_mod, "cmd_init", lambda _a: 跑过.__setitem__("init", True)
+        )
+        monkeypatch.setattr(vncmd_mod, "acquire_lock", lambda: None)
+        monkeypatch.setattr(
+            vncmd_mod,
+            "validate_config",
+            lambda quiet=False, overrides=None: pytest.fail("不该走到校验"),
+        )
+        monkeypatch.setattr(
+            "sys.argv", ["vncmd", "--init", "--config", "download.concurrency=4"]
+        )
+        with pytest.raises(SystemExit) as e:
+            vncmd_mod.main()
+        assert e.value.code == 2
+        assert "不接受 --config" in capsys.readouterr().err
+        assert not 跑过["init"], "拒绝了就该连 init 都不跑"

@@ -390,7 +390,9 @@ class Test命令改名后的分派:
 
         ran = []
         monkeypatch.setattr(vncmd, "acquire_lock", lambda: None)
-        monkeypatch.setattr(vncmd, "validate_config", lambda: None)
+        monkeypatch.setattr(
+            vncmd, "validate_config", lambda quiet=False, overrides=None: None
+        )
         monkeypatch.setattr(vncmd, "announce_account", lambda: None)
         monkeypatch.setattr(vncmd, "cmd_init", lambda _a: ran.append("init"))
         monkeypatch.setattr(vncmd, "cmd_check", lambda _a: ran.append("check"))
@@ -411,7 +413,9 @@ class Test命令改名后的分派:
         monkeypatch.setattr(vncmd, "acquire_lock", lambda: None)
         monkeypatch.setattr(vncmd, "cmd_init", lambda _a: calls.append("init"))
         monkeypatch.setattr(
-            vncmd, "validate_config", lambda: pytest.fail("init 不该校验配置")
+            vncmd,
+            "validate_config",
+            lambda quiet=False, overrides=None: pytest.fail("init 不该校验配置"),
         )
         monkeypatch.setattr(sys, "argv", ["vncmd", "--init"])
         vncmd.main()
@@ -481,7 +485,9 @@ class TestAnnounceSkips:
 
         calls = {"n": 0}
         monkeypatch.setattr(vncmd, "acquire_lock", lambda: None)
-        monkeypatch.setattr(vncmd, "validate_config", lambda: None)
+        monkeypatch.setattr(
+            vncmd, "validate_config", lambda quiet=False, overrides=None: None
+        )
         monkeypatch.setattr(vncmd, "cmd_init", lambda _a: None)
         monkeypatch.setattr(
             vncmd, "announce_account", lambda: calls.__setitem__("n", calls["n"] + 1)

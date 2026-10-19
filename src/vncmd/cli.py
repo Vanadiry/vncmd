@@ -16,6 +16,7 @@ from vncmd.commands import (
 )
 from vncmd.core.config import QUALITY_MAP, acquire_lock, validate_config
 from vncmd.core.output import err_console, error
+from vncmd.core.schema import coerce, split_override
 from vncmd.net.api import SEARCH_LIMIT_MAX
 from vncmd.tracker import cmd_tracker
 
@@ -172,6 +173,17 @@ def build_parser() -> _ArgumentParser:
     # 与 --version 同类：跑完就没有后续动作了，所以给成顶层开关
     parser.add_argument(
         "--init", action="store_true", help="初始化 vncmd 并写入默认配置"
+    )
+    # 临时覆盖配置项，不动配置文件。可重复传，后者生效。
+    # 只给全局而不挂到每个子命令上：用它的是写脚本编排的高级用户，
+    # 而每个子命令都挂一份只会让 help 里重复十几遍
+    parser.add_argument(
+        "--config",
+        action="append",
+        default=[],
+        metavar="键=值",
+        help="临时覆盖某一项配置，如 --config download.audio.quality=128（可重复，"
+        "后者生效）。可覆盖的键见 doc/config.md。必须写在子命令之前",
     )
 
     p_cookie = sub.add_parser("cookie", help="设置 Cookie")
@@ -333,6 +345,26 @@ def _reject_json_download(args: argparse.Namespace) -> None:
         sys.exit(2)
 
 
+def _config_overrides(raw: list[str]) -> dict:
+    """把 --config 的 `键=值` 解析成 {点号路径: 已转好类型的值}
+
+    路径与类型都在这层查掉，写错一个键名要立刻有话说 ——
+    流到校验那一步只会报成笼统的「未知键」，而且是在读了配置之后
+
+    重复传同一个键时后者生效：字典赋值天然如此，
+    与命令行里后面的参数覆盖前面的惯例一致
+    """
+    overrides = {}
+    for item in raw:
+        try:
+            key, raw_value = split_override(item)
+            overrides[key] = coerce(key, raw_value)
+        except ValueError as e:
+            error(f"--config {e}")
+            sys.exit(2)
+    return overrides
+
+
 def main() -> None:
     parser = build_parser()
     args = parser.parse_args()
@@ -341,6 +373,10 @@ def main() -> None:
     # 放在 validate_config 之前，与当初它是独立命令时一样 ——
     # 那时候 args.command 就是 "init"，而这里 args.command 是 None
     if args.init:
+        # --init 只写默认模板，覆盖没有意义；给一起多半是误会了它的用途
+        if args.config:
+            error("--init 不接受 --config：它只写默认配置，覆盖没有意义")
+            sys.exit(2)
         acquire_lock()
         cmd_init(args)
         return
@@ -354,7 +390,7 @@ def main() -> None:
 
     acquire_lock()
 
-    validate_config()
+    validate_config(overrides=_config_overrides(args.config))
 
     # 播报账号状态。放这里而不是下载前，是因为它必须在取链接之前，
     # 付费歌拿不到链接会直接退出，等到落盘那一步就永远等不到这条提示了

@@ -260,6 +260,51 @@ def section_names() -> tuple[str, ...]:
     return tuple(sorted(top | sub))
 
 
+def coerce(path: str, raw: str) -> Any:
+    """把命令行的字符串按这一项的类型转成该有的样子
+
+    CLI 传来的永远是字符串，而表里存的可能是整数或布尔。
+    不转的话 `--config download.concurrency=4` 会让校验说
+    「必须为 1-16 的整数，实际是 '4'」—— 用户明明写的是 4。
+
+    字符串那一类必须原样留着：`quality` 的值是 "128"、`content` 是 "alc"，
+    转成数字反而错。`bool` 只认小写 true/false，与 TOML 一致 ——
+    `True` 在 TOML 里本来就不是合法值，照抄过去也过不了校验。
+
+    路径不认识时抛 ValueError：命令行里写错一个键要立刻有话说，
+    不该让它流到校验那一步再报成一个笼统的「未知键」
+    """
+    setting = get(path)
+    if setting is None:
+        raise ValueError(f"配置里没有 {path} 这一项")
+    if setting.kind == "bool":
+        if raw == "true":
+            return True
+        if raw == "false":
+            return False
+        raise ValueError(f"{path} 只能是 true 或 false，给的是 {raw!r}")
+    if setting.kind == "int":
+        try:
+            return int(raw)
+        except ValueError:
+            raise ValueError(f"{path} 要整数，给的是 {raw!r}") from None
+    return raw
+
+
+def split_override(text: str) -> tuple[str, str]:
+    """把 `键=值` 切开，只按第一个等号
+
+    值里可能有等号：`curl_arg="-H X=1"`。
+    没有等号或键为空都算写法错，立刻报 —— 否则会静默变成别的东西
+    """
+    if "=" not in text:
+        raise ValueError(f"{text!r} 不是 键=值 的写法")
+    key, value = text.split("=", 1)
+    if not key:
+        raise ValueError(f"{text!r} 少了等号前面的键")
+    return key, value
+
+
 def check_content(value: Any, letters: str) -> str | None:
     """content 的规则不是取值集合，返回错误说明或 None
 

@@ -294,7 +294,9 @@ class Test路径缩写:
             lambda p: str(p).replace(str(home), "~"),
         )
         monkeypatch.setattr(commands_mod.shutil, "which", lambda n: None)
-        monkeypatch.setattr(commands_mod, "validate_config", lambda quiet=False: None)
+        monkeypatch.setattr(
+            commands_mod, "validate_config", lambda quiet=False, overrides=None: None
+        )
         commands_mod.cmd_init(ns())
         out = capsys.readouterr().out
         assert "VNCMD_HOME: ~/.vSoft/vncmd" in out, out
@@ -339,7 +341,9 @@ class Test路径缩写:
             lambda p: str(p).replace(str(home), "~"),
         )
         monkeypatch.setattr(commands_mod.shutil, "which", lambda n: None)
-        monkeypatch.setattr(commands_mod, "validate_config", lambda quiet=False: None)
+        monkeypatch.setattr(
+            commands_mod, "validate_config", lambda quiet=False, overrides=None: None
+        )
         commands_mod.cmd_init(ns())
         got = capsys.readouterr()
         # success 走 stderr，「存在」走 stdout，两条流都要看 ——
@@ -363,7 +367,9 @@ class Test路径缩写:
             lambda p: str(p).replace(str(home), "~"),
         )
         monkeypatch.setattr(commands_mod.shutil, "which", lambda n: None)
-        monkeypatch.setattr(commands_mod, "validate_config", lambda quiet=False: None)
+        monkeypatch.setattr(
+            commands_mod, "validate_config", lambda quiet=False, overrides=None: None
+        )
         commands_mod.cmd_init(ns())
         err = capsys.readouterr().err
         assert "VIP" in err and "高音质" in err, err
@@ -383,7 +389,9 @@ class Test路径缩写:
             lambda p: str(p).replace(str(home), "~"),
         )
         monkeypatch.setattr(commands_mod.shutil, "which", lambda n: None)
-        monkeypatch.setattr(commands_mod, "validate_config", lambda quiet=False: None)
+        monkeypatch.setattr(
+            commands_mod, "validate_config", lambda quiet=False, overrides=None: None
+        )
         commands_mod.cmd_init(ns())
         got = capsys.readouterr()
         assert "粘贴" in got.err, got
