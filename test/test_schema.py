@@ -8,6 +8,7 @@
 """
 
 import copy
+import dataclasses
 import re
 import tomllib
 from pathlib import Path
@@ -98,7 +99,46 @@ class Test表的形状:
         for s in schema.SCHEMA:
             if s.kind == "enum":
                 assert s.values, f"{s.path} 标成 enum 却没给值域"
-                assert s.bad, f"{s.path} 标成 enum 却没给错值时的措辞"
+
+    def test_wrong_value_措辞不空(self):
+        """这一栏留空的话那一项就完全不校验
+
+        值写错时校验器返回空串，`validate` 里 `if message:` 判不到，
+        于是静默放行 —— 写错值的键看起来像生效了，而它没有。
+        content 是唯一例外：它的措辞要看实际值才说得出多余了哪个字母
+        """
+        for s in schema.SCHEMA:
+            if s.kind == "content":
+                continue
+            assert s.wrong_value, f"{s.path} 没写值错时的提示，那一项写错值也不会报错"
+
+    def test_漏填措辞会被validate当场抓住(self):
+        """不只是测试盯着，validate 自己也要挡一道
+
+        表是手写的，漏填一栏不会有任何动静 —— 直到哪天有人加了新键
+        却忘了填。那一栏空着的话那一项静默放行，而校验看起来是绿的
+        """
+        空 = dataclasses.replace(schema.SCHEMA[0], wrong_value="")
+        原 = schema.SCHEMA
+        schema.SCHEMA = (空, *原[1:])
+        try:
+            错 = schema.validate(完整配置)
+            assert 错, "漏填措辞时 validate 一声不吭"
+            assert "没写值错时的提示" in 错[0]
+        finally:
+            schema.SCHEMA = 原
+
+    def test_content的措辞不算空(self):
+        """content 的 wrong_value 是空的，那是设计 ——
+        多余了哪些字母、哪个重复了，都得看实际值才说得出
+
+        所以 validate 里那道防线要放过它，放过之后那一项仍然是活的
+        """
+        项 = schema.get("download.content")
+        assert 项.wrong_value == "", "content 不该有固定措辞"
+        assert schema.validate(改配置("download.content", "alx")), (
+            "content 那一项要真的校验，只是措辞自己算"
+        )
 
     def test_content不填值域(self):
         """content 的合法值是任意字母组合，填成枚举会让人误以为

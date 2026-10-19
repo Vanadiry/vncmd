@@ -44,13 +44,13 @@ class Setting:
     default 是键缺失时的取值。每一项都有，缺键时 getter 按它回落 ——
     所以配置文件可以只写想改的键，缺键不再报错
 
-    bad 是取值不对时的措辞，每项都不一样，不是一句模板套出来的：
+    wrong_value 是值不对时的措辞，每项都不一样，不是一句模板套出来的：
     有几项带实际值、有一项写「只能是」，差别都是从 config.py 抄来的，
     那些措辞被既有测试断言着，改文案就是改行为
 
-    **miss 现在没人读了**，它那一套措辞是第 4 步之前缺键要报错时留下的。
-    先留着：那些措辞是从原代码抄的，删了要重抄一遍，而第 6 步
-    统一收文案时多半还要参照它们。等那时再决定去留
+    **这一栏不许留空。** 留空了那一项就完全不校验 ——
+    值写错时校验返回空串，`validate` 里 `if message:` 判不到，
+    于是那一项静默放行。`test_wrong_value_措辞不空` 盯着这件事
     """
 
     path: str
@@ -59,18 +59,16 @@ class Setting:
     minimum: int | None = None
     maximum: int | None = None
     default: Any = None
-    bad: str = ""
-    miss: str = "缺失或为空"
+    wrong_value: str = ""
 
 
 def _enum(
     path: str,
     values: tuple[str, ...],
     default: str,
-    bad: str,
-    miss: str = "缺失或为空",
+    wrong_value: str,
 ) -> Setting:
-    return Setting(path, "enum", values, default=default, bad=bad, miss=miss)
+    return Setting(path, "enum", values, default=default, wrong_value=wrong_value)
 
 
 def _content(path: str, default: str) -> Setting:
@@ -80,15 +78,11 @@ def _content(path: str, default: str) -> Setting:
     塞进 values 只会让人以为「alc」与「ca」是两个不同的枚举项。
     合法字母留在 CONTENT_LETTERS，那是 content 专有的规则
 
-    缺键那句要多提醒「必须是带引号的字符串」：content = 12 会被 tomllib
-    读成整数，而不带引号正是这一项最常见的错
+    **wrong_value 留空是对的**，这一项的措辞由 check_content 自己算：
+    多余了哪些字母、哪个字母重复了，都得看实际值才能说，
+    写成一句固定的话反而不如它现在说得具体
     """
-    return Setting(
-        path,
-        "content",
-        default=default,
-        miss="缺失或为空，且必须是带引号的字符串",
-    )
+    return Setting(path, "content", default=default)
 
 
 SCHEMA = (
@@ -121,16 +115,12 @@ SCHEMA = (
         # 这两个键带实际值：写 2 的人看到的是「必须为 line、block、drop」，
         # 而 2 是上一版方案的旧值，报错里不写实际值就看不出自己没跟着改
         "必须为 line、block、drop，实际是 {value!r}",
-        # 缺键这句不带「或为空」：这两个键的合法值里没有空串，
-        # 空不空都错，写「或为空」会让人以为是空值的问题
-        "缺失",
     ),
     _enum(
         "download.lyric.save_mode",
         ("line", "block", "split", "drop"),
         "line",
         "必须为 line、block、split、drop，实际是 {value!r}",
-        "缺失",
     ),
     _enum(
         "download.downloader",
@@ -149,9 +139,8 @@ SCHEMA = (
         "download.dir",
         "str",
         default="",
-        bad="必须是字符串，实际是 {typename}",
+        wrong_value="必须是字符串，实际是 {typename}",
         # 不带「或为空」：空串是合法的，缺键与写空串是两回事
-        miss="缺失",
     ),
     Setting(
         "download.concurrency",
@@ -161,24 +150,21 @@ SCHEMA = (
         default=4,
         # 带实际值：写成 0 或 true 的人看到这个才知道自己填了什么。
         # 缺键也用这句 —— 键本来就必须写，缺了与填了个 4 不该两样报错
-        bad="必须为 1-16 的整数，实际是 {value!r}",
-        miss="必须为 1-16 的整数，实际是 None",
+        wrong_value="必须为 1-16 的整数，实际是 {value!r}",
     ),
     Setting(
         "download.check",
         "bool",
         default=True,
-        bad="必须为 true 或 false",
-        miss="缺失或不为布尔值",
+        wrong_value="必须为 true 或 false",
     ),
     Setting(
         "download.curl_arg",
         "str",
         default="",
-        bad="必须是字符串",
+        wrong_value="必须是字符串",
         # 缺了不算错：getter 取的是默认值空串，curl 用不到这个参数时
-        # 本来就没有。所以这一项是「可省略」的，miss 写成空表示不报
-        miss="",
+        # 本来就没有，所以这一项可以整条省略
     ),
     Setting(
         "download.audio.parse_credits",
@@ -186,8 +172,7 @@ SCHEMA = (
         default=False,
         # 这一项缺键与写错值是同一句话：布尔没有「空」这个状态，
         # 缺了与填了个非布尔值在用户看来是一回事
-        bad="缺失或不为布尔值",
-        miss="缺失或不为布尔值",
+        wrong_value="缺失或不为布尔值",
     ),
     Setting(
         "download.lyric.auto_trim",
@@ -195,16 +180,14 @@ SCHEMA = (
         default=False,
         # 这一项缺键与写错值是同一句话：布尔没有「空」这个状态，
         # 缺了与填了个非布尔值在用户看来是一回事
-        bad="缺失或不为布尔值",
-        miss="缺失或不为布尔值",
+        wrong_value="缺失或不为布尔值",
     ),
     Setting(
         "download.lyric.credit_scan_lines",
         "int",
         minimum=1,
         default=10,
-        bad="缺失或不为正整数",
-        miss="",
+        wrong_value="缺失或不为正整数",
     ),
     # 判缺失用「在不在」而不是「取到没有」：这两个键的合法值里有 false，
     # 那种写法会把 false 当成没写，而 false 恰好是「用原图」那一档
@@ -212,15 +195,13 @@ SCHEMA = (
         "download.cover.embed_compress",
         "bool",
         default=True,
-        bad="必须为 true 或 false，实际是 {value!r}",
-        miss="缺失",
+        wrong_value="必须为 true 或 false，实际是 {value!r}",
     ),
     Setting(
         "download.cover.save_compress",
         "bool",
         default=False,
-        bad="必须为 true 或 false，实际是 {value!r}",
-        miss="缺失",
+        wrong_value="必须为 true 或 false，实际是 {value!r}",
     ),
     # enabled 要判类型：写成带引号的 "false" 时字符串非空、是真值，
     # 用户以为关了缓存实际照开，而这种错在界面上完全看不出来
@@ -228,23 +209,20 @@ SCHEMA = (
         "cache.enabled",
         "bool",
         default=True,
-        bad="必须为 true 或 false，实际是 {value!r}",
-        miss="缺失",
+        wrong_value="必须为 true 或 false，实际是 {value!r}",
     ),
     Setting(
         "cache.ttl",
         "int",
         minimum=0,
         default=DEFAULT_CACHE_TTL,
-        bad="不为非负整数",
-        miss="",
+        wrong_value="不为非负整数",
     ),
     Setting(
         "display.artist_color",
         "bool",
         default=True,
-        bad="不为布尔值",
-        miss="",
+        wrong_value="不为布尔值",
     ),
 )
 
@@ -289,7 +267,7 @@ def check_content(value: Any, letters: str) -> str | None:
 def check_enum(setting: Setting, value: Any) -> str | None:
     """枚举校验，返回值不对时的说明或 None
 
-    措辞从 `bad` 里来，`{allowed}` 换成值域、`{value}` 换成用户实际填的。
+    措辞从 `wrong_value` 里来，`{allowed}` 换成值域、`{value}` 换成用户实际填的。
     带不带实际值每项不一样，所以它进得了模板而不是一句模板套所有
     """
     if value in setting.values:
@@ -297,7 +275,7 @@ def check_enum(setting: Setting, value: Any) -> str | None:
     # 三个占位符各自可选，谁填了哪个看那一项的措辞。
     # 一次 format 而不是逐个 replace —— replace 会先把 {value!r} 替成 {value}，
     # 后面那道再替一次，结果占位符原样留在消息里
-    return setting.bad.format(
+    return setting.wrong_value.format(
         allowed=", ".join(setting.values),
         value=value,
         typename=type(value).__name__,
@@ -314,15 +292,15 @@ def check_int(setting: Setting, value: Any) -> str | None:
     所以它得在检查器内部，谁读表都不用记得
     """
     if not isinstance(value, int) or isinstance(value, bool):
-        return setting.bad.format(
+        return setting.wrong_value.format(
             allowed="", value=value, typename=type(value).__name__
         )
     if setting.minimum is not None and value < setting.minimum:
-        return setting.bad.format(
+        return setting.wrong_value.format(
             allowed="", value=value, typename=type(value).__name__
         )
     if setting.maximum is not None and value > setting.maximum:
-        return setting.bad.format(
+        return setting.wrong_value.format(
             allowed="", value=value, typename=type(value).__name__
         )
     return None
@@ -336,7 +314,7 @@ def check_bool(setting: Setting, value: Any) -> str | None:
     而它取到的是 0（假值），恰好蒙对 —— 换个键就不一定了
     """
     if not isinstance(value, bool):
-        return setting.bad.format(
+        return setting.wrong_value.format(
             allowed="", value=value, typename=type(value).__name__
         )
     return None
@@ -352,7 +330,7 @@ def check_str(setting: Setting, value: Any) -> str | None:
     用户看不出哪里错，写 int、list 这种一眼能认的就行
     """
     if not isinstance(value, str):
-        return setting.bad.format(
+        return setting.wrong_value.format(
             allowed="", value=value, typename=type(value).__name__
         )
     return None
@@ -490,6 +468,15 @@ def validate(cfg: dict) -> list[str]:
     errors = []
     for setting in SCHEMA:
         parts, key, value = _locate(cfg, setting.path)
+        if not setting.wrong_value and setting.kind != "content":
+            # 这一栏漏填的话那一项就完全不校验 ——
+            # 值错时校验器返回空串，下面 `if message:` 判不到，静默放行。
+            # 宁可报一句含糊的，也不放过：这里出现是表写错了，不是配置写错了。
+            #
+            # content 是例外：它的措辞由 check_content 自己算，
+            # 那要看实际值才说得出多余了哪个字母
+            errors.append(f"[{setting.path}] 这一项没写值错时的提示，校验不会生效")
+            continue
         if not parts:
             continue
 
