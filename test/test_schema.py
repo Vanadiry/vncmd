@@ -69,6 +69,54 @@ _逐字样本 = [
 ]
 
 
+# 第 3 步搬进来的那十二项，值写错时的报错原文。
+#
+# 措辞单独提成常量：其中几条超出行宽，放进元组里 ruff format 会把字符串
+# 切开，切开之后就不是逐字比对了 —— 而逐字正是这里要守的东西
+#
+# 这十二项的措辞之间本来就有几处不一致，不是笔误：
+#   ttl 与 check 不带实际值，而 concurrency 带
+#   dir 报类型名（int）而 concurrency 报值（99）
+#   parse_credits 与 auto_trim 缺键与写错值是同一句话，
+#   而 check 缺键说「缺失或不为布尔值」、写错值说「必须为 true 或 false」
+#
+# 这些差异以后很可能被人「顺手统一」掉 —— 那是行为变化，
+# 用户在界面上看到的就是这一句。逐字钉住
+_措辞_download_dir = "[download] dir 必须是字符串，实际是 int"
+_措辞_download_concurrency = "[download] concurrency 必须为 1-16 的整数，实际是 99"
+_措辞_download_check = "[download] check 必须为 true 或 false"
+_措辞_download_curl_arg = "[download] curl_arg 必须是字符串"
+_措辞_download_audio_parse_credits = "[download.audio] parse_credits 缺失或不为布尔值"
+_措辞_download_lyric_auto_trim = "[download.lyric] auto_trim 缺失或不为布尔值"
+_措辞_download_lyric_credit_scan_lines = (
+    "[download.lyric] credit_scan_lines 缺失或不为正整数"
+)
+_措辞_download_cover_embed_compress = (
+    "[download.cover] embed_compress 必须为 true 或 false，实际是 'x'"
+)
+_措辞_download_cover_save_compress = (
+    "[download.cover] save_compress 必须为 true 或 false，实际是 'x'"
+)
+_措辞_cache_enabled = "[cache] enabled 必须为 true 或 false，实际是 'false'"
+_措辞_cache_ttl = "[cache] ttl 不为非负整数"
+_措辞_display_artist_color = "[display] artist_color 不为布尔值"
+
+_类型样本 = [
+    ("download.dir", 123, _措辞_download_dir),
+    ("download.concurrency", 99, _措辞_download_concurrency),
+    ("download.check", 1, _措辞_download_check),
+    ("download.curl_arg", 123, _措辞_download_curl_arg),
+    ("download.audio.parse_credits", 1, _措辞_download_audio_parse_credits),
+    ("download.lyric.auto_trim", 1, _措辞_download_lyric_auto_trim),
+    ("download.lyric.credit_scan_lines", 0, _措辞_download_lyric_credit_scan_lines),
+    ("download.cover.embed_compress", "x", _措辞_download_cover_embed_compress),
+    ("download.cover.save_compress", "x", _措辞_download_cover_save_compress),
+    ("cache.enabled", "false", _措辞_cache_enabled),
+    ("cache.ttl", -1, _措辞_cache_ttl),
+    ("display.artist_color", 1, _措辞_display_artist_color),
+]
+
+
 def 改配置(路径: str, 值):
     """按点号路径改一份配置，缺的那几层自动建出来"""
     import copy
@@ -373,6 +421,42 @@ class Test报错措辞不变:
     )
     def test逐字不变(self, 路径, 值, 期望):
         assert schema.validate(改配置(路径, 值)) == [期望]
+
+    @pytest.mark.parametrize(
+        ("路径", "值", "期望"),
+        _类型样本,
+    )
+    def test类型项的措辞逐字不变(self, 路径, 值, 期望):
+        """第 3 步搬进来的那十二项，措辞也逐字钉住
+
+        与上面那六项一起，十八项全有了直接样本。之前那十二项只靠
+        test_config.py 里的间接断言，而那些断言用的是 `in` ——
+        措辞多出几个字照样过
+        """
+        assert schema.validate(改配置(路径, 值)) == [期望], 路径
+
+    def test_十八项都有逐字样本(self):
+        """样本要盖住表里每一项，漏一项那一项就没人盯了
+
+        _逐字样本 是纯字符串，从里面取不出路径，所以靠另一个测试里
+        那个列表的路径来数 —— 两个列表合起来要盖满 18 项
+        """
+        有样本的 = {路径 for 路径, _, _ in _类型样本} | {
+            "download.filename_artist",
+            "download.content",
+            "download.audio.quality",
+            "download.lyric.embed_mode",
+            "download.lyric.save_mode",
+            "download.downloader",
+        }
+        表里 = {s.path for s in schema.SCHEMA}
+        assert 有样本的 == 表里, (
+            f"没有样本的：{sorted(表里 - 有样本的)}；"
+            f"样本里多出来的：{sorted(有样本的 - 表里)}"
+        )
+        assert len(_类型样本) == 12 and len(_逐字样本) == 7, (
+            f"样本条数变了：类型 {len(_类型样本)} 条、枚举 {len(_逐字样本)} 条"
+        )
 
 
 class Test表与getter不各说各话:
