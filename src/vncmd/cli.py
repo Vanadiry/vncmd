@@ -65,11 +65,10 @@ class _ArgumentParser(argparse.ArgumentParser):
             return f"不认识的参数 {extra}。{hint}"
         if "invalid choice: " in message:
             tail = message.split("invalid choice: ", 1)[1]
-            # 形如 'cache' (choose from 'cookie', 'tool', ...)
+            # 形如 'cache' (choose from 'cookie', 'tool', ...)。
+            # 不把候选列出来 —— 一句话说清错在哪，余下的交给 -h
             value = tail.split("'")[1]
-            choices = tail.split("choose from ", 1)[1].rstrip(")")
-            choices = choices.replace("'", "").replace(", ", "、")
-            return f"没有 {value} 这个命令。可用命令：{choices}。{hint}"
+            return f"没有 {value} 这个命令。{hint}"
         if message.startswith("argument ") and ": " in message:
             head, body = message.split(": ", 1)
             head = head[len("argument ") :]

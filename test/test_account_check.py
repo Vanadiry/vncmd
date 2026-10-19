@@ -445,7 +445,7 @@ class Test命令改名后的分派:
             commands_mod, "get_cache_dir", lambda: str(tmp_path / "cache")
         )
         monkeypatch.setattr(commands_mod, "abbrev_home", lambda p: str(p))
-        commands_mod.cmd_cache(argparse.Namespace(stats=False, clear=False))
+        commands_mod.cmd_cache(argparse.Namespace(stats=True, clear=False))
         assert "vncmd tool cache --clear" in capsys.readouterr().err
 
     def test_tool不给子命令时报用法错(self, monkeypatch):

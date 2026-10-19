@@ -43,6 +43,19 @@ class Test缺参数:
         assert 缺的 in 出错, 出错
         assert 帮助 in 出错, 出错
 
+    def test_cache必须给一个开关(self, capsys):
+        """原来不给开关默认按 --stats 走，误操作看起来像成功
+
+        参数检查排在碰缓存目录之前 —— 参数错了不该先去读盘
+        """
+        with pytest.raises(SystemExit) as e:
+            commands.cmd_cache(argparse.Namespace(stats=False, clear=False))
+        assert e.value.code == 2
+        出错 = capsys.readouterr().err
+        assert "缺少参数" in 出错, 出错
+        assert "--stats" in 出错 and "--clear" in 出错, 出错
+        assert "vncmd tool cache -h" in 出错, 出错
+
     def test_cookie用同一句形状(self, capsys):
         """cookie 的 value 与 --check 都是可选的，两个都没给才报错
 
@@ -59,19 +72,23 @@ class Test缺参数:
 
 
 class Test写错命令:
-    def test不认识的命令列出可用的(self, capsys):
-        """cache 已经挪进 tool，直接敲会撞这里"""
+    def test只说没有这个命令(self, capsys):
+        """cache 已经挪进 tool，直接敲会撞这里
+
+        不列候选命令 —— 一句话说清错在哪，余下的交给 -h。
+        列出来会让这一行变得很长，而用户真正的下一步是看帮助
+        """
         assert _报错(["cache"]) == 2
         出错 = capsys.readouterr().err
         assert "没有 cache" in 出错, 出错
-        assert "可用命令" in 出错, 出错
-        assert "tool" in 出错, 出错
+        assert "vncmd -h" in 出错, 出错
+        assert "可用命令" not in 出错, 出错
 
     def test_tool下的子命令也同一套(self, capsys):
         assert _报错(["tool", "xyz"]) == 2
         出错 = capsys.readouterr().err
         assert "没有 xyz" in 出错, 出错
-        assert "check" in 出错 and "cache" in 出错, 出错
+        assert "vncmd tool -h" in 出错, 出错
 
 
 class Test其他用法错误:

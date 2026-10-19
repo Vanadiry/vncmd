@@ -516,17 +516,25 @@ def cmd_cookie(args: argparse.Namespace) -> None:
 
 
 def cmd_cache(args: argparse.Namespace) -> None:
-    """查看或清理本地缓存。"""
+    """查看或清理本地缓存。
+
+    两个开关必须给一个：都不给时原来默认当成 --stats，
+    但那让「我本想清缓存却忘了给开关」这类误操作看起来像成功。
+    """
+    if not args.stats and not args.clear:
+        error("缺少参数 --stats 或 --clear。可以用 vncmd tool cache -h 查看帮助")
+        sys.exit(2)
+
     root = Path(get_cache_dir())
     if not root.is_dir():
-        info('"缓存目录不存在，无需处理"')
+        info("缓存目录不存在，无需处理")
         return
 
     songs = sorted((root / "song").glob("*")) if (root / "song").is_dir() else []
     files = [f for f in root.rglob("*") if f.is_file()]
     size = sum(f.stat().st_size for f in files)
 
-    if args.stats or not args.clear:
+    if args.stats:
         ttl = get_cache_ttl()
         console.print(f'缓存目录："{abbrev_home(root)}"')
         console.print(f"占用：{size / 1024 / 1024:.1f} MB，共 {len(files)} 个文件")
@@ -535,11 +543,11 @@ def cmd_cache(args: argparse.Namespace) -> None:
 
     if args.clear:
         shutil.rmtree(root)
-        success(f'"已清空缓存，释放 {size / 1024 / 1024:.1f} MB"')
+        success(f"已清空缓存，释放 {size / 1024 / 1024:.1f} MB")
     else:
         err_console.print()
         # 命令名跟 parser 一起改的，写错会让用户照着敲出一个不存在的命令
-        info('"用 vncmd tool cache --clear 清空缓存"')
+        info("用 vncmd tool cache --clear 清空缓存")
 
 
 def cmd_check(args: argparse.Namespace) -> None:
