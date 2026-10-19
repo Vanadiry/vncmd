@@ -37,8 +37,6 @@ def ns(**kw):
         "json": False,
         "limit": None,
         "offset": 0,
-        "quality": None,
-        "output": None,
     }
     base.update(kw)
     return argparse.Namespace(**base)
@@ -200,7 +198,7 @@ class Testparser:
         [
             (["--json"], "json", True),
             (["--limit", "2"], "limit", 2),
-            (["-n", "2"], "limit", 2),
+            (["-l", "2"], "limit", 2),
             (["--offset", "5"], "offset", 5),
         ],
     )

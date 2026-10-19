@@ -11,7 +11,7 @@ from vncmd.net.api import SEARCH_LIMIT_MAX
 
 
 def parse(limit):
-    return build_parser().parse_args(["search", "初音", "-n", str(limit)])
+    return build_parser().parse_args(["search", "初音", "-l", str(limit)])
 
 
 def _error_line(capsys, limit):

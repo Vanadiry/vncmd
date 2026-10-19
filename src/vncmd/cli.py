@@ -69,6 +69,7 @@ def _add_json_arg(parser: object) -> None:
     """
     parser.add_argument(
         "--json",
+        "-j",
         action="store_true",
         help="以 JSON 输出结果并退出，供脚本读取",
     )
@@ -84,7 +85,7 @@ def _add_list_args(parser: object) -> None:
     """
     parser.add_argument(
         "--limit",
-        "-n",
+        "-l",
         type=int,
         default=None,
         metavar="N",
@@ -92,6 +93,7 @@ def _add_list_args(parser: object) -> None:
     )
     parser.add_argument(
         "--offset",
+        "-o",
         type=int,
         default=0,
         metavar="N",
@@ -132,7 +134,7 @@ def build_parser() -> _ArgumentParser:
     # 不经过 rich，于是没有 ANSI 也没有把方括号当标记的风险，
     # CI 拿 `vncmd --version` 的输出比对时不用先剥颜色。
     parser.add_argument(
-        "-V",
+        "-v",
         "--version",
         action="version",
         version=_version_string(),
@@ -145,13 +147,14 @@ def build_parser() -> _ArgumentParser:
     # init 不是对某个对象的操作，是一次性的本机初始化，
     # 与 --version 同类：跑完就没有后续动作了，所以给成顶层开关
     parser.add_argument(
-        "--init", action="store_true", help="初始化 vncmd 并写入默认配置"
+        "--init", "-i", action="store_true", help="初始化 vncmd 并写入默认配置"
     )
     # 临时覆盖配置项，不动配置文件。可重复传，后者生效。
     # 只给全局而不挂到每个子命令上：用它的是写脚本编排的高级用户，
     # 而每个子命令都挂一份只会让 help 里重复十几遍
     parser.add_argument(
         "--config",
+        "-c",
         action="append",
         default=[],
         metavar="key=value",
@@ -189,13 +192,13 @@ def build_parser() -> _ArgumentParser:
     # 顺带补下限：limit=0 在服务端是合法的但拿不到东西，无意义
     p_search.add_argument(
         "--limit",
-        "-n",
+        "-l",
         type=_search_limit,
         default=None,
         metavar="N",
         help=f"最大结果数，1-{SEARCH_LIMIT_MAX}（默认：10）",
     )
-    p_search.add_argument("--offset", type=int, default=0, help="分页偏移量")
+    p_search.add_argument("--offset", "-o", type=int, default=0, help="分页偏移量")
     # search 没有下载动作，不存在互斥问题
     _add_json_arg(p_search)
 
@@ -208,8 +211,13 @@ def build_parser() -> _ArgumentParser:
     _add_dlink_arg(grp_song, "显示下载链接与音质、费用等详情")
     _add_json_arg(p_song)
     _add_download_args(p_song, download_group=grp_song)
-    p_song.add_argument("--lyrics", "-l", action="store_true", help="显示歌词")
-    p_song.add_argument("--tlyric", action="store_true", help="显示翻译歌词")
+    p_song.add_argument("--lyric", action="store_true", help="显示歌词")
+    p_song.add_argument(
+        "--translate",
+        "-t",
+        action="store_true",
+        help="配 --lyric 时一并显示翻译歌词",
+    )
 
     p_al = sub.add_parser("album", help="预览或下载专辑")
     p_al.add_argument("id", type=int, help="专辑 ID")
@@ -245,11 +253,13 @@ def build_parser() -> _ArgumentParser:
     grp_fetch = p_tracker.add_mutually_exclusive_group()
     grp_fetch.add_argument(
         "--auto-accept",
+        "-A",
         action="store_true",
         help="配 --fetch 时自动接受全部变更，无需交互",
     )
     grp_fetch.add_argument(
         "--force",
+        "-F",
         action="store_true",
         help=(
             "配 --fetch 时无条件覆盖 songs.json。"
@@ -260,6 +270,7 @@ def build_parser() -> _ArgumentParser:
     # 依赖关系 argparse 表达不了，单独给时由 cmd_tracker 报错
     p_tracker.add_argument(
         "--diff",
+        "-x",
         action="store_true",
         help="上次 --fetch 记下的变更，不联网。配 -d 下载新增的，配 --json 输出三类",
     )
@@ -267,14 +278,19 @@ def build_parser() -> _ArgumentParser:
     _add_json_arg(p_tracker)
     p_tracker.add_argument(
         "--limit",
-        "-n",
+        "-l",
         type=int,
         default=None,
         metavar="N",
         help="最多处理曲目数（默认：面板 10，JSON 全部）",
     )
     p_tracker.add_argument(
-        "--offset", type=int, default=0, metavar="N", help="起始序号，从 0 计"
+        "--offset",
+        "-o",
+        type=int,
+        default=0,
+        metavar="N",
+        help="起始序号，从 0 计",
     )
     # 音质与输出目录同样是配置项，用 --config 临时改
 

@@ -39,7 +39,7 @@ class Test打印:
         assert capsys.readouterr().out == EXPECTED + "\n"
 
     def test_短选项同结果(self, monkeypatch, capsys):
-        monkeypatch.setattr(sys, "argv", ["vncmd", "-V"])
+        monkeypatch.setattr(sys, "argv", ["vncmd", "-v"])
         with pytest.raises(SystemExit):
             vncmd.main()
         assert capsys.readouterr().out == EXPECTED + "\n"
@@ -105,4 +105,4 @@ class Test帮助:
             vncmd.build_parser().parse_args(["--help"])
         out = capsys.readouterr().out
         assert "--version" in out
-        assert "-V" in out
+        assert "-v" in out

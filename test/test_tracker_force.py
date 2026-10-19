@@ -22,8 +22,6 @@ def ns(**kw):
         "force": False,
         "limit": None,
         "offset": 0,
-        "quality": None,
-        "output": None,
     }
     base.update(kw)
     return argparse.Namespace(**base)

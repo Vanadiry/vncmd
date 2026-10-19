@@ -30,7 +30,7 @@ class TestSearchLimit:
         assert _parse(["search", "x"]).limit is None
 
     def test_短选项照旧(self):
-        assert _parse(["search", "x", "-n", "5"]).limit == 5
+        assert _parse(["search", "x", "-l", "5"]).limit == 5
 
     def test_长选项照旧(self):
         assert _parse(["search", "x", "--limit", "5"]).limit == 5

@@ -199,7 +199,12 @@ class Test命令行不再单独传校验开关:
         看到 = self._捕获(monkeypatch, tmp_path)
         commands.cmd_song(
             argparse.Namespace(
-                id=1, json=False, dlink=False, lyrics=False, tlyric=False, download=True
+                id=1,
+                json=False,
+                dlink=False,
+                lyric=False,
+                translate=False,
+                download=True,
             )
         )
         assert 看到["run_check"] is None, (
@@ -214,7 +219,12 @@ class Test命令行不再单独传校验开关:
         看到 = self._捕获(monkeypatch, tmp_path)
         commands.cmd_song(
             argparse.Namespace(
-                id=1, json=False, dlink=False, lyrics=False, tlyric=False, download=True
+                id=1,
+                json=False,
+                dlink=False,
+                lyric=False,
+                translate=False,
+                download=True,
             )
         )
         assert 看到["use_curl"] is None

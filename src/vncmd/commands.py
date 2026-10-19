@@ -187,6 +187,13 @@ def _dump_json(payload: dict) -> None:
 
 def cmd_song(args: argparse.Namespace) -> None:
     """Preview or download a single song."""
+    # --translate 只是 --lyric 的修饰，单独给它什么也做不了。
+    # 早先这一条是静默的：它嵌在 `if args.lyrics` 里面，不给 --lyric 就整段跳过，
+    # 用户以为翻译会出来。放在取详情之前 —— 参数写错了不该先联网
+    if args.translate and not args.lyric:
+        error("--translate 需要配合 --lyric 使用：它只决定歌词里要不要带翻译")
+        sys.exit(2)
+
     try:
         song = get_song_details(args.id)
     except Exception as e:
@@ -211,10 +218,10 @@ def cmd_song(args: argparse.Namespace) -> None:
     if not args.dlink:
         display_song_detail(song)
 
-    if args.lyrics:
+    if args.lyric:
         lyrics_data = get_lyrics(args.id)
         lyric = lyrics_data.get("lrc", {}).get("lyric", "")
-        if args.tlyric:
+        if args.translate:
             tlyric = lyrics_data.get("tlyric", {}).get("lyric", "")
             if tlyric:
                 lyric = lyric + "\n\n--- 翻译 ---\n" + tlyric

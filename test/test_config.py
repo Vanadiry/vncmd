@@ -741,3 +741,142 @@ class Test命令行的config参数:
         assert e.value.code == 2
         assert "不接受 --config" in capsys.readouterr().err
         assert not 跑过["init"], "拒绝了就该连 init 都不跑"
+
+
+class Test短选项:
+    """每个短选项都要与它的长选项落到同一个 field
+
+    这一组是照着改完之后的清单写的，防的是「加了 -x 但 dest 与长选项
+    不是同一个」这种低级错 —— 那样两个选项各写各的，谁也不知道
+    """
+
+    @pytest.mark.parametrize(
+        ("argv", "属性", "期望"),
+        [
+            (["--init"], "init", True),
+            (["-i"], "init", True),
+            (["search", "x", "--limit", "5"], "limit", 5),
+            (["search", "x", "-l", "5"], "limit", 5),
+            (["search", "x", "--offset", "2"], "offset", 2),
+            (["search", "x", "-o", "2"], "offset", 2),
+            # album/playlist 共用 _add_list_args，tracker 自己加了一份 ——
+            # 只测 search 的话，那两处的短选项掉了都发现不了
+            (["album", "1", "-l", "5"], "limit", 5),
+            (["album", "1", "-o", "2"], "offset", 2),
+            (["playlist", "1", "-l", "5"], "limit", 5),
+            (["playlist", "1", "-o", "2"], "offset", 2),
+            (["tracker", "n", "-l", "5"], "limit", 5),
+            (["tracker", "n", "-o", "2"], "offset", 2),
+            (["search", "x", "--json"], "json", True),
+            (["search", "x", "-j"], "json", True),
+            (["song", "1", "-j"], "json", True),
+            (["album", "1", "-j"], "json", True),
+            (["playlist", "1", "-j"], "json", True),
+            (["tracker", "n", "-j"], "json", True),
+            (["song", "1", "--lyric"], "lyric", True),
+            (["song", "1", "--translate"], "translate", True),
+            (["song", "1", "-t"], "translate", True),
+            (["tracker", "n", "--auto-accept"], "auto_accept", True),
+            (["tracker", "n", "-A"], "auto_accept", True),
+            (["tracker", "n", "--force"], "force", True),
+            (["tracker", "n", "-F"], "force", True),
+            (["tracker", "n", "--diff"], "diff", True),
+            (["tracker", "n", "-x"], "diff", True),
+        ],
+    )
+    def test长短选项同义(self, argv, 属性, 期望):
+        from vncmd.cli import build_parser
+
+        args = build_parser().parse_args(argv)
+        assert getattr(args, 属性) == 期望
+
+    @pytest.mark.parametrize("旗", ["--version", "-v"])
+    def test_version两个写法都退出并打印(self, 旗, capsys):
+        """version 是 argparse 原生的 action，解析时就退出，不能按普通参数取"""
+        from vncmd.cli import build_parser
+
+        with pytest.raises(SystemExit) as e:
+            build_parser().parse_args([旗])
+        assert e.value.code == 0
+        assert capsys.readouterr().out.strip()
+
+    def test_config的短选项(self):
+        from vncmd.cli import build_parser
+
+        args = build_parser().parse_args(["-c", "download.check=false", "search", "x"])
+        assert args.config == ["download.check=false"]
+
+    def test_进度与下载可以连写(self):
+        """单字母短选项原生的连写，-dx 就是 -d -x"""
+        from vncmd.cli import build_parser
+
+        args = build_parser().parse_args(["tracker", "n", "-dx"])
+        assert args.download is True
+        assert args.diff is True
+
+
+class Testtranslate要配合lyric:
+    """--translate 只是 --lyric 的修饰
+
+    早先它是静默的：整段嵌在 `if args.lyrics` 里面，不给 --lyric 就什么都不做，
+    用户以为翻译会出来。现在单独给直接报错退 2。
+    """
+
+    def test_单独给要报错(self, monkeypatch, capsys):
+        import argparse
+
+        from vncmd import commands
+
+        monkeypatch.setattr(
+            commands,
+            "get_song_details",
+            lambda _i: pytest.fail("参数写错了不该先联网"),
+        )
+        with pytest.raises(SystemExit) as e:
+            commands.cmd_song(
+                argparse.Namespace(
+                    id=1,
+                    json=False,
+                    dlink=False,
+                    download=False,
+                    lyric=False,
+                    translate=True,
+                )
+            )
+        assert e.value.code == 2
+        assert "--lyric" in capsys.readouterr().err
+
+    def test_配了lyric就不报错(self, monkeypatch, tmp_path):
+        import argparse
+
+        from vncmd import commands
+
+        monkeypatch.setattr(
+            commands,
+            "get_song_details",
+            lambda _i: {
+                "id": 1,
+                "title": "T",
+                "artist": "A",
+                "album": "B",
+                "cover": "",
+                "publish_time": "",
+            },
+        )
+        monkeypatch.setattr(commands, "display_song_detail", lambda *_a, **_k: None)
+        monkeypatch.setattr(commands, "display_lyrics", lambda *_a, **_k: None)
+        monkeypatch.setattr(
+            commands,
+            "get_lyrics",
+            lambda _i: {"lrc": {"lyric": "原文"}, "tlyric": {"lyric": "译文"}},
+        )
+        commands.cmd_song(
+            argparse.Namespace(
+                id=1,
+                json=False,
+                dlink=False,
+                download=False,
+                lyric=True,
+                translate=True,
+            )
+        )

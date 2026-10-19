@@ -13,24 +13,24 @@
 ## song
 
 ```bash
-vncmd song <ID> [-l] [--tlyric] [-u] [-d]
+vncmd song <ID> [--lyric [-t]] [-u] [-d]
 ```
 
 预览指定曲目的信息（标题、歌手、专辑、封面链接、时长）。
 
 | 参数 | 简写 | 说明 |
 | --- | --- | --- |
-| `--lyrics` | `-l` | 显示原文歌词 |
-| `--tlyric` | `/` | 显示翻译歌词 |
+| `--lyric` | `/` | 显示原文歌词 |
+| `--translate` | `-t` | 配 `--lyric` 时一并显示翻译歌词 |
 | `--dlink` | `-u` | 显示下载链接与音质、费用等详情，取不到链接时也会说明原因 |
 
 ## playlist / album
 
 ```bash
 # 歌单
-vncmd playlist <ID> [-n 数量] [--offset 序号] [--json] [-d]
+vncmd playlist <ID> [-l 数量] [-o 序号] [-j] [-d]
 # 专辑
-vncmd album <ID> [-n 数量] [--offset 序号] [--json] [-d]
+vncmd album <ID> [-l 数量] [-o 序号] [-j] [-d]
 ```
 
 以表格预览歌单或专辑中的曲目。若歌单中存在已下架曲目，会单独列出提醒。
