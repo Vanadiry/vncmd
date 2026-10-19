@@ -391,7 +391,15 @@ class Test路径缩写:
         assert "粘贴到" not in got.out, got
 
     def test_tracker面板的路径也走缩写(self, ready, monkeypatch, capsys, tmp_path):
-        """面板那行与 init 同一个写法"""
+        """面板那行与 init 同一个写法
+
+        终端要拉宽，断言要落在 settings.toml 那一行上 ——
+        原来是对整个输出做子串搜索，而路径一长 rich 就从左边截断，
+        str(home) 永远不会连续出现，于是撤掉 abbrev_home 调用它照样绿。
+        同一个文件里 test_路径用波浪号 用的是短路径不触发截断，那条是有效的
+        """
+        from rich.console import Console
+
         home = self._home(tmp_path)
         monkeypatch.setattr(
             tracker, "_settings_path", lambda n: home / ".vSoft/vncmd/t/settings.toml"
@@ -399,9 +407,13 @@ class Test路径缩写:
         monkeypatch.setattr(
             tracker, "abbrev_home", lambda p: str(p).replace(str(home), "~")
         )
+        monkeypatch.setattr(tracker, "console", Console(width=400))
         tracker.cmd_tracker(ns(limit=2))
         out = capsys.readouterr().out
-        assert str(home) not in out, f"路径该缩写成 ~ 开头：{out}"
+        行 = [ln for ln in out.splitlines() if "settings.toml" in ln]
+        assert 行, f"输出里没有 settings.toml 那一行：{out}"
+        assert str(home) not in 行[0], f"路径该缩写成 ~ 开头：{行[0]}"
+        assert "~" in 行[0], f"缩写后要留着 ~：{行[0]}"
 
     def test_首次运行的提示也给缩写(self, monkeypatch, capsys, tmp_path):
         from vncmd.core import config as config_mod

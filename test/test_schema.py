@@ -255,17 +255,22 @@ class Test与模板一致:
 
 class Test枚举校验:
     @pytest.mark.parametrize(
-        ("路径", "合法", "非法"),
+        ("路径", "合法"),
         [
-            ("download.filename_artist", "back", "x"),
-            ("download.audio.quality", "max", "999"),
-            ("download.lyric.embed_mode", "line", "2"),
-            ("download.lyric.save_mode", "split", "2"),
-            ("download.downloader", "curl", "wget"),
+            ("download.filename_artist", "back"),
+            ("download.audio.quality", "max"),
+            ("download.lyric.embed_mode", "line"),
+            ("download.lyric.save_mode", "split"),
+            ("download.downloader", "curl"),
         ],
     )
-    def test合法值放行(self, 路径, 合法, 非法):
-        assert schema.validate(改配置(路径, 合法)) == []
+    def test合法值放行(self, 路径, 合法):
+        """合法值不该报错
+
+        参数里原来还带一个「非法」而这条根本没用它 ——
+        带着不用比不带更糟，读的人会以为非法值也在这一条里被测了
+        """
+        assert schema.validate(改配置(路径, 合法)) == [], 路径
 
     @pytest.mark.parametrize(
         ("路径", "合法", "非法"),
@@ -504,10 +509,18 @@ class Test类型与范围:
     def test_布尔不接受整数(self):
         """enabled = 0 恰好是假值，取到 0 也对，所以蒙得过去；
         但 check = 0 与 enabled = 0 在别处未必一样，不能靠运气
+
+        路径从表里推，不手写清单 ——
+        手写过一次就漏了 parse_credits 与 auto_trim 那两个，
+        只取消这两个的 bool 校验全量照样绿
         """
-        for 路径 in ("download.check", "cache.enabled", "display.artist_color"):
+        布尔的 = [s.path for s in schema.SCHEMA if s.kind == "bool"]
+        # 数字钉一下是为了「表里加了布尔项时这条会提醒你」，
+        # 不是为了规定该有几个 —— 数目不对时下面那句会把名字列出来
+        assert len(布尔的) == 7, f"表里的布尔项变了，现在是 {布尔的}"
+        for 路径 in 布尔的:
             错 = schema.validate(改配置(路径, 0))
-            assert len(错) == 1, 路径
+            assert len(错) == 1, f"{路径} 竟然放过了整数"
 
     def test_布尔不接受带引号的字符串(self):
         """最阴的一条：'false' 是非空字符串、真值为真，
@@ -655,8 +668,14 @@ class Test未知键:
 
     def test_子表本身不算多余的键(self):
         """download.audio 是一个段不是键，
-        把它当成键报「不认识」就等于把用户往错的方向引"""
-        assert schema.unknown_keys(完整配置) == []
+        把它当成键报「不认识」就等于把用户往错的方向引
+
+        只查这几个子表名 —— 直接断言整个配置没有未知项的话，
+        那与 test_完整的配置没有未知键 一字不差，白写一条
+        """
+        报的 = schema.unknown_keys(完整配置)
+        for 子表 in ("download.audio", "download.lyric", "download.cover"):
+            assert 子表 not in 报的, f"{子表} 被当成多余的键了：{报的}"
 
     def test_段不是表时不由这里报(self):
         """那是 validate_config 的「必须是一段配置」那一句的事，
@@ -664,3 +683,64 @@ class Test未知键:
         cfg = copy.deepcopy(完整配置)
         cfg["download"] = 5
         assert schema.unknown_keys(cfg) == []
+
+
+class Test未知键的边界:
+    """三个边界之前没有任何测试盯着
+
+    实测把对应那行改掉，全量 1403 条照样全绿
+    """
+
+    def test_已知段下的未知嵌套段被列出来(self):
+        """download 下面多一段不认识的东西，要报出来
+
+        段是表而表里没有它的键，那是「这一整段多余」而不是「键多余」
+        """
+        cfg = copy.deepcopy(完整配置)
+        cfg["download"]["新段"] = {"a": 1}
+        assert schema.unknown_keys(cfg) == ["[download.新段]"]
+
+    def test_空的未知段也被列出来(self):
+        """多半是加了段忘了填，空着也要报"""
+        cfg = copy.deepcopy(完整配置)
+        cfg["空白段"] = {}
+        assert schema.unknown_keys(cfg) == ["[空白段]"]
+
+    def test_已知段里既有子表又有多余的键(self):
+        """两种都要报，少报一个用户改完还是跑不起来"""
+        cfg = copy.deepcopy(完整配置)
+        cfg["download"]["多余的顶层"] = 1
+        cfg["download"]["又一段"] = {"x": 1}
+        assert sorted(schema.unknown_keys(cfg)) == [
+            "[download.又一段]",
+            "[download.多余的顶层]",
+        ]
+
+    def test_已知叶子键的值是表时也往下查(self):
+        """那种写法 TOML 里不存在，但要是不查就等于留了个后门"""
+        cfg = copy.deepcopy(完整配置)
+        cfg["download"]["filename_artist"] = {"里面的": 1}
+        assert schema.unknown_keys(cfg)
+
+
+class Testvalue_of的边界:
+    """取值那一步对缺键的各种形态都要有交代"""
+
+    @pytest.mark.parametrize(
+        ("cfg", "说明"),
+        [
+            ({}, "整段都没有"),
+            ({"download": {}}, "段在但里面的键没有"),
+            ({"download": {"concurrency": None}}, "键的值是 null"),
+        ],
+    )
+    def test_各种缺法都回落到默认值(self, cfg, 说明):
+        assert schema.value_of(cfg, "download.concurrency") == 4, 说明
+
+    def test_键不在表里就原样返回(self):
+        """不在表里是搬表过程中的状态，不该抛 —— 抛了会打断整批校验
+
+        取到 None 是应有之义，而它与「取到默认值 4」下游用法不同，
+        所以别拿它当正常路径用
+        """
+        assert schema.value_of({"download": {}}, "download.不在表里") is None
