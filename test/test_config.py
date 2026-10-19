@@ -377,25 +377,84 @@ class Test没拦住的类型:
             validate_config(quiet=True)
 
     @pytest.mark.parametrize(
-        "行",
+        ("改法", "该报的那句"),
         [
-            "download = 5",
-            "download.audio = 5",
-            "download.lyric = 5",
-            "download.cover = 5",
-            "cache = 5",
+            (
+                lambda c: c.__setitem__("download", 5),
+                "[download] 必须是一段配置，实际是 int",
+            ),
+            (lambda c: c.__setitem__("cache", 5), "[cache] 必须是一段配置，实际是 int"),
+            (
+                lambda c: c.__setitem__("display", 5),
+                "[display] 必须是一段配置，实际是 int",
+            ),
+            (
+                lambda c: c["download"].update(audio=5),
+                "[download.audio] 必须是一段配置，实际是 int",
+            ),
+            (
+                lambda c: c["download"].update(lyric=5),
+                "[download.lyric] 必须是一段配置，实际是 int",
+            ),
+            (
+                lambda c: c["download"].update(cover=5),
+                "[download.cover] 必须是一段配置，实际是 int",
+            ),
         ],
     )
-    def test段被写成标量要报错(self, 配置文件, 行):
-        """段写成数字时，下面 dl.get(key) 与 key not in dl 会抛 TypeError，
+    def test段被写成标量要报错(self, monkeypatch, tmp_path, 改法, 该报的那句, capsys):
+        """段写成数字时，下面各处取键会抛 TypeError，
         用户看到的是调用栈而不是哪一段写错了
 
-        触发方式是让段被重新赋值，而不是在段里塞野键 ——
-        [download] value = 5 解析出来仍是 dict，那样测不到这条检查
+        这里只换那一段、其余段原样留着。原来是整文件覆盖成一行，
+        那样其他段整个消失，段检查按顺序撞上第一个坏的就退出 ——
+        五个参数里只有 download 那一个真的走到了自己声称的分支，
+        剩下三个子段的检查是死代码，删掉照样全绿
+
+        所以要断言报出来的是哪一句，只 raises(SystemExit) 分不出是哪道拦的
         """
-        self._写(行 + "\n")
+        import tomllib
+
+        from vncmd.core import config as config_mod
+        from vncmd.core.defaults import CONFIG_TOML
+
+        cfg = tomllib.loads(CONFIG_TOML)
+        改法(cfg)
+        monkeypatch.setattr(config_mod, "CONFIG_FILE", tmp_path / "config.toml")
+        monkeypatch.setattr(config_mod, "load_config", lambda: cfg)
+        monkeypatch.setattr(config_mod, "_cfg", None)
         with pytest.raises(SystemExit):
-            validate_config(quiet=True)
+            config_mod.validate_config(quiet=True)
+        assert 该报的那句 in capsys.readouterr().err
+
+    def test_整个段不写不算错(self, monkeypatch, tmp_path):
+        """整段没写与写坏了是两回事
+
+        段检查原来写成 cfg.get(name) 没给默认值，段不写拿到 None，
+        isinstance(None, dict) 为假，于是报「必须是一段配置，实际是 NoneType」——
+        比缺一个键还严，而第 4 步承诺的就是「配置可以只写想改的键」。
+        而 NoneType 是 TOML 里写不出来的东西，看到那句话的人只会去查段里写了什么，
+        看不出真正的原因是这一段整个没写
+        """
+        import tomllib
+
+        from vncmd.core import config as config_mod
+        from vncmd.core.defaults import CONFIG_TOML
+
+        cfg = tomllib.loads(CONFIG_TOML)
+        cfg.pop("cache")
+        cfg.pop("display")
+        for 子段 in ("audio", "lyric", "cover"):
+            cfg["download"].pop(子段)
+
+        monkeypatch.setattr(config_mod, "CONFIG_FILE", tmp_path / "config.toml")
+        monkeypatch.setattr(config_mod, "load_config", lambda: cfg)
+        monkeypatch.setattr(config_mod, "_cfg", None)
+        config_mod.validate_config(quiet=True)  # 不该退出
+
+        # 缺的那些键要取到表里的默认值，而不是 None
+        assert config_mod.is_artist_color() is True
+        assert config_mod.get_cache_ttl() == 3
 
     def test_段是标量时不说成键缺失(self, 配置文件, capsys):
         """报错要指明是段写错了，而不是列一堆「xx 缺失」让人以为是键少了"""
@@ -404,7 +463,11 @@ class Test没拦住的类型:
             validate_config(quiet=True)
         出错 = capsys.readouterr().err
         assert "必须是一段配置" in 出错
-        assert "dir 缺失" not in 出错
+        # 逐项的话一条都不该有：段写坏了，表里那几项取不到值，
+        # 那些串一冒出来就说明段检查没排在逐项校验前面
+        assert "必须为" not in 出错
+        assert "不为" not in 出错
+        assert "只能包含" not in 出错
 
 
 class Test报错带实际值:

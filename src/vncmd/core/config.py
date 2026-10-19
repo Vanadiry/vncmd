@@ -97,13 +97,21 @@ def validate_config(quiet: bool = False) -> None:
     # 段的名字从 SCHEMA 里推，不手写清单 ——
     # 手写过一次就漏了 display，后来是审查发现的
     for section in section_names():
-        value = cfg.get(section)
-        if value is None:
+        # 按点号一层层走进去。TOML 的嵌套表解析出来是
+        # cfg["download"]["audio"]，不是 cfg["download.audio"] ——
+        # 直接 cfg.get("download.audio") 拿到的是 None，
+        # 于是三个子段的检查全成了死代码
+        container = cfg
+        for part in section.split("."):
+            if not isinstance(container, dict):
+                break
+            container = container.get(part)
+        if container is None:
             # 整个段没写，与写坏了是两回事：没写按缺键处理，
             # 由表里那几项各取各自的默认值
             continue
-        if not isinstance(value, dict):
-            _die([f"[{section}] 必须是一段配置，实际是 {type(value).__name__}"])
+        if not isinstance(container, dict):
+            _die([f"[{section}] 必须是一段配置，实际是 {type(container).__name__}"])
 
     # 十八项的逐项知识都在 schema 的表里。段检查放前面就是为这一步 ——
     # 表按点号路径取值，那几段不是表时它取不到值只能跳过，
