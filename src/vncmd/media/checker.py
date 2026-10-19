@@ -251,10 +251,14 @@ def check_audio(path: str) -> tuple[bool, str]:
     仍然能验 flac 文件。整块门控放在这里以前是开在调用方的，
     结果缺 ffmpeg 时连 flac 那一步也一起不做。
 
-    三样都没有时无事可做，直接放行：上游声明的 size 与 md5 已经对过了。
+    ffmpeg 与 flac 都没有时无事可做，直接放行：上游声明的 size 与 md5 已经对过了。
+    这里问的是与 any_check_tool 同一个问题，用的是同一个判断 ——
+    原来写的是 any(tools.values())，把 ffprobe 也算进去，于是只装 ffprobe 的机器
+    会 fork 一个 ffprobe 去读时长，然后拿不到 actual 而一律放行，
+    白跑一遍还给出假的通过。
     """
     tools = check_tools()
-    if not any(tools.values()):
+    if not (tools["ffmpeg"] or tools["flac"]):
         return True, ""
 
     info = ffprobe_info(path) if tools["ffprobe"] else None
