@@ -4,18 +4,16 @@
 
 ## 通用参数
 
-以下参数在三个模式中通用，`-q`/`-o` 均需配合 `-d` 传入。
+以下参数在三个模式中通用。
 
 | 参数 | 简写 | 说明 |
 | --- | --- | --- |
 | `--download` | `-d` | 下载 |
-| `--quality` | `-q` | 临时覆盖音质（128 / 192 / 320 / max） |
-| `--output` | `-o` | 临时覆盖输出目录 |
 
 ## song
 
 ```bash
-vncmd song <ID> [-l] [--tlyric] [-u] [-d] [-q 音质] [-o 目录]
+vncmd song <ID> [-l] [--tlyric] [-u] [-d]
 ```
 
 预览指定曲目的信息（标题、歌手、专辑、封面链接、时长）。
@@ -30,9 +28,9 @@ vncmd song <ID> [-l] [--tlyric] [-u] [-d] [-q 音质] [-o 目录]
 
 ```bash
 # 歌单
-vncmd playlist <ID> [-n 数量] [--offset 序号] [--json] [-d] [-q 音质] [-o 目录]
+vncmd playlist <ID> [-n 数量] [--offset 序号] [--json] [-d]
 # 专辑
-vncmd album <ID> [-n 数量] [--offset 序号] [--json] [-d] [-q 音质] [-o 目录]
+vncmd album <ID> [-n 数量] [--offset 序号] [--json] [-d]
 ```
 
 以表格预览歌单或专辑中的曲目。若歌单中存在已下架曲目，会单独列出提醒。

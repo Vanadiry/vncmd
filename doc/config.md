@@ -9,6 +9,23 @@ Cookie 存放在 `VNCMD_HOME/cookie`，纯文本。
 
 程序已经预设了足够正常使用的配置，手动修改配置之前，请确保你了解每个配置的用途。
 
+## 临时覆盖
+
+`--config key=value` 可以临时改某一项配置，允许覆盖多个值。  
+若要长期生效，请修改配置文件。
+
+```bash
+# 用例1：仅需要下载歌词
+vncmd --config download.content=l song 2742965504
+
+# 用例2：下载 320 kbps 音质，且变更下载路径
+vncmd --config download.audio.quality=320 --config download.dir=/tmp song 2742965504
+```
+
+这是全局参数，需要在子命令之前使用。
+`key` 使用完整的点号路径，例如 `[download.audio]` 段的 `quality`，为 `download.audio.quality`。
+同一个键传两次时，后一个生效。
+
 ## [download]
 
 ### dir

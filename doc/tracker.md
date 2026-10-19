@@ -40,19 +40,23 @@ vncmd tracker "名称" -d --diff  # 下载自上次拉取以来新增的曲目
 
 已下架的曲目会被自动检测并单独提醒，不参与冲突解决（视为已存在）。
 
-`--fetch-auto` 自动接受全部变更，直接镜像上游。每次写入缓存前自动备份，可从 `.bak` 回滚。
+`--auto-accept` 自动接受全部变更，直接镜像上游。每次写入缓存前自动备份，可从 `.bak` 回滚。
 
 ## 完整命令
 
 ```bash
-vncmd tracker <名称> [-f | --fetch-auto] [-d] [--diff] [-q 音质] [-o 目录]
+vncmd tracker <名称> [-f] [-d] [--diff] [--json] [--auto-accept] [--force] [-n 数量] [--offset 序号]
 ```
 
 | 参数 | 简写 | 说明 |
 | --- | --- | --- |
 | `--fetch` | `-f` | 拉取，交互式解决冲突 |
-| `--fetch-auto` | `/` | 自动同步，镜像上游 |
-| `--diff` | `/` | 下载自上次拉取以来新增的曲目，需配合 `-d` |
+| `--auto-accept` | `/` | 配合 `--fetch` 时自动接受全部变更，不交互 |
+| `--force` | `/` | 配合 `--fetch` 时无条件覆盖 `songs.json` |
+| `--diff` | `/` | 列出上次 `--fetch` 的变更。配合 `-d` 下载变更的部分，配 `--json` 输出 json |
+| `--json` | `/` | 以 JSON 输出结果并退出 |
 | `--download` | `-d` | 下载 Tracker 中的全部曲目 |
+| `--limit` | `-n` | 最多处理曲目数，面板默认 `10`，`--json` 给全部 |
+| `--offset` | `/` | 起始序号，从 0 计 |
 
 不带参数时，展示 Tracker 简介。
