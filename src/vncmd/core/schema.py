@@ -41,14 +41,16 @@ class Setting:
     `enum` 查 values、`content` 走字母组合那套规则、
     `int` 查 minimum 与 maximum、`bool` 与 `str` 只查类型。
 
-    default 是键缺失时的取值。填了它的键才是「可省略」的 ——
-    第 4 步之前 validate 仍然对所有键报缺键，那时要改的是这里，不是别处
+    default 是键缺失时的取值。每一项都有，缺键时 getter 按它回落 ——
+    所以配置文件可以只写想改的键，缺键不再报错
 
-    bad 是取值不对时的措辞，miss 是缺键时的措辞。
-    两者每项都不一样，不是一句模板套出来的：
-    有几项带实际值、有一项写「只能是」、content 缺键要多提醒一句带引号，
-    差别都是现有测试钉着的，改文案就是改行为。
-    两栏都是第 6 步的东西，这轮先摆着让形状定稳
+    bad 是取值不对时的措辞，每项都不一样，不是一句模板套出来的：
+    有几项带实际值、有一项写「只能是」，差别都是从 config.py 抄来的，
+    那些措辞被既有测试断言着，改文案就是改行为
+
+    **miss 现在没人读了**，它那一套措辞是第 4 步之前缺键要报错时留下的。
+    先留着：那些措辞是从原代码抄的，删了要重抄一遍，而第 6 步
+    统一收文案时多半还要参照它们。等那时再决定去留
     """
 
     path: str
@@ -392,31 +394,47 @@ def _locate(cfg: dict, path: str) -> tuple[list[str], str, Any]:
     return 段[:-1], 段[-1], 容器.get(段[-1], None)
 
 
+def value_of(cfg: dict, path: str) -> Any:
+    """按 path 取值，缺了就回落表里的 default
+
+    这一步之后配置可以只写想改的键，其余的由默认值兜着。
+    之前 getter 是直接下标取的，缺一个键就是 KeyError ——
+    缺键在第 3 步之前会被校验拦下所以看不出来，而校验一放开就是真崩
+
+    default 为 None 表示那一项还没搬完、还没有默认值可回落，
+    取到 None 是应有之义 —— 那是第 3 步之后的状态
+    """
+    项 = get(path)
+    if 项 is None:
+        # 不在表里的键：原样返回取到的值，让调用方自己处理。
+        # 表搬完这个分支就没人走了，但留着比抛异常好
+        return _locate(cfg, path)[2]
+    _, _, 值 = _locate(cfg, path)
+    if 值 is None:
+        return 项.default
+    return 值
+
+
 def validate(cfg: dict) -> list[str]:
     """校验表里全部 18 项，返回错误说明的列表
 
-    逐项逐字复刻搬进表之前的样子：一个字不一样就是行为变化，
-    用户看报错的地方比看代码的地方多
+    **缺键不再报错。** 配置文件可以只写想改的键，其余由表里的
+    default 兜着，getter 也照 default 取 —— 这是第 4 步。
+
+    段本身不是表仍然报，那是另一回事：那一段整个写坏了，
+    与「某个键没写」不同。这里跳过，交给 validate_config 的段检查
     """
     错误 = []
     for setting in SCHEMA:
         段, 键, 值 = _locate(cfg, setting.path)
         if not 段:
-            # 上层不是表，那一段的检查由 validate_config 报，
-            # 这里再报一遍就是重复了
             continue
 
-        段名 = "[" + ".".join(段) + "]" if len(段) > 1 else f"[{段[0]}]"
         if 值 is None:
-            # 缺键这轮仍然要报错，等第 4 步才改成回落默认值。
-            # miss 是空串的那几项在缺键时用表里的 default 顶上 ——
-            # 它们的 getter 本来就取默认值，缺了不该报错
-            if not setting.miss:
-                continue
-            错误.append(f"{段名} {键} {setting.miss}")
             continue
 
         说明 = validate_entry(setting, 值)
         if 说明:
+            段名 = "[" + ".".join(段) + "]" if len(段) > 1 else f"[{段[0]}]"
             错误.append(f"{段名} {键} {说明}")
     return 错误

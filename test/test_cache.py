@@ -82,7 +82,7 @@ def test_默认配置含ttl():
     from vncmd.core.defaults import CONFIG_TOML
 
     cfg = tomllib.loads(CONFIG_TOML)
-    assert cfg["cache"]["ttl"] == config_mod.DEFAULT_CACHE_TTL == 3
+    assert cfg["cache"]["ttl"] == 3
 
 
 def test_旧配置没有ttl时用默认值(monkeypatch):

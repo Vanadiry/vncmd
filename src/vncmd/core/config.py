@@ -14,6 +14,7 @@ from vncmd.core.schema import FILENAME_ARTIST as FILENAME_ARTIST
 from vncmd.core.schema import LYRIC_MODES as LYRIC_MODES
 from vncmd.core.schema import QUALITY_MAP as QUALITY_MAP
 from vncmd.core.schema import validate as schema_validate
+from vncmd.core.schema import value_of as value_of
 
 
 def abbrev_home(path) -> str:
@@ -49,8 +50,6 @@ def acquire_lock() -> None:
         print("已有其他 vncmd 实例在运行。", file=sys.stderr)
         sys.exit(1)
 
-
-DEFAULT_CACHE_TTL = 3
 
 _cfg: dict | None = None
 
@@ -149,27 +148,31 @@ def _user_path(value: str) -> Path:
 
 
 def get_download_dir() -> str:
-    path = _get_cfg()["download"]["dir"] or ""
+    path = value_of(_get_cfg(), "download.dir") or ""
     if path:
         return str(_user_path(path))
     return str(Path.home() / "Downloads" / "vncmd-dl")
 
 
 def get_concurrency() -> int:
-    return _get_cfg()["download"]["concurrency"]
+    return value_of(_get_cfg(), "download.concurrency")
 
 
 def get_check_enabled() -> bool:
-    """是否做 ffmpeg 全量解码校验，老配置没写这个键时按开着处理"""
-    return _get_cfg().get("download", {}).get("check", True)
+    """是否做 ffmpeg 全量解码校验
+
+    缺这个键时按开着处理 —— 那是对老配置网的容让：
+    老配置里根本没有这一项，补一个等于替所有老用户改了行为
+    """
+    return value_of(_get_cfg(), "download.check")
 
 
 def get_downloader() -> str:
-    return _get_cfg().get("download", {}).get("downloader", "builtin")
+    return value_of(_get_cfg(), "download.downloader")
 
 
 def get_curl_arg() -> str:
-    return _get_cfg().get("download", {}).get("curl_arg", "")
+    return value_of(_get_cfg(), "download.curl_arg")
 
 
 def resolve_output_dir(value: str | None) -> str:
@@ -180,7 +183,7 @@ def resolve_output_dir(value: str | None) -> str:
 
 
 def get_quality() -> int:
-    return QUALITY_MAP[_get_cfg()["download"]["audio"]["quality"]]
+    return QUALITY_MAP[value_of(_get_cfg(), "download.audio.quality")]
 
 
 def get_cookie() -> str:
@@ -193,44 +196,43 @@ def get_cookie() -> str:
 
 
 def get_filename_artist() -> str:
-    return _get_cfg()["download"]["filename_artist"]
+    return value_of(_get_cfg(), "download.filename_artist")
 
 
 def get_download_content() -> str:
-    return _get_cfg()["download"]["content"]
+    return value_of(_get_cfg(), "download.content")
 
 
 def get_embed_lyrics_mode() -> str:
-    return _get_cfg()["download"]["lyric"]["embed_mode"]
+    return value_of(_get_cfg(), "download.lyric.embed_mode")
 
 
 def get_save_lyrics_mode() -> str:
-    return _get_cfg()["download"]["lyric"]["save_mode"]
+    return value_of(_get_cfg(), "download.lyric.save_mode")
 
 
 def get_embed_cover_compress() -> bool:
-    return _get_cfg()["download"]["cover"]["embed_compress"]
+    return value_of(_get_cfg(), "download.cover.embed_compress")
 
 
 def get_save_cover_compress() -> bool:
-    return _get_cfg()["download"]["cover"]["save_compress"]
+    return value_of(_get_cfg(), "download.cover.save_compress")
 
 
 def get_parse_credits() -> bool:
-    return _get_cfg()["download"]["audio"]["parse_credits"]
+    return value_of(_get_cfg(), "download.audio.parse_credits")
 
 
 def get_auto_trim() -> bool:
-    return _get_cfg()["download"]["lyric"]["auto_trim"]
+    return value_of(_get_cfg(), "download.lyric.auto_trim")
 
 
 def get_credit_scan_lines() -> int:
-    return _get_cfg()["download"]["lyric"]["credit_scan_lines"]
+    return value_of(_get_cfg(), "download.lyric.credit_scan_lines")
 
 
 def get_cache_ttl() -> int:
-    # 旧配置没有这一项时按默认值算，升级不至于报错
-    return _get_cfg().get("cache", {}).get("ttl", DEFAULT_CACHE_TTL)
+    return value_of(_get_cfg(), "cache.ttl")
 
 
 def get_cache_dir() -> str:
@@ -244,9 +246,8 @@ def get_cache_dir() -> str:
 
 
 def is_cache_enabled() -> bool:
-    return _get_cfg()["cache"]["enabled"]
+    return value_of(_get_cfg(), "cache.enabled")
 
 
 def is_artist_color() -> bool:
-    # 配置段缺失时保持默认开启
-    return _get_cfg().get("display", {}).get("artist_color", True)
+    return value_of(_get_cfg(), "display.artist_color")

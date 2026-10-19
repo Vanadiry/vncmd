@@ -9,6 +9,7 @@ from vncmd.core.config import (
     LYRIC_MODES,
     QUALITY_MAP,
     get_cache_dir,
+    get_concurrency,
     get_cookie,
     get_download_content,
     get_download_dir,
@@ -142,16 +143,27 @@ class Test封面缩放的布尔校验:
         with pytest.raises(SystemExit):
             validate_config(quiet=True)
 
-    @pytest.mark.parametrize("key", ["embed_compress", "save_compress"])
-    def test键整个缺失被拦下(self, 配置文件, key):
-        行 = (
-            "embed_compress = true"
-            if key == "embed_compress"
-            else "save_compress = false"
-        )
+    @pytest.mark.parametrize(
+        ("key", "行", "取到"),
+        [
+            ("embed_compress", "embed_compress = true", True),
+            ("save_compress", "save_compress = false", False),
+        ],
+    )
+    def test键整个缺失不报错且取到默认值(self, 配置文件, key, 行, 取到):
+        """缺键不再报错 —— 配置可以只写想改的键
+
+        原来这里是拦下的：那时 getter 直接下标取，缺一个键就是 KeyError，
+        校验放行等于把崩溃推迟到下载那一刻。现在 getter 按表取，缺了有默认值
+        """
         CONFIG_FILE.write_text(CONFIG_TOML.replace(f"{行}\n", ""), encoding="utf-8")
-        with pytest.raises(SystemExit):
-            validate_config(quiet=True)
+        validate_config(quiet=True)
+        取值 = (
+            get_embed_cover_compress()
+            if key == "embed_compress"
+            else get_save_cover_compress()
+        )
+        assert 取值 is 取到, f"{key} 缺了却取到 {取值!r}"
 
 
 class Test下载内容的字母:
@@ -194,13 +206,14 @@ class Test下载内容的字母:
         with pytest.raises(SystemExit):
             validate_config(quiet=True)
 
-    def test没写被拦下(self, 配置文件):
+    def test没写不报错且取到默认值(self, 配置文件):
+        """content 缺了按 alc 走，也就是全部都要 —— 与不写等价"""
         self._写("")
         CONFIG_FILE.write_text(
             CONFIG_TOML.replace('content = "alc"\n', ""), encoding="utf-8"
         )
-        with pytest.raises(SystemExit):
-            validate_config(quiet=True)
+        validate_config(quiet=True)
+        assert get_download_content() == "alc"
 
     def test漏了引号写成了数字(self, 配置文件):
         """content = 12 会被 tomllib 读成整数，
@@ -256,12 +269,20 @@ class Test歌词模式的取值:
         with pytest.raises(SystemExit):
             validate_config(quiet=True)
 
-    @pytest.mark.parametrize("key", ["embed_mode", "save_mode"])
-    def test键缺失被拦下(self, 配置文件, key):
-        行 = 'embed_mode = "drop"' if key == "embed_mode" else 'save_mode = "line"'
+    @pytest.mark.parametrize(
+        ("key", "行", "取到"),
+        [
+            ("embed_mode", 'embed_mode = "drop"', "drop"),
+            ("save_mode", 'save_mode = "line"', "line"),
+        ],
+    )
+    def test键缺失不报错且取到默认值(self, 配置文件, key, 行, 取到):
         CONFIG_FILE.write_text(CONFIG_TOML.replace(f"{行}\n", ""), encoding="utf-8")
-        with pytest.raises(SystemExit):
-            validate_config(quiet=True)
+        validate_config(quiet=True)
+        取值 = (
+            get_embed_lyrics_mode() if key == "embed_mode" else get_save_lyrics_mode()
+        )
+        assert 取值 == 取到
 
 
 class Test文件名里的艺术家位置:
@@ -296,12 +317,12 @@ class Test文件名里的艺术家位置:
         with pytest.raises(SystemExit):
             validate_config(quiet=True)
 
-    def test缺失被拦下(self, 配置文件):
+    def test缺失不报错且取到默认值(self, 配置文件):
         CONFIG_FILE.write_text(
             CONFIG_TOML.replace('filename_artist = "back"\n', ""), encoding="utf-8"
         )
-        with pytest.raises(SystemExit):
-            validate_config(quiet=True)
+        validate_config(quiet=True)
+        assert get_filename_artist() == "back"
 
 
 class Test没拦住的类型:
@@ -320,11 +341,13 @@ class Test没拦住的类型:
     def _写(self, 文本: str) -> None:
         CONFIG_FILE.write_text(文本, encoding="utf-8")
 
-    def test_concurrency缺键要报错(self, 配置文件):
-        """getter 是直接下标取的，校验放行等于把崩溃推迟到下载那一刻"""
+    def test_concurrency缺键不报错且取到默认值(self, 配置文件):
+        """原来这里是拦下的：getter 直接下标取，缺了就是 KeyError，
+        校验放行等于把崩溃推迟到下载那一刻。现在按表取，缺了是 4
+        """
         self._写(CONFIG_TOML.replace("concurrency = 4\n", ""))
-        with pytest.raises(SystemExit):
-            validate_config(quiet=True)
+        validate_config(quiet=True)
+        assert get_concurrency() == 4
 
     def test_concurrency写成布尔要报错(self, 配置文件):
         """布尔是 int 的子类，不单独拦一路过关；

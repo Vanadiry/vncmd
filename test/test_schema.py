@@ -54,18 +54,15 @@ from vncmd.core import schema
 # 放在这里而不是塞进 parametrize 的元组里 —— 那几条超出行宽，
 # ruff format 会去折元组的摆放，折长了还会把字符串切开，就不是逐字比对了。
 # 常量由格式器不管，它只会原样留着
+# 写错值时的报错原文。缺键那几条第 4 步之后不报了，所以不在这里 ——
+# 「值错就报」是现在就要守住的，「缺键不报」由另一组测试管
 _逐字样本 = [
-    "[download] filename_artist 缺失或为空",
     "[download] filename_artist 必须为 front、back、drop",
-    "[download] content 缺失或为空，且必须是带引号的字符串",
     "[download] content 只能包含 a、l、c，多余的字符：x",
     "[download] content 里 l 重复了，每个字母最多一次",
-    "[download.audio] quality 缺失或为空",
     # 带实际值那条最容易被误抄，它有一半是逗号分隔的值域
     "[download.audio] quality 必须为以下之一：128, 192, 320, max，实际是 '999'",
-    "[download.lyric] embed_mode 缺失",
     "[download.lyric] embed_mode 必须为 line、block、drop，实际是 '2'",
-    "[download.lyric] save_mode 缺失",
     "[download.lyric] save_mode 必须为 line、block、split、drop，实际是 '2'",
     '[download] downloader 只能是 "builtin" 或 "curl"',
 ]
@@ -110,28 +107,15 @@ class Test表的形状:
         assert s.kind == "content"
         assert s.values == (), "content 不该有 values"
 
-    def test需要报缺键的都有措辞(self):
-        """miss 非空的那几项，缺了要报得出像样的消息
-
-        不是每一项都要报 —— miss 空着的那些本来就可省略，
-        由下面那条断言管。所以这里只查「说要报的报得出来」
-        """
-        要报 = [s for s in schema.SCHEMA if s.miss]
-        assert 要报, "一项都不报的话，配置写错就没人知道了"
-        for s in 要报:
-            assert s.miss.strip(), f"{s.path} 缺键时报不出消息"
-
-    def test_miss空着的那些可省略且有默认值(self):
-        """miss 空着的键缺了不报错，那就得真的有默认值可回落
+    def test每一项都有默认值可回落(self):
+        """第 4 步之后缺键一律不报错，所以每一项都得有默认值
 
         getter 缺键时取的是表里的 default，没有就是取到 None ——
-        而 None 与 0 在下游不是一回事，所以这道是第 4 步的前置
+        而 None 与 0 在下游不是一回事：concurrency 拿 None 去 min() 会崩，
+        ttl 拿 None 去比大小也会崩。这道是「缺键不报错」的前提
         """
-        可省略 = [s.path for s in schema.SCHEMA if not s.miss]
-        assert 可省略, "一项都不该可省略，全报错说明没人真的可省"
         for s in schema.SCHEMA:
-            if not s.miss:
-                assert s.default is not None, f"{s.path} 缺键不报错却没有默认值可回落"
+            assert s.default is not None, f"{s.path} 缺键不报错却没有默认值可回落"
 
     def test_lookup查得到全部十八项(self):
         for 路径 in 全部:
@@ -305,7 +289,7 @@ class Test内容校验:
         错 = schema.validate(改配置("download.content", "aax"))
         assert "多余的字符" in 错[0]
 
-    @pytest.mark.parametrize("值", ["", 12, None, ["a", "l"], True])
+    @pytest.mark.parametrize("值", ["", 12, ["a", "l"], True])
     def test不是字符串的报缺引号(self, 值):
         """漏引号最常见：content = 12 会被 tomllib 读成整数，
         不拦就是 set() 一个整数抛 TypeError"""
@@ -329,32 +313,14 @@ class Test报错措辞不变:
             zip(
                 [
                     "download.filename_artist",
-                    "download.filename_artist",
-                    "download.content",
                     "download.content",
                     "download.content",
                     "download.audio.quality",
-                    "download.audio.quality",
                     "download.lyric.embed_mode",
-                    "download.lyric.embed_mode",
-                    "download.lyric.save_mode",
                     "download.lyric.save_mode",
                     "download.downloader",
                 ],
-                [
-                    ...,
-                    "x",
-                    ...,
-                    "alx",
-                    "all",
-                    ...,
-                    "999",
-                    ...,
-                    "2",
-                    ...,
-                    "2",
-                    "wget",
-                ],
+                ["x", "alx", "all", "999", "2", "2", "wget"],
                 _逐字样本,
                 strict=True,
             )
@@ -367,29 +333,49 @@ class Test报错措辞不变:
 class Test表与getter不各说各话:
     """默认值只有表里那一份是真的
 
-    表存着 default 供第 4 步回落用，而 getter 现在还在写自己的 fallback。
-    两处都是「缺键时取什么」，改一处忘了另一处就会两个答案 ——
-    这种错只有在配置真的缺了键时才看得见，而那时用户已经在下载了
+    第 4 步之后 getter 一律按 path 取、缺了回落表里的 default，
+    自己不再带 fallback。硬编码的 fallback 会有两个来源：
+    改一处忘了另一处就变成两个答案，而这种错只在配置真的缺键时才看得见，
+    那时用户已经在下载了
     """
 
-    def test_常量只有一处定义(self):
-        """DEFAULT_CACHE_TTL 现在两个文件里各有一份，都是 3
+    def test_getter里没有硬编码的默认值(self):
+        """按 path 取的 getter 一眼能认，硬编码的一眼看不出来
 
-        不该有两个来源。config.py 那份等第 4 步 getter 改按表取就删掉，
-        在那之前这条断言盯着两边别走偏
+        用源码查而不是逐个 getter 试 —— 逐个试要先把配置改缺，
+        而值恰好相同时根本试不出来（改表里的 default 试才试得出来）
         """
+        import inspect
+
         from vncmd.core import config as config_mod
 
-        assert config_mod.DEFAULT_CACHE_TTL == schema.DEFAULT_CACHE_TTL, (
-            "两个文件里各有一份，值不一样就有一处是错的"
-        )
+        # 这些是取值型的 getter，一个一个查有没有自己带默认值的写法。
+        # 用 .get( 找而不是找字面量 —— 字面量换个写法就漏了，
+        # 而 .get(key, 默认值) 那种写法一定是两个来源
+        for 名 in dir(config_mod):
+            if not 名.startswith(("get_", "is_")):
+                continue
+            函数 = getattr(config_mod, 名)
+            if not callable(函数):
+                continue
+            段源码 = inspect.getsource(函数)
+            assert ".get(" not in 段源码, (
+                f"{名} 里还有 .get(key, 默认值) 那种写法，"
+                f"缺键取的是硬编码的默认值而不是表里的 default"
+            )
 
-    def test_两个来源与模板都对得上(self):
+    def test_取ttl时用的是表里的默认值(self, monkeypatch):
+        """get_cache_ttl 原来写着 get("ttl", DEFAULT_CACHE_TTL)，
+        值恰好与表里一样所以看不出问题。把表里的改掉就能露馅"""
         from vncmd.core import config as config_mod
 
-        模板值 = 完整配置["cache"]["ttl"]
-        assert 模板值 == schema.DEFAULT_CACHE_TTL
-        assert 模板值 == config_mod.DEFAULT_CACHE_TTL
+        改过 = schema.Setting("cache.ttl", "int", minimum=0, default=99)
+        monkeypatch.setitem(schema._BY_PATH, "cache.ttl", 改过)
+        monkeypatch.setattr(config_mod, "_cfg", {"cache": {"enabled": True}})
+        assert config_mod.get_cache_ttl() == 99, "getter 还在用自己的默认值"
+
+    def test_模板与表里的默认值都对得上(self):
+        assert 完整配置["cache"]["ttl"] == schema.DEFAULT_CACHE_TTL
 
     @pytest.mark.parametrize(
         "路径",
@@ -505,12 +491,14 @@ class Test类型与范围:
             assert 错 == [f"[download] dir 必须是字符串，实际是 {名}"]
 
     def test_字符串写成null算缺键(self):
-        """dir = null 与没写 dir 在用户看来是一回事，报「缺失」而不是类型错
+        """dir = null 与没写 dir 在用户看来是一回事，都不报
 
-        这也说明 _locate 用「取到 None」判缺键是对的 ——
-        toml 里的 null 解析出来就是 None，与没写分不开
+        toml 里的 null 解析出来就是 None，与没写分不开 ——
+        所以 _locate 用「取到 None」判缺键是对的，
+        而 get_download_dir 那个 `or ""` 也照旧兜住它
         """
-        assert schema.validate(改配置("download.dir", None)) == ["[download] dir 缺失"]
+        assert schema.validate(改配置("download.dir", None)) == []
+        assert schema.value_of(改配置("download.dir", None), "download.dir") == ""
 
     def test_缺键不报错的那几项确实可省略(self):
         """它们的 getter 本来就取默认值，缺了不该判错"""
@@ -520,24 +508,57 @@ class Test类型与范围:
         del cfg["display"]["artist_color"]
         assert schema.validate(cfg) == []
 
-    def test_缺键要报错的那几项不放过(self):
-        """剩下那些键本来就必须写，逐个删掉看每个都报得出来
+    def test_缺一个键不报错且取到默认值(self):
+        """第 4 步之后配置文件可以只写想改的键
 
-        逐项删而不是一次删光：一次删光只能数出「报了几条」，
-        某一项的措辞丢了照样数得出来
+        逐项删而不是一次删光：一次删光只能看到「总共报了几条」，
+        某一项的回落坏了照样数得出来。逐项删才看得见是哪一项
         """
         for 路径 in 全部:
-            项 = schema.get(路径)
-            if not 项.miss:
-                continue
             cfg = copy.deepcopy(完整配置)
             段 = 路径.split(".")
             游 = cfg
             for 一段 in 段[:-1]:
                 游 = 游[一段]
             del 游[段[-1]]
-            错 = schema.validate(cfg)
-            assert len(错) == 1, f"{路径} 缺了却报了 {len(错)} 条：{错}"
-            assert 段[-1] in 错[0], f"{路径} 的报错没点名这一项：{错[0]}"
-        错 = schema.validate(cfg)
-        # 一共六项顶层键加三个子段里的五项，少一个报一条
+            assert schema.validate(cfg) == [], f"{路径} 缺了却报错"
+            assert schema.value_of(cfg, 路径) == schema.get(路径).default, 路径
+
+    def test_只留一个键也不报错(self):
+        """整段都空了的情形：表里那一段的项全都取默认值
+
+        这比逐项删更接近真实用法 —— 用户从一个最小配置开始改
+        """
+        for 段 in (
+            "download",
+            "download.audio",
+            "download.lyric",
+            "download.cover",
+            "cache",
+        ):
+            cfg = copy.deepcopy(完整配置)
+            路径 = 段.split(".")
+            游 = cfg
+            for 一段 in 路径:
+                游 = 游[一段]
+            for 键 in list(游):
+                del 游[键]
+            assert schema.validate(cfg) == [], f"{段} 整段空了却报错"
+
+    def test_段本身不是表时不报键的错(self):
+        """段写坏与键没写是两回事
+
+        download = 5 时表里那几项一个都取不到值，全报「xx 缺失」
+        等于把真正的问题盖住 —— 用户会照着补键，补完还是不行。
+
+        这一段由 validate_config 的段检查报，那里能给出
+        「[download] 必须是一段配置，实际是 int」那句
+        """
+        for 段, 坏值 in [("download", 5), ("cache", 5), ("download", ["x"])]:
+            cfg = copy.deepcopy(完整配置)
+            cfg[段] = 坏值
+            assert schema.validate(cfg) == [], f"{段} 写成 {坏值!r} 时表里多报了"
+            cfg2 = copy.deepcopy(完整配置)
+            cfg2["download"] = copy.deepcopy(完整配置["download"])
+            cfg2["download"]["audio"] = 5
+            assert schema.validate(cfg2) == [], "子段写成标量时表里多报了"
