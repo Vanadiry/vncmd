@@ -20,7 +20,8 @@ CLI（`src/vncmd/cli.py`）：
 - `tracker.py`：歌单/专辑变更追踪与同步
 - `output.py`：终端输出，表格与进度条
 - `config.py`：配置读取与校验
-- `_defaults.py`：默认配置模板，缺文件时用它写出
+- `schema.py`：配置键表，记录每一项的取值范围、默认值与报错措辞
+- `defaults.py`：默认配置模板，缺文件时用它写出
 - `vocals.py`：虚拟歌手的代表色
 
 ## 环境
