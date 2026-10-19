@@ -102,22 +102,27 @@ def test_cache段里不再有dir():
     assert "dir" not in tomllib.loads(CONFIG_TOML)["cache"]
 
 
-@pytest.mark.parametrize("bad", ["3", 1.5, True, -1])
+@pytest.mark.parametrize("bad", ['"3"', "1.5", "true", "-1"])
 def test_非法ttl被拦下(monkeypatch, tmp_path, bad):
-    import tomllib
+    """ttl 写错类型要报出来
 
+    这里必须用完整模板当基底、只替换 ttl 那一行。原来是把 cache 段
+    单独写出来，那样有两个问题让它恒真：
+    一是没写段头，写出的键落在顶层，cache.ttl 根本取不到值；
+    二是用 repr() 拼值，布尔会写成 True 而 TOML 只认小写 true，
+    整份文件在第一行就解析失败，于是走的是「解析失败」那条分支，
+    ttl 的值从头到尾没被校验过 —— 撤掉 ttl 的校验它照样绿
+    """
     from vncmd.core.defaults import CONFIG_TOML
 
-    cfg = tomllib.loads(CONFIG_TOML)
-    cfg["cache"]["ttl"] = bad
     target = tmp_path / "config.toml"
-    target.write_text(
-        "\n".join(f"{k} = {v!r}" for k, v in cfg["cache"].items()), encoding="utf-8"
-    )
+    target.write_text(CONFIG_TOML.replace("ttl = 3", f"ttl = {bad}"), encoding="utf-8")
     monkeypatch.setattr(config_mod, "CONFIG_FILE", target)
     monkeypatch.setattr(config_mod, "_cfg", None)
-    with pytest.raises(SystemExit):
-        config_mod.validate_config(quiet=True)
+    caught: list[list[str]] = []
+    monkeypatch.setattr(config_mod, "_die", lambda lines: caught.append(list(lines)))
+    config_mod.validate_config(quiet=True)
+    assert any("ttl" in ln for 组 in caught for ln in 组), caught
 
 
 def test_info_json不是合法JSON时按未命中处理(cached, capsys):
