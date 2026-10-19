@@ -487,7 +487,8 @@ def cmd_cookie(args: argparse.Namespace) -> None:
     值与 --check 同给由 argparse 的互斥组拦住，这里不再重复校验。
     """
     if not args.check and not args.value:
-        error("请给出 Cookie 值，或用 --check 只检查当前状态")
+        # 与其它命令的「缺参数」保持同一句形状，用户不用记两种说法
+        error("缺少参数 Cookie 值 或 --check。可以用 vncmd cookie -h 查看帮助")
         sys.exit(2)
 
     if args.value:

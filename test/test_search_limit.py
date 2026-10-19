@@ -17,13 +17,13 @@ def parse(limit):
 def _error_line(capsys, limit):
     """只取 argparse 报错的那一行。
 
-    不能对整段 stderr 断言「不含 --offset」，因为 argparse 每次都会先印
-    一遍用法，而用法行里就有 --offset。
+    取「✗」开头那行。早先用例落在 argparse 的英文前缀上，那种依赖
+    一改文案就散；而整段断言也不行 —— 报错里可能另有一行提到 --offset。
     """
     with pytest.raises(SystemExit):
         parse(limit)
     for line in capsys.readouterr().err.splitlines():
-        if line.startswith("vncmd search: error:"):
+        if line.lstrip().startswith("✗"):
             return line
     pytest.fail("没有找到报错行")
 

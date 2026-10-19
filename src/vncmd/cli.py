@@ -15,7 +15,8 @@ from vncmd.commands import (
     cmd_song,
 )
 from vncmd.core.config import acquire_lock, validate_config
-from vncmd.core.output import err_console, error
+from vncmd.core.output import err_console
+from vncmd.core.output import error as show_error
 from vncmd.core.schema import coerce, split_override
 from vncmd.net.api import SEARCH_LIMIT_MAX
 from vncmd.tracker import cmd_tracker
@@ -42,6 +43,44 @@ class _ArgumentParser(argparse.ArgumentParser):
             default=argparse.SUPPRESS,
             help="显示此帮助信息并退出",
         )
+
+    def error(self, message: str) -> None:
+        """用法错误的统一出口
+
+        argparse 自己的消息是英文的，而且几类错误长相差异很大：
+        缺参数报「the following arguments are required: id」，
+        写错命令报「invalid choice」，自定义 type 的报错又被包成
+        「argument X: ...」。统一成中文，并指向这一层该看哪份帮助。
+        """
+        show_error(self._friendly(message))
+        sys.exit(2)
+
+    def _friendly(self, message: str) -> str:
+        hint = f"可以用 {self.prog} -h 查看帮助"
+        if message.startswith("the following arguments are required: "):
+            missing = message.split(": ", 1)[1]
+            return f"缺少参数 {missing}。{hint}"
+        if message.startswith("unrecognized arguments: "):
+            extra = message.split(": ", 1)[1]
+            return f"不认识的参数 {extra}。{hint}"
+        if "invalid choice: " in message:
+            tail = message.split("invalid choice: ", 1)[1]
+            # 形如 'cache' (choose from 'cookie', 'tool', ...)
+            value = tail.split("'")[1]
+            choices = tail.split("choose from ", 1)[1].rstrip(")")
+            choices = choices.replace("'", "").replace(", ", "、")
+            return f"没有 {value} 这个命令。可用命令：{choices}。{hint}"
+        if message.startswith("argument ") and ": " in message:
+            head, body = message.split(": ", 1)
+            head = head[len("argument ") :]
+            if body.startswith("invalid int value: "):
+                body = "要一个整数，给的是 " + body.split(": ", 1)[1]
+            elif body.startswith("not allowed with argument "):
+                body = "不能与 " + body[len("not allowed with argument ") :] + " 同时给"
+            elif body == "expected one argument":
+                body = "需要一个值"
+            return f"{head}：{body}。{hint}"
+        return f"{message}。{hint}"
 
 
 def _version_string() -> str:
@@ -329,7 +368,7 @@ def _reject_json_download(args: argparse.Namespace) -> None:
     用法错误保持一致，脚本分「用法错」与「跑失败」时不用多记一种。
     """
     if getattr(args, "json", False) and getattr(args, "download", False):
-        error("--json 与 --download 互斥：--json 输出结构化数据，--download 落盘")
+        show_error("--json 与 --download 互斥：--json 输出结构化数据，--download 落盘")
         sys.exit(2)
 
 
@@ -348,7 +387,7 @@ def _config_overrides(raw: list[str]) -> dict:
             key, raw_value = split_override(item)
             overrides[key] = coerce(key, raw_value)
         except ValueError as e:
-            error(f"--config {e}")
+            show_error(f"--config {e}")
             sys.exit(2)
     return overrides
 
@@ -363,7 +402,7 @@ def main() -> None:
     if args.init:
         # --init 只写默认模板，覆盖没有意义；给一起多半是误会了它的用途
         if args.config:
-            error("--init 不接受 --config：它只写默认配置，覆盖没有意义")
+            show_error("--init 不接受 --config：它只写默认配置，覆盖没有意义")
             sys.exit(2)
         acquire_lock()
         cmd_init(args)

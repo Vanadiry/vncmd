@@ -247,15 +247,18 @@ class Test与下载互斥:
 
     # --dlink 只有 song 有，album 与 playlist 加它会在 argparse 就报「无法识别」
     @pytest.mark.parametrize(
-        "cmd,dl",
+        ("cmd", "dl", "该提的"),
         [
-            ("song", []),
-            ("song", ["--dlink"]),
-            ("album", []),
-            ("playlist", []),
+            ("song", [], ["--json", "--download"]),
+            # --dlink 与 -d 同给时，argparse 的互斥组会先拦住 ——
+            # 那条报错说的是 dlink 与 download，不提 --json。
+            # 早先它靠「用法行里恰好印了 --json」通过，是假绿
+            ("song", ["--dlink"], ["--dlink", "--download"]),
+            ("album", [], ["--json", "--download"]),
+            ("playlist", [], ["--json", "--download"]),
         ],
     )
-    def test_同给报错(self, cmd, dl, monkeypatch, capsys):
+    def test_同给报错(self, cmd, dl, 该提的, monkeypatch, capsys):
         import sys
 
         import vncmd.cli as vncmd
@@ -267,7 +270,8 @@ class Test与下载互斥:
         assert exc.value.code == 2, "与 argparse 的用法错误同码"
         out, err = capsys.readouterr()
         assert out == ""
-        assert "--json" in err and "--download" in err
+        for 词 in 该提的:
+            assert 词 in err, err
 
     def test_json不在任何互斥组里(self):
         """钉住上面那条理由，防止有人「顺手」把它塞进组里，
