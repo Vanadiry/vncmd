@@ -22,7 +22,7 @@ def ns(**kw):
         "download": False,
         "diff": False,
         "json": False,
-        "limit": None,
+        "count": None,
         "offset": 0,
     }
     base.update(kw)

@@ -44,7 +44,7 @@ class Test搜索失败:
         monkeypatch.setattr(commands, "search", boom)
         with pytest.raises(SystemExit):
             commands.cmd_search(
-                argparse.Namespace(query="x", limit=10, offset=0, json=True)
+                argparse.Namespace(query="x", count=10, offset=0, json=True)
             )
         err = capsys.readouterr().err
         assert err.count("搜索失败") == 1, f"叠词了：{err}"
@@ -57,7 +57,7 @@ class Test搜索失败:
         monkeypatch.setattr(commands, "search", boom)
         with pytest.raises(SystemExit):
             commands.cmd_search(
-                argparse.Namespace(query="x", limit=10, offset=0, json=True)
+                argparse.Namespace(query="x", count=10, offset=0, json=True)
             )
         out, _err = capsys.readouterr()
         assert out == "", "失败时 stdout 必须是空的，不能是半截 JSON"

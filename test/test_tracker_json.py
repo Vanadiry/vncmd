@@ -1,7 +1,7 @@
 """tracker 的纯读视图
 
 四个动作（--fetch、--fetch-auto、-d、-d --diff）的结果都是文件而不是数据，
-所以 `--json` 只配纯读视图。`--limit` / `--offset` 同样只切 JSON ——
+所以 `--json` 只配纯读视图。`--count` / `--offset` 同样只切 JSON ——
 纯读面板暂时没有曲目表，给了不报错也不生效，曲目表做完就自动接上。
 """
 
@@ -35,7 +35,7 @@ def ns(**kw):
         "download": False,
         "diff": False,
         "json": False,
-        "limit": None,
+        "count": None,
         "offset": 0,
     }
     base.update(kw)
@@ -125,13 +125,13 @@ class Test切片:
         assert self._ids(capsys) == [1, 2, 3, 4, 5]
 
     def test_给了limit就切(self, ready, capsys):
-        assert self._ids(capsys, limit=2) == [1, 2]
+        assert self._ids(capsys, count=2) == [1, 2]
 
     def test_只给offset就切到末尾(self, ready, capsys):
         assert self._ids(capsys, offset=3) == [4, 5]
 
     def test_offset加limit(self, ready, capsys):
-        assert self._ids(capsys, offset=1, limit=2) == [2, 3]
+        assert self._ids(capsys, offset=1, count=2) == [2, 3]
 
     def test_超出范围给空数组(self, ready, capsys):
         """空的 songs 是合法结果，比空 stdout 加退出码 0 更好分"""
@@ -197,8 +197,8 @@ class Testparser:
         ("argv", "attr", "want"),
         [
             (["--json"], "json", True),
-            (["--limit", "2"], "limit", 2),
-            (["-l", "2"], "limit", 2),
+            (["--count", "2"], "count", 2),
+            (["-c", "2"], "count", 2),
             (["--offset", "5"], "offset", 5),
         ],
     )
@@ -213,7 +213,7 @@ class Testparser:
         from vncmd.cli import build_parser
 
         args = build_parser().parse_args(["tracker", "like"])
-        assert args.limit is None, "写成 0 就分不清用户是显式给了 0 还是没给"
+        assert args.count is None, "写成 0 就分不清用户是显式给了 0 还是没给"
 
     def test_json不与动作同组(self):
         """--json 与 --download 的互斥在 cmd_tracker 里手写，不是互斥组"""

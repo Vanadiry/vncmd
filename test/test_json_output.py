@@ -61,7 +61,7 @@ def ns(**kw):
         "lyric": False,
         "translate": False,
         "check": None,
-        "limit": None,
+        "count": None,
         "offset": 0,
     }
     base.update(kw)
@@ -102,7 +102,7 @@ class Test四条命令:
             "search",
             lambda q, limit=10, offset=0: {"total": 1, "songs": TRACKS},
         )
-        commands.cmd_search(ns(query="x", limit=10, offset=0, json=True))
+        commands.cmd_search(ns(query="x", count=10, offset=0, json=True))
         data, _out, _err = parsed(capsys)
         assert list(data) == ["search"]
         assert data["search"] == {"total": 1, "songs": TRACKS}
@@ -127,7 +127,7 @@ class TestJSON模式不画表格:
             "search",
             lambda q, limit=10, offset=0: {"total": 1, "songs": TRACKS},
         )
-        commands.cmd_search(ns(query="x", limit=10, offset=0, json=True))
+        commands.cmd_search(ns(query="x", count=10, offset=0, json=True))
         out = capsys.readouterr().out
         assert "│" not in out
 
@@ -137,26 +137,26 @@ class TestJSON给全量而面板截断:
         """表格给人看要截断免得刷屏，脚本要数据就得齐"""
         many = {**ALBUM, "tracks": [dict(TRACKS[0], id=i) for i in range(12)]}
         monkeypatch.setattr(commands, "get_album_details", lambda _i: many)
-        commands.cmd_album(ns(json=True, limit=None, offset=0))
+        commands.cmd_album(ns(json=True, count=None, offset=0))
         data, _out, _err = parsed(capsys)
         assert len(data["album"]["tracks"]) == 12, "JSON 要给全量，不能自己截"
 
     def test_album显式给了limit就按给的切(self, monkeypatch, capsys):
         """显式给了 limit 与 offset 就按给的切，与面板同一套规则。
 
-        早先这里断言 JSON 无视 limit，那是 --limit 只有一个含义时的行为。
+        早先这里断言 JSON 无视 limit，那是 --count 只有一个含义时的行为。
         用户为脚本写死一个 limit 却拿不到那么多条，比截断更难排查。
         """
         many = {**ALBUM, "tracks": [dict(TRACKS[0], id=i) for i in range(12)]}
         monkeypatch.setattr(commands, "get_album_details", lambda _i: many)
-        commands.cmd_album(ns(json=True, limit=3, offset=0))
+        commands.cmd_album(ns(json=True, count=3, offset=0))
         data, _out, _err = parsed(capsys)
         assert len(data["album"]["tracks"]) == 3
 
     def test_album_offset只给offset时切到末尾(self, monkeypatch, capsys):
         many = {**ALBUM, "tracks": [dict(TRACKS[0], id=i) for i in range(12)]}
         monkeypatch.setattr(commands, "get_album_details", lambda _i: many)
-        commands.cmd_album(ns(json=True, limit=None, offset=10))
+        commands.cmd_album(ns(json=True, count=None, offset=10))
         data, _out, _err = parsed(capsys)
         assert [t["id"] for t in data["album"]["tracks"]] == [10, 11]
 
@@ -164,7 +164,7 @@ class TestJSON给全量而面板截断:
         """对照：不是把截断整体去掉了，只是没给 limit 时 JSON 不截"""
         many = {**ALBUM, "tracks": [dict(TRACKS[0], id=i) for i in range(12)]}
         monkeypatch.setattr(commands, "get_album_details", lambda _i: many)
-        commands.cmd_album(ns(json=False, limit=2, offset=0))
+        commands.cmd_album(ns(json=False, count=2, offset=0))
         out = capsys.readouterr().out
         assert out.count("鏡音レンの暴走") <= 2
 
@@ -199,7 +199,7 @@ class Test空结果:
         monkeypatch.setattr(
             commands, "search", lambda q, limit=10, offset=0: {"total": 0, "songs": []}
         )
-        commands.cmd_search(ns(query="x", limit=10, offset=0, json=True))
+        commands.cmd_search(ns(query="x", count=10, offset=0, json=True))
         data, _out, err = parsed(capsys)
         assert data == {"search": {"total": 0, "songs": []}}
         assert "未找到" not in err, "空结果不该报成异常"
@@ -231,7 +231,7 @@ class Test权限判定不进JSON:
         monkeypatch.setattr(
             commands, "get_account_info", lambda: {"logged_in": True, "vip": True}
         )
-        commands.cmd_search(ns(query="x", limit=10, offset=0, json=True))
+        commands.cmd_search(ns(query="x", count=10, offset=0, json=True))
         data, _out, _err = parsed(capsys)
         assert "blocked" not in data["search"]
         assert "blocked" not in data["search"]["songs"][0]

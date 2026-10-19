@@ -278,8 +278,8 @@ def tracker_payload(settings: dict, db: dict, args: argparse.Namespace) -> dict:
     切片按 4.1 那条统一规则：显式给了 limit 或 offset 才切。
     """
     songs = db["songs"]
-    if args.limit is not None or args.offset:
-        end = args.offset + args.limit if args.limit else None
+    if args.count is not None or args.offset:
+        end = args.offset + args.count if args.count else None
         songs = songs[args.offset : end]
     return {
         "tracker": {
@@ -720,6 +720,6 @@ def cmd_tracker(args: argparse.Namespace) -> None:
         show_tracker(
             name,
             load_songs_db_full(name)["updated_at"],
-            max_tracks=args.limit or 10,
+            max_tracks=args.count or 10,
             offset=args.offset,
         )

@@ -25,7 +25,7 @@ def ns(**kw):
         "download": False,
         "diff": False,
         "json": False,
-        "limit": None,
+        "count": None,
         "offset": 0,
     }
     base.update(kw)
@@ -123,7 +123,7 @@ class Test面板给设置路径:
         monkeypatch.setattr(
             tracker, "abbrev_home", lambda p: str(p).replace("/Users/tester", "~")
         )
-        tracker.cmd_tracker(ns(limit=3))
+        tracker.cmd_tracker(ns(count=3))
         assert "~/.vSoft/x.toml" in capsys.readouterr().out
 
 
@@ -414,7 +414,7 @@ class Test路径缩写:
             tracker, "abbrev_home", lambda p: str(p).replace(str(home), "~")
         )
         monkeypatch.setattr(tracker, "console", Console(width=400))
-        tracker.cmd_tracker(ns(limit=2))
+        tracker.cmd_tracker(ns(count=2))
         out = capsys.readouterr().out
         行 = [ln for ln in out.splitlines() if "settings.toml" in ln]
         assert 行, f"输出里没有 settings.toml 那一行：{out}"
@@ -555,7 +555,7 @@ class Test曲目表宽度:
     def test_曲目表占满终端(self, ready, monkeypatch, capsys):
         """另外三个命令的曲目表都有 expand=True，这张也得有"""
         monkeypatch.setattr(tracker, "console", Console(width=150))
-        tracker.cmd_tracker(ns(limit=3))
+        tracker.cmd_tracker(ns(count=3))
         out = capsys.readouterr().out
         songs_rows = [ln for ln in out.splitlines() if ln.startswith("│ 1 │")]
         assert songs_rows, "没有曲目行"
@@ -594,7 +594,7 @@ class Test曲目表:
 
     def test_面板带已缓存曲目数(self, ready, capsys):
         """总数在面板里，不必再在表格下面单起一行"""
-        tracker.cmd_tracker(ns(limit=3))
+        tracker.cmd_tracker(ns(count=3))
         assert "已缓存曲目：200" in capsys.readouterr().out
 
     def test_面板给设置文件的路径(self, ready, capsys):
@@ -602,7 +602,7 @@ class Test曲目表:
 
         给路径就够：要看或改直接开那个文件。
         """
-        tracker.cmd_tracker(ns(limit=3))
+        tracker.cmd_tracker(ns(count=3))
         out = capsys.readouterr().out
         assert "settings.toml" in out
         assert "819104208" not in out, "来源列表不该再出现在面板上"
@@ -612,7 +612,7 @@ class Test曲目表:
         monkeypatch.setattr(
             tracker, "load_settings", lambda n: {"description": "d", "sources": []}
         )
-        tracker.cmd_tracker(ns(limit=3))
+        tracker.cmd_tracker(ns(count=3))
         assert "尚未配置来源" in capsys.readouterr().out
 
     def test_四列(self, ready, capsys):
@@ -622,7 +622,7 @@ class Test曲目表:
             assert col in out, f"少了 {col} 列"
 
     def test_序号是绝对的(self, ready, capsys):
-        tracker.cmd_tracker(ns(offset=100, limit=3))
+        tracker.cmd_tracker(ns(offset=100, count=3))
         out = capsys.readouterr().out
         rows = [
             ln
@@ -632,11 +632,11 @@ class Test曲目表:
         assert [ln.split("│")[1].strip() for ln in rows] == ["101", "102", "103"]
 
     def test_标题带区间(self, ready, capsys):
-        tracker.cmd_tracker(ns(offset=5, limit=3))
+        tracker.cmd_tracker(ns(offset=5, count=3))
         assert "6-8/20" in capsys.readouterr().out
 
     def test_不给offset也给区间(self, ready, capsys):
-        tracker.cmd_tracker(ns(limit=10))
+        tracker.cmd_tracker(ns(count=10))
         assert "1-10/200" in capsys.readouterr().out
 
     def test_默认十条(self, ready, capsys):
@@ -651,7 +651,7 @@ class Test曲目表:
         monkeypatch.setattr(
             tracker, "load_songs_db", lambda n: songs(with_artist=False)
         )
-        tracker.cmd_tracker(ns(limit=2))
+        tracker.cmd_tracker(ns(count=2))
         out = capsys.readouterr().out
         assert "曲目1" in out, "老条目照样要能看，不能因为缺 artist 就整表不显示"
 
@@ -670,14 +670,14 @@ class TestLimitOffset现在对面板生效:
         assert "只作用于 --json" not in out
 
     def test_json仍然切片(self, ready, capsys):
-        tracker.cmd_tracker(ns(json=True, limit=2, offset=3))
+        tracker.cmd_tracker(ns(json=True, count=2, offset=3))
         data, _out, _err = parsed(capsys)
         assert [s["id"] for s in data["tracker"]["songs"]] == [4, 5]
 
 
 class TestJson带artist:
     def test_json里的song有artist(self, ready, capsys):
-        tracker.cmd_tracker(ns(json=True, limit=1))
+        tracker.cmd_tracker(ns(json=True, count=1))
         data, _out, _err = parsed(capsys)
         assert data["tracker"]["songs"][0]["artist"] == "艺术家1"
 
@@ -686,7 +686,7 @@ class TestJson带artist:
         monkeypatch.setattr(
             tracker, "load_songs_db_full", lambda n: db(with_artist=False)
         )
-        tracker.cmd_tracker(ns(json=True, limit=1))
+        tracker.cmd_tracker(ns(json=True, count=1))
         data, _out, _err = parsed(capsys)
         assert data["tracker"]["songs"][0] == {"id": 1, "title": "曲目1"}
 

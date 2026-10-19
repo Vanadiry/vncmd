@@ -114,16 +114,16 @@ def _add_json_arg(parser: object) -> None:
 
 
 def _add_list_args(parser: object) -> None:
-    """给有曲目表的命令加 --limit 与 --offset
+    """给有曲目表的命令加 --count 与 --offset
 
-    --limit 同时管面板条数、JSON 条数与下载条数，所以不放进
+    --count 同时管面板条数、JSON 条数与下载条数，所以不放进
     _add_download_args —— 它早就不是只管下载的开关了。
     default 为 None 是为了让「用户显式给了」与「没给」分得开：
     没给时面板取前 10 条，--json 与下载取全量。song 只有一首，不加。
     """
     parser.add_argument(
-        "--limit",
-        "-l",
+        "--count",
+        "-c",
         type=int,
         default=None,
         metavar="N",
@@ -192,7 +192,7 @@ def build_parser() -> _ArgumentParser:
     # 而每个子命令都挂一份只会让 help 里重复十几遍
     parser.add_argument(
         "--config",
-        "-c",
+        "-C",
         action="append",
         default=[],
         metavar="key=value",
@@ -229,8 +229,8 @@ def build_parser() -> _ArgumentParser:
     # 全列进用法那行，报错时更是刷出 100 个数字。
     # 顺带补下限：limit=0 在服务端是合法的但拿不到东西，无意义
     p_search.add_argument(
-        "--limit",
-        "-l",
+        "--count",
+        "-c",
         type=_search_limit,
         default=None,
         metavar="N",
@@ -249,7 +249,7 @@ def build_parser() -> _ArgumentParser:
     _add_dlink_arg(grp_song, "显示下载链接与音质、费用等详情")
     _add_json_arg(p_song)
     _add_download_args(p_song, download_group=grp_song)
-    p_song.add_argument("--lyric", action="store_true", help="显示歌词")
+    p_song.add_argument("--lyric", "-l", action="store_true", help="显示歌词")
     p_song.add_argument(
         "--translate",
         "-t",
@@ -315,8 +315,8 @@ def build_parser() -> _ArgumentParser:
     # --json 只配纯读视图：四个动作的结果都是文件，不是数据
     _add_json_arg(p_tracker)
     p_tracker.add_argument(
-        "--limit",
-        "-l",
+        "--count",
+        "-c",
         type=int,
         default=None,
         metavar="N",
@@ -344,7 +344,7 @@ _NO_ACCOUNT_REPORT = {"cookie", "tool"}
 
 
 def _search_limit(raw: str) -> int:
-    """把 --limit 限制在服务端接受的范围，报错用中文而不是 invalid choice"""
+    """把 --count 限制在服务端接受的范围，报错用中文而不是 invalid choice"""
     try:
         value = int(raw)
     except ValueError:

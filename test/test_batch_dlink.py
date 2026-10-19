@@ -79,7 +79,7 @@ def ns(**kw):
         "lyric": False,
         "translate": False,
         "check": None,
-        "limit": None,
+        "count": None,
         "offset": 0,
     }
     base.update(kw)
@@ -261,7 +261,7 @@ class Test批量取链接:
         monkeypatch.setattr(
             commands, "fetch_player_url", lambda _i, quality=None: READY
         )
-        commands.cmd_song(ns(id=1, dlink=True, json=True, limit=None))
+        commands.cmd_song(ns(id=1, dlink=True, json=True, count=None))
         data, _out, _err = parsed(capsys)
         monkeypatch.setattr(commands, "get_album_details", lambda _i: album())
         commands.cmd_album(ns())
@@ -273,7 +273,7 @@ class Test先切再取链接:
     def test_只为切出来的那几条请求(self, monkeypatch, capsys, two_urls):
         """反过来会为没要的那几百首发一次，stderr 还报全量的比例"""
         monkeypatch.setattr(commands, "get_album_details", lambda _i: album(300))
-        commands.cmd_album(ns(limit=2, offset=100))
+        commands.cmd_album(ns(count=2, offset=100))
         data, _out, _err = parsed(capsys)
         assert two_urls == [[101, 102]]
         assert [t["id"] for t in data["album"]["tracks"]] == [101, 102]
@@ -383,7 +383,7 @@ class Test拿不到的报法:
             "fetch_player_urls",
             lambda ids, quality=None: {ids[2]: BLOCKED, ids[0]: READY},
         )
-        commands.cmd_album(ns(limit=5))
+        commands.cmd_album(ns(count=5))
         _d, _o, err = parsed(capsys)
         assert "4 首拿不到链接" in err
 

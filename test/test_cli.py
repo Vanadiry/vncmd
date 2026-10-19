@@ -30,7 +30,7 @@ class TestCliPreview:
         assert "用法：" in r.stdout
 
     def test_search(self):
-        r = _run(["search", "Beyond", "--limit", "3"])
+        r = _run(["search", "Beyond", "--count", "3"])
         assert r.returncode == 0
         assert "Beyond" in r.stdout
 
@@ -56,11 +56,11 @@ class TestCliPreview:
         assert url.startswith("http")
 
     def test_playlist_preview(self):
-        r = _run(["playlist", str(PLAYLIST_ID), "--limit", "3"])
+        r = _run(["playlist", str(PLAYLIST_ID), "--count", "3"])
         assert r.returncode == 0
 
     def test_album_preview(self):
-        r = _run(["album", str(ALBUM_ID), "--limit", "3"])
+        r = _run(["album", str(ALBUM_ID), "--count", "3"])
         assert r.returncode == 0
 
 
@@ -75,7 +75,7 @@ class TestCliDownload:
                 "playlist",
                 str(PLAYLIST_ID),
                 "-d",
-                "--limit",
+                "--count",
                 "1",
             ],
             timeout=120,
@@ -90,7 +90,7 @@ class TestCliDownload:
                 "album",
                 str(ALBUM_ID),
                 "-d",
-                "--limit",
+                "--count",
                 "1",
             ],
             timeout=120,

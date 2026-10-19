@@ -1,4 +1,4 @@
-"""`--limit` 与 `--offset` 的分页
+"""`--count` 与 `--offset` 的分页
 
 规则只有一条：有列表的三个命令，不带 --json 时面板取前 10 条，
 带 --json 时给全量；显式给了 limit 或 offset 就按给的切。
@@ -202,7 +202,7 @@ class Test切片:
 
 class Test搜索传给接口的条数:
     def _sent(self, **kw):
-        base = {"query": "x", "limit": None, "offset": 0, "json": False}
+        base = {"query": "x", "count": None, "offset": 0, "json": False}
         base.update(kw)
         ns = argparse.Namespace(**base)
         with unittest.mock.patch.object(
@@ -218,7 +218,7 @@ class Test搜索传给接口的条数:
         assert self._sent(json=True)["limit"] == 100
 
     def test_显式给了就用给的(self):
-        assert self._sent(limit=7, json=True)["limit"] == 7
+        assert self._sent(count=7, json=True)["limit"] == 7
 
     def test_offset原样交给接口(self):
         """本地不能再切一刀，那样 offset 会被数两遍"""
@@ -229,7 +229,7 @@ class Test下载也吃切片:
     def test_offset与limit都传下去(self, monkeypatch):
         ns = argparse.Namespace(
             id=1,
-            limit=5,
+            count=5,
             offset=100,
             dlink=False,
             download=True,

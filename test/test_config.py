@@ -755,17 +755,17 @@ class Test短选项:
         [
             (["--init"], "init", True),
             (["-i"], "init", True),
-            (["search", "x", "--limit", "5"], "limit", 5),
-            (["search", "x", "-l", "5"], "limit", 5),
+            (["search", "x", "--count", "5"], "count", 5),
+            (["search", "x", "-c", "5"], "count", 5),
             (["search", "x", "--offset", "2"], "offset", 2),
             (["search", "x", "-o", "2"], "offset", 2),
             # album/playlist 共用 _add_list_args，tracker 自己加了一份 ——
             # 只测 search 的话，那两处的短选项掉了都发现不了
-            (["album", "1", "-l", "5"], "limit", 5),
+            (["album", "1", "-c", "5"], "count", 5),
             (["album", "1", "-o", "2"], "offset", 2),
-            (["playlist", "1", "-l", "5"], "limit", 5),
+            (["playlist", "1", "-c", "5"], "count", 5),
             (["playlist", "1", "-o", "2"], "offset", 2),
-            (["tracker", "n", "-l", "5"], "limit", 5),
+            (["tracker", "n", "-c", "5"], "count", 5),
             (["tracker", "n", "-o", "2"], "offset", 2),
             (["search", "x", "--json"], "json", True),
             (["search", "x", "-j"], "json", True),
@@ -774,6 +774,7 @@ class Test短选项:
             (["playlist", "1", "-j"], "json", True),
             (["tracker", "n", "-j"], "json", True),
             (["song", "1", "--lyric"], "lyric", True),
+            (["song", "1", "-l"], "lyric", True),
             (["song", "1", "--translate"], "translate", True),
             (["song", "1", "-t"], "translate", True),
             (["tracker", "n", "--auto-accept"], "auto_accept", True),
@@ -803,7 +804,7 @@ class Test短选项:
     def test_config的短选项(self):
         from vncmd.cli import build_parser
 
-        args = build_parser().parse_args(["-c", "download.check=false", "search", "x"])
+        args = build_parser().parse_args(["-C", "download.check=false", "search", "x"])
         assert args.config == ["download.check=false"]
 
     def test_进度与下载可以连写(self):

@@ -20,7 +20,7 @@ def ns(**kw):
         "json": False,
         "auto_accept": False,
         "force": False,
-        "limit": None,
+        "count": None,
         "offset": 0,
     }
     base.update(kw)

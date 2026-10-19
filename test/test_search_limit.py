@@ -1,4 +1,4 @@
-"""`search --limit` 的取值范围
+"""`search --count` 的取值范围
 
 服务端的单次上限是 100，超了直接回 {'code': 400}，那句话对用户毫无意义。
 所以在 argparse 这一层就拦掉，给中文提示。
@@ -11,7 +11,7 @@ from vncmd.net.api import SEARCH_LIMIT_MAX
 
 
 def parse(limit):
-    return build_parser().parse_args(["search", "初音", "-l", str(limit)])
+    return build_parser().parse_args(["search", "初音", "-c", str(limit)])
 
 
 def _error_line(capsys, limit):
@@ -31,7 +31,7 @@ def _error_line(capsys, limit):
 class Test合法值:
     @pytest.mark.parametrize("n", [1, 10, 50, 99, 100])
     def test_范围内收下(self, n):
-        assert parse(n).limit == n
+        assert parse(n).count == n
 
     def test_上限就是实测的那个数(self):
         """实测 100 能过而 101 回 code 400，这个数是量出来的不是猜的"""
@@ -42,7 +42,7 @@ class Test合法值:
 
         写成 10 就分不清用户是显式给了 10 还是没给，而 --json 要的是全量。
         """
-        assert build_parser().parse_args(["search", "初音"]).limit is None
+        assert build_parser().parse_args(["search", "初音"]).count is None
 
 
 class Test越界:

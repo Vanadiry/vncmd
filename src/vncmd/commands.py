@@ -104,7 +104,7 @@ def cmd_search(args: argparse.Namespace) -> None:
     # search 的 offset 与 limit 都是服务端的，直接交给接口即可，
     # 本地再切一刀会把 offset 数两遍。JSON 要全量而服务端单次最多 100 条，
     # 所以「全量」在这里就是那个上限，与 album 的全量语义一致
-    limit = args.limit or (SEARCH_LIMIT_MAX if args.json else 10)
+    limit = args.count or (SEARCH_LIMIT_MAX if args.json else 10)
     try:
         result = search(args.query, limit=limit, offset=args.offset)
     except Exception as e:
@@ -301,8 +301,8 @@ def _json_payload(args: argparse.Namespace, source: dict) -> dict:
     那几条里，比例也被无关的条目稀释了。
     """
     tracks = source["tracks"]
-    if args.limit is not None or args.offset:
-        tracks = _slice(tracks, args.offset, args.limit)
+    if args.count is not None or args.offset:
+        tracks = _slice(tracks, args.offset, args.count)
 
     payload = dict(source)
     payload["tracks"] = tracks
@@ -332,7 +332,7 @@ def cmd_album(args: argparse.Namespace) -> None:
         _dump_json({"album": _json_payload(args, al)})
         return
 
-    display_album(al, max_tracks=args.limit or 10, offset=args.offset)
+    display_album(al, max_tracks=args.count or 10, offset=args.offset)
 
     if not args.download:
         return
@@ -345,7 +345,7 @@ def cmd_album(args: argparse.Namespace) -> None:
         output_dir,
         dl_type="album",
         dl_id=str(args.id),
-        limit=args.limit,
+        limit=args.count,
         offset=args.offset,
         run_check=None,
         use_curl=None,
@@ -366,7 +366,7 @@ def cmd_playlist(args: argparse.Namespace) -> None:
         _dump_json({"playlist": _json_payload(args, pl)})
         return
 
-    display_playlist(pl, max_tracks=args.limit or 10, offset=args.offset)
+    display_playlist(pl, max_tracks=args.count or 10, offset=args.offset)
 
     removed = pl.get("removed_tracks", [])
     # 明细跟在 warning 的标题下面，两边都进 stderr
@@ -390,7 +390,7 @@ def cmd_playlist(args: argparse.Namespace) -> None:
         output_dir,
         dl_type="playlist",
         dl_id=str(args.id),
-        limit=args.limit,
+        limit=args.count,
         offset=args.offset,
         run_check=None,
         use_curl=None,

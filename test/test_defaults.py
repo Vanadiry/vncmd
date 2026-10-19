@@ -27,13 +27,13 @@ class TestSearchLimit:
 
         写成 10 就分不清用户是显式给了 10 还是没给，而 --json 要的是全量。
         """
-        assert _parse(["search", "x"]).limit is None
+        assert _parse(["search", "x"]).count is None
 
     def test_短选项照旧(self):
-        assert _parse(["search", "x", "-l", "5"]).limit == 5
+        assert _parse(["search", "x", "-c", "5"]).count == 5
 
     def test_长选项照旧(self):
-        assert _parse(["search", "x", "--limit", "5"]).limit == 5
+        assert _parse(["search", "x", "--count", "5"]).count == 5
 
     def test_偏移默认零(self):
         assert _parse(["search", "x"]).offset == 0
@@ -214,7 +214,7 @@ class TestDefaultsStayInSync:
         for json_flag in (False, True):
             for limit in (None, 1, 50, SEARCH_LIMIT_MAX):
                 ns = argparse.Namespace(
-                    query="x", limit=limit, offset=0, json=json_flag
+                    query="x", count=limit, offset=0, json=json_flag
                 )
                 with unittest.mock.patch.object(
                     commands, "search", return_value={"songs": [], "total": 0}
@@ -228,7 +228,7 @@ class TestDefaultsStayInSync:
 
         早先断言的是文档里那句「返回数量，默认 10」的字面，
         那个短语被挪进表格后就找不到了，而数字一个字没变。
-        所以改成读 --limit 那一行的「默认」列：要防的是数字漂移，
+        所以改成读 --count 那一行的「默认」列：要防的是数字漂移，
         不是文档的措辞与排版。
         """
         import re
@@ -237,11 +237,11 @@ class TestDefaultsStayInSync:
             (
                 line
                 for line in self._doc("search.md").splitlines()
-                if line.startswith("| `--limit")
+                if line.startswith("| `--count")
             ),
             None,
         )
-        assert row, "文档的 search.md 里没有 --limit 那一行"
+        assert row, "文档的 search.md 里没有 --count 那一行"
         cells = [c.strip() for c in row.split("|")]
         assert len(cells) > 4, f"那一行没有「默认」列：{row}"
         hit = re.search(r"\d+", cells[3])
