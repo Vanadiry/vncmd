@@ -154,9 +154,9 @@ def build_parser() -> _ArgumentParser:
         "--config",
         action="append",
         default=[],
-        metavar="键=值",
+        metavar="key=value",
         help="临时覆盖某一项配置，如 --config download.audio.quality=128（可重复，"
-        "后者生效）。可覆盖的键见 doc/config.md。必须写在子命令之前",
+        "后者生效）。能覆盖的键见 doc/config.md。必须写在子命令之前",
     )
 
     p_cookie = sub.add_parser("cookie", help="设置 Cookie")
@@ -318,7 +318,7 @@ def _reject_json_download(args: argparse.Namespace) -> None:
 
 
 def _config_overrides(raw: list[str]) -> dict:
-    """把 --config 的 `键=值` 解析成 {点号路径: 已转好类型的值}
+    """把 --config 的 `key=value` 解析成 {点号路径: 已转好类型的值}
 
     路径与类型都在这层查掉，写错一个键名要立刻有话说 ——
     流到校验那一步只会报成笼统的「未知键」，而且是在读了配置之后
@@ -353,6 +353,11 @@ def main() -> None:
         cmd_init(args)
         return
 
+    # --config 一律先校验，包括没给子命令的时候 ——
+    # 否则 `vncmd --config qualty=max` 会打个帮助就退 0，拼错的键一声不吭。
+    # 校验过的是「写法与类型」，还没到「这一项配得对不对」，那要读配置才做
+    overrides = _config_overrides(args.config)
+
     # 只看帮助时不碰配置与锁，--help 在 parse_args 内部就已退出
     if args.command is None:
         parser.print_help()
@@ -362,7 +367,7 @@ def main() -> None:
 
     acquire_lock()
 
-    validate_config(overrides=_config_overrides(args.config))
+    validate_config(overrides=overrides)
 
     # 播报账号状态。放这里而不是下载前，是因为它必须在取链接之前，
     # 付费歌拿不到链接会直接退出，等到落盘那一步就永远等不到这条提示了

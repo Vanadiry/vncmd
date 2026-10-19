@@ -292,16 +292,16 @@ def coerce(path: str, raw: str) -> Any:
 
 
 def split_override(text: str) -> tuple[str, str]:
-    """把 `键=值` 切开，只按第一个等号
+    """把 `key=value` 切开，只按第一个等号
 
     值里可能有等号：`curl_arg="-H X=1"`。
     没有等号或键为空都算写法错，立刻报 —— 否则会静默变成别的东西
     """
     if "=" not in text:
-        raise ValueError(f"{text!r} 不是 键=值 的写法")
+        raise ValueError(f"{text!r} 不是 key=value 的写法")
     key, value = text.split("=", 1)
     if not key:
-        raise ValueError(f"{text!r} 少了等号前面的键")
+        raise ValueError(f"{text!r} 的 key 是空的")
     return key, value
 
 

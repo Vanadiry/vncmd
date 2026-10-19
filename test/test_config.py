@@ -697,8 +697,8 @@ class Test命令行的config参数:
             ("download.concurrency=abc", "要整数"),
             ("download.check=yes", "只能是 true 或 false"),
             ("download.audio.qualty=max", "没有"),
-            ("download.concurrency", "不是 键=值"),
-            ("=5", "少了等号前面的键"),
+            ("download.concurrency", "不是 key=value"),
+            ("=5", "key 是空的"),
         ],
     )
     def test_写错了就退出(self, 参数, 该说的, capsys):

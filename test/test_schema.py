@@ -857,7 +857,7 @@ class Testvalue_of的边界:
 
 
 class Test命令行的键值解析:
-    """--config 传进来的 键=值 要在 CLI 那层就解析干净
+    """--config 传进来的 key=value 要在 CLI 那层就解析干净
 
     路径与类型都在这层查掉：写错一个键名要立刻有话说，
     流到校验那一步只会报成笼统的「未知键」，而且是在读了配置之后
@@ -868,12 +868,12 @@ class Test命令行的键值解析:
         assert schema.split_override("curl_arg=-H X=1") == ("curl_arg", "-H X=1")
 
     def test_没有等号算写法错(self):
-        with pytest.raises(ValueError, match="不是 键=值"):
+        with pytest.raises(ValueError, match="不是 key=value"):
             schema.split_override("download.concurrency")
 
     def test_等号前面空着算写法错(self):
         """--config =5 是漏了键名，不能当成给空键赋值"""
-        with pytest.raises(ValueError, match="少了等号前面的键"):
+        with pytest.raises(ValueError, match="key 是空的"):
             schema.split_override("=5")
 
     def test_值可以是空串(self):
