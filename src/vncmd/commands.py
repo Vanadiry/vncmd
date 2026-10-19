@@ -11,14 +11,14 @@ from rich.markup import escape
 from vncmd.core.config import (
     CONFIG_FILE,
     COOKIE_FILE,
-    QUALITY_MAP,
     VNCMD_HOME,
     abbrev_home,
     get_cache_dir,
     get_cache_ttl,
     get_download_content,
+    get_download_dir,
     get_quality,
-    resolve_output_dir,
+    get_quality_name,
     validate_config,
 )
 from vncmd.core.output import (
@@ -62,12 +62,6 @@ from vncmd.net.api import (
     search,
 )
 from vncmd.session import make_session_dir
-
-
-def _resolve_quality(args: argparse.Namespace) -> int:
-    if args.quality:
-        return QUALITY_MAP[args.quality]
-    return get_quality()
 
 
 def _slice(tracks: list[dict], offset: int, limit: int | None) -> list[dict]:
@@ -208,7 +202,7 @@ def cmd_song(args: argparse.Namespace) -> None:
         if args.dlink:
             # 收窄成那七个字段，与 album、playlist 的批量同形
             payload["download"] = _download_entry(
-                fetch_player_url(args.id, quality=_resolve_quality(args))
+                fetch_player_url(args.id, quality=get_quality())
             )
         _dump_json(payload)
         return
@@ -228,7 +222,7 @@ def cmd_song(args: argparse.Namespace) -> None:
 
     if args.dlink and not args.download:
         # 完整详情卡对看下载信息没有帮助，面板里已经带了标题用于辨认
-        quality = _resolve_quality(args)
+        quality = get_quality()
         display_download_detail(
             args.id, song["title"], fetch_player_url(args.id, quality=quality)
         )
@@ -237,10 +231,10 @@ def cmd_song(args: argparse.Namespace) -> None:
         return
 
     want_song = "a" in get_download_content()
-    quality = _resolve_quality(args)
+    quality = get_quality()
     source = None
     if want_song:
-        info(f"正在获取流 URL（音质={args.quality or '配置'}）...")
+        info(f"正在获取流 URL（音质={get_quality_name()}）...")
         for attempt in range(1, 4):
             source = get_audio_source(args.id, quality=quality)
             if source:
@@ -251,7 +245,7 @@ def cmd_song(args: argparse.Namespace) -> None:
             error("无法获取下载链接，若其他曲目能够正常下载，则可能是这个曲目有问题。")
             sys.exit(1)
 
-    output_dir = make_session_dir(resolve_output_dir(args.output))
+    output_dir = make_session_dir(get_download_dir())
     info(f"正在下载「{song['title']} - {song['artist']}」")
     info(f'下载到 "{abbrev_home(output_dir)}"')
     lyrics_api = get_lyrics_url(args.id)
@@ -269,8 +263,8 @@ def cmd_song(args: argparse.Namespace) -> None:
         cd_no=song.get("cd_no"),
         song_size=source.size if source else 0,
         song_md5=source.md5 if source else "",
-        run_check=args.check,
-        use_curl=args.curl,
+        run_check=None,
+        use_curl=None,
         song_level=source.level if source else "",
         want_br=quality,
     )
@@ -307,7 +301,7 @@ def _json_payload(args: argparse.Namespace, source: dict) -> dict:
     payload["tracks"] = tracks
 
     if args.dlink:
-        missing = _attach_downloads(tracks, _resolve_quality(args))
+        missing = _attach_downloads(tracks, get_quality())
         if missing:
             # 只给数量。不按 fee 分类：FEE_NEED 只映射了 1 与 4，
             # 而实测里 fee=8 出现在三分之一的曲目上，没有任何依据说明它是什么。
@@ -336,8 +330,8 @@ def cmd_album(args: argparse.Namespace) -> None:
     if not args.download:
         return
 
-    quality = _resolve_quality(args)
-    output_dir = resolve_output_dir(args.output)
+    quality = get_quality()
+    output_dir = get_download_dir()
     _download_tracks(
         al["tracks"],
         quality,
@@ -346,8 +340,8 @@ def cmd_album(args: argparse.Namespace) -> None:
         dl_id=str(args.id),
         limit=args.limit,
         offset=args.offset,
-        run_check=args.check,
-        use_curl=args.curl,
+        run_check=None,
+        use_curl=None,
     )
 
 
@@ -381,8 +375,8 @@ def cmd_playlist(args: argparse.Namespace) -> None:
     if not args.download:
         return
 
-    quality = _resolve_quality(args)
-    output_dir = resolve_output_dir(args.output)
+    quality = get_quality()
+    output_dir = get_download_dir()
     _download_tracks(
         pl["tracks"],
         quality,
@@ -391,8 +385,8 @@ def cmd_playlist(args: argparse.Namespace) -> None:
         dl_id=str(args.id),
         limit=args.limit,
         offset=args.offset,
-        run_check=args.check,
-        use_curl=args.curl,
+        run_check=None,
+        use_curl=None,
     )
 
 

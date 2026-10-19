@@ -14,7 +14,7 @@ from vncmd.commands import (
     cmd_search,
     cmd_song,
 )
-from vncmd.core.config import QUALITY_MAP, acquire_lock, validate_config
+from vncmd.core.config import acquire_lock, validate_config
 from vncmd.core.output import err_console, error
 from vncmd.core.schema import coerce, split_override
 from vncmd.net.api import SEARCH_LIMIT_MAX
@@ -57,22 +57,6 @@ def _version_string() -> str:
         return f"vncmd {_pkg_version('vncmd')}"
     except PackageNotFoundError:
         return "vncmd unknown"
-
-
-def _add_quality_arg(parser: object) -> None:
-    parser.add_argument(
-        "--quality",
-        "-q",
-        choices=list(QUALITY_MAP),
-        default=None,
-        help="音质（默认：使用配置）",
-    )
-
-
-def _add_output_arg(parser: object) -> None:
-    parser.add_argument(
-        "--output", "-o", default=None, help="输出目录（默认：使用配置）"
-    )
 
 
 def _add_json_arg(parser: object) -> None:
@@ -132,20 +116,9 @@ def _add_download_args(parser: object, download_group: object = None) -> None:
     """
     add = download_group.add_argument if download_group else parser.add_argument
     add("--download", "-d", action="store_true", help="下载而非仅预览")
-    parser.add_argument(
-        "--check",
-        action="store_true",
-        default=None,
-        help="下载时做 ffmpeg 全量解码校验（默认：使用配置）",
-    )
-    parser.add_argument(
-        "--curl",
-        action="store_true",
-        default=None,
-        help="用系统 curl 下载（默认：使用配置）",
-    )
-    _add_quality_arg(parser)
-    _add_output_arg(parser)
+    # 音质、校验、下载方式、输出目录都不再各给一个参数 ——
+    # 它们都是配置项，要临时改就用 --config。
+    # 原来 --check 与 --curl 只能开不能关，现在 --config 两个方向都行
 
 
 def build_parser() -> _ArgumentParser:
@@ -303,8 +276,7 @@ def build_parser() -> _ArgumentParser:
     p_tracker.add_argument(
         "--offset", type=int, default=0, metavar="N", help="起始序号，从 0 计"
     )
-    _add_quality_arg(p_tracker)
-    _add_output_arg(p_tracker)
+    # 音质与输出目录同样是配置项，用 --config 临时改
 
     return parser
 

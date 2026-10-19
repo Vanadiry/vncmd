@@ -159,19 +159,19 @@ class TestParser:
         return build_parser().parse_args(argv)
 
     @pytest.mark.parametrize("cmd", ["song", "album", "playlist"])
-    def test_curl_flag_absent_is_none(self, cmd):
-        """必须是 None 而非 False，否则 downloader = "curl" 永远没机会生效"""
-        assert self._parse([cmd, "123"]).curl is None
+    def test_curl_arg不再接受(self, cmd):
+        """--curl 与配置项 download.downloader 是同一件事，只留 --config
+
+        原来那个开关只能切到 curl，切不回来；--config 两个方向都行
+        """
+        with pytest.raises(SystemExit) as e:
+            self._parse([cmd, "123", "--curl"])
+        assert e.value.code == 2
 
     @pytest.mark.parametrize("cmd", ["song", "album", "playlist"])
-    def test_curl_flag_present_is_true(self, cmd):
-        assert self._parse([cmd, "123", "--curl"]).curl is True
-
-    @pytest.mark.parametrize("cmd", ["song", "album", "playlist"])
-    def test_curl_and_check_coexist(self, cmd):
-        args = self._parse([cmd, "123", "-d", "--curl", "--check"])
-        assert args.curl is True
-        assert args.check is True
+    def test_下载方式走config(self, cmd):
+        args = self._parse(["--config", "download.downloader=curl", cmd, "123"])
+        assert args.config == ["download.downloader=curl"]
 
 
 class TestValidation:

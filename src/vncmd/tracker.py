@@ -13,11 +13,10 @@ from rich.markup import escape
 
 from vncmd.commands import _dump_json
 from vncmd.core.config import (
-    QUALITY_MAP,
     VNCMD_HOME,
     abbrev_home,
+    get_download_dir,
     get_quality,
-    resolve_output_dir,
 )
 from vncmd.core.defaults import TRACKER_SETTINGS_TOML
 from vncmd.core.jsonstore import read_json_safe, write_json_atomic
@@ -700,8 +699,8 @@ def cmd_tracker(args: argparse.Namespace) -> None:
                 success(f"已保存 {len(resolved)} 首曲目到数据库。")
 
     elif args.download:
-        quality = QUALITY_MAP[args.quality] if args.quality else get_quality()
-        output_dir = resolve_output_dir(args.output)
+        quality = get_quality()
+        output_dir = get_download_dir()
         if args.diff:
             download_diff(name, quality, output_dir)
         else:

@@ -222,15 +222,18 @@ def get_curl_arg() -> str:
     return value_of(_get_cfg(), "download.curl_arg")
 
 
-def resolve_output_dir(value: str | None) -> str:
-    if value:
-        # 不展开 ~ 会在当前目录下建出名为 ~ 的目录
-        return os.path.expanduser(value)
-    return get_download_dir()
-
-
 def get_quality() -> int:
+    """配置的音质，转成发给接口的码率"""
     return QUALITY_MAP[value_of(_get_cfg(), "download.audio.quality")]
+
+
+def get_quality_name() -> str:
+    """配置里写的那个音质名，如 128、max
+
+    与 get_quality 分开：那个给接口用，要码率；这个给人看，要名字。
+    提示里印 2147483647 没人看得懂
+    """
+    return value_of(_get_cfg(), "download.audio.quality")
 
 
 def get_cookie() -> str:

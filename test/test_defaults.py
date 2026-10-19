@@ -177,8 +177,8 @@ class TestDiffNeedsDownload:
         monkeypatch.setattr(tracker, "download_diff", lambda *a: called.append(a))
         monkeypatch.setattr(tracker, "_tracker_path", lambda name: Path("/tmp"))
         monkeypatch.setattr(Path, "is_dir", lambda self: True)
-        monkeypatch.setattr(tracker, "resolve_output_dir", lambda o=None: "/tmp")
-        monkeypatch.setattr(tracker, "QUALITY_MAP", {"320": 320000})
+        monkeypatch.setattr(tracker, "get_download_dir", lambda: "/tmp")
+        monkeypatch.setattr(tracker, "get_quality", lambda: 320000)
         args = argparse.Namespace(
             name="like",
             diff=True,

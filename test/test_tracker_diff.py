@@ -6,6 +6,7 @@
 
 import argparse
 import json
+from pathlib import Path
 
 import pytest
 
@@ -23,8 +24,6 @@ def ns(**kw):
         "json": False,
         "limit": None,
         "offset": 0,
-        "quality": None,
-        "output": None,
     }
     base.update(kw)
     return argparse.Namespace(**base)
@@ -85,8 +84,8 @@ class Test单独给diff要报错:
         )
         ran = []
         monkeypatch.setattr(tracker, "download_diff", lambda *a, **k: ran.append(a))
-        monkeypatch.setattr(tracker, "QUALITY_MAP", {"320": 320000})
-        monkeypatch.setattr(tracker, "resolve_output_dir", lambda o=None: "/tmp")
+        monkeypatch.setattr(tracker, "get_quality", lambda: 320000)
+        monkeypatch.setattr(tracker, "get_download_dir", lambda: "/tmp")
         tracker.cmd_tracker(ns(diff=True, download=True, quality="320"))
         assert ran, "配了 -d 就该走下载 diff 那条路"
 
@@ -257,3 +256,39 @@ def _out_of(argv):
     except SystemExit:
         pass
     return re.sub(r"\x1b\[[0-9;]*m", "", buf.getvalue())
+
+
+class Test下载时取配置里的音质与目录:
+    """-q 与 -o 收了之后，tracker 的下载必须从配置取这两样
+
+    原来它读 args.quality 与 args.output，参数删掉之后若还去读就是
+    AttributeError；若写死一个值，用户的配置就永远不生效
+    """
+
+    def test_音质来自配置(self, monkeypatch):
+        看到 = []
+        monkeypatch.setattr(
+            tracker, "load_songs_db_full", lambda n: {"updated_at": "", "songs": []}
+        )
+        monkeypatch.setattr(tracker, "load_settings", lambda n: {"sources": []})
+        monkeypatch.setattr(tracker, "_tracker_path", lambda n: Path("/tmp"))
+        monkeypatch.setattr(Path, "is_dir", lambda self: True)
+        monkeypatch.setattr(tracker, "get_quality", lambda: 192000)
+        monkeypatch.setattr(tracker, "get_download_dir", lambda: "/tmp")
+        monkeypatch.setattr(tracker, "download_tracker", lambda *a: 看到.append(a))
+        tracker.cmd_tracker(ns(download=True))
+        assert 看到 and 看到[0][1] == 192000, f"没取配置里的音质：{看到}"
+
+    def test_输出目录来自配置(self, monkeypatch):
+        看到 = []
+        monkeypatch.setattr(
+            tracker, "load_songs_db_full", lambda n: {"updated_at": "", "songs": []}
+        )
+        monkeypatch.setattr(tracker, "load_settings", lambda n: {"sources": []})
+        monkeypatch.setattr(tracker, "_tracker_path", lambda n: Path("/tmp"))
+        monkeypatch.setattr(Path, "is_dir", lambda self: True)
+        monkeypatch.setattr(tracker, "get_quality", lambda: 320000)
+        monkeypatch.setattr(tracker, "get_download_dir", lambda: "/配置里的目录")
+        monkeypatch.setattr(tracker, "download_tracker", lambda *a: 看到.append(a))
+        tracker.cmd_tracker(ns(download=True))
+        assert 看到 and 看到[0][2] == "/配置里的目录", f"没取配置里的目录：{看到}"

@@ -69,14 +69,31 @@ class TestCliPreview:
 class TestCliDownload:
     def test_playlist_download(self, temp_dir):
         r = _run(
-            ["playlist", str(PLAYLIST_ID), "-d", "--limit", "1", "-o", temp_dir],
+            [
+                "--config",
+                f"download.dir={temp_dir}",
+                "playlist",
+                str(PLAYLIST_ID),
+                "-d",
+                "--limit",
+                "1",
+            ],
             timeout=120,
         )
         assert r.returncode == 0
 
     def test_album_download(self, temp_dir):
         r = _run(
-            ["album", str(ALBUM_ID), "-d", "--limit", "1", "-o", temp_dir], timeout=120
+            [
+                "--config",
+                f"download.dir={temp_dir}",
+                "album",
+                str(ALBUM_ID),
+                "-d",
+                "--limit",
+                "1",
+            ],
+            timeout=120,
         )
         assert r.returncode == 0
 
