@@ -405,17 +405,21 @@ def unknown_keys(cfg: dict) -> list[str]:
     """
     extra = []
     for name, table in cfg.items():
-        if not isinstance(table, dict):
-            # 段不是表由 validate_config 报「必须是一段配置」，
-            # 这里再报一遍未知键就是重复了
-            continue
-        if _has_known_keys(name):
-            extra += _scan_table(name, table)
-        else:
-            # 整段都不认识，含空段。只报段名不报里面每一项：
-            # 那一整段都要删，点名段名用户就知道该删哪里。
-            # 空段也报，多半是加了段却忘了填
+        if not _has_known_keys(name):
+            # 名字本身就不认识，无论它写在哪种形式里都要报 ——
+            # 只报段名不报里面每一项：那一整段的键都要删，
+            # 点名段名用户就知道该删哪里。空段也报，多半是加了段却忘了填。
+            #
+            # 这一段必须排在下面那个 isinstance 判断之前。调换过来就是
+            # 一个静默漏洞：顶层写个拼错的键（`qualty = "max"`）不是表，
+            # 会被那句 continue 跳过，于是什么都不报 —— 用户以为改了
             extra.append(f"[{name}]")
+            continue
+        if not isinstance(table, dict):
+            # 名字认识却是标量，由 validate_config 报「必须是一段配置」，
+            # 这里再报一遍就是重复了
+            continue
+        extra += _scan_table(name, table)
     return extra
 
 

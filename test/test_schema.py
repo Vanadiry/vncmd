@@ -768,6 +768,32 @@ class Test未知键:
         cfg["download"] = 5
         assert schema.unknown_keys(cfg) == []
 
+    def test_顶层拼错的键要报(self):
+        """顶层写个表里没有的键，名字不认识就该报
+
+        这条曾经是静默的：原来的代码先判「值是不是表」，不是就跳过，
+        而那句跳过是为「已知段写成标量」写的。于是顶层拼错的标量
+        一起被跳过 —— 配置里写错一个字母，什么都不发生。
+        --config 让这个洞变得极易触发：`--config qualty=max` 就是它
+        """
+        cfg = copy.deepcopy(完整配置)
+        cfg["qualty"] = "max"
+        assert schema.unknown_keys(cfg) == ["[qualty]"]
+
+    def test_顶层拼错的键与已知段写坏能分辨(self):
+        """一个要报、一个不报，判据是名字认不认识而不是值是什么类型"""
+        cfg = copy.deepcopy(完整配置)
+        cfg["qualty"] = "max"
+        cfg["download"] = 5
+        assert schema.unknown_keys(cfg) == ["[qualty]"]
+
+    @pytest.mark.parametrize("值", ["max", 5, None, ["a", "b"]])
+    def test_顶层拼错的键不论什么类型都报(self, 值):
+        """不认识的键不管写成什么形式都是多余的"""
+        cfg = copy.deepcopy(完整配置)
+        cfg["qualty"] = 值
+        assert schema.unknown_keys(cfg) == ["[qualty]"]
+
 
 class Test未知键的边界:
     """三个边界之前没有任何测试盯着
