@@ -44,12 +44,12 @@ class Test越界:
             parse(n)
         assert exc.value.code != 0
         err = capsys.readouterr().err
-        assert "1 至 100 之间" in err
+        assert "1 至 100" in err
         assert str(n) in err, "要把用户给的值原样还给他"
 
-    def test_超限提到还有别的办法(self, capsys):
-        """只有超上限时 offset 才有用，“要 0 条”提它就错"""
-        assert "--offset" in _error_line(capsys, 101)
+    def test_超限不提示别的办法(self, capsys):
+        """报错只说明范围，不教用户怎么改"""
+        assert "--offset" not in _error_line(capsys, 101)
 
     def test_下限不提offset(self, capsys):
         assert "--offset" not in _error_line(capsys, 0)
@@ -58,7 +58,7 @@ class Test越界:
         with pytest.raises(SystemExit) as exc:
             parse("abc")
         assert exc.value.code != 0
-        assert "须为整数" in capsys.readouterr().err
+        assert "应当为整数" in capsys.readouterr().err
 
 
 class Test报错文案:
@@ -81,7 +81,7 @@ class Test_help:
         with pytest.raises(SystemExit):
             build_parser().parse_args(["search", "--help"])
         out = capsys.readouterr().out
-        assert "1-100" in out
+        assert "1 至 100" in out
         assert "N" in out, "metavar=N，值域不该把 1 到 100 铺进用法行"
 
 

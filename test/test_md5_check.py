@@ -39,7 +39,7 @@ def test_size_wrong_and_md5_wrong_reports_both(sample):
     ok, msg = check_md5(path, "0" * 32, size)
     assert not ok
     assert "大小不符" in msg
-    assert "md5 也不符" in msg
+    assert "md5 不符" in msg
     assert str(size // 2) in msg
 
 
@@ -77,8 +77,8 @@ def test_md5_mismatch_shows_prefix_only(sample):
     """不符时只展示前 7 位，全长摘要既占地方又看不出新信息"""
     path, md5, size = sample
     _ok, msg = check_md5(path, "0" * 32, size)
-    assert f"{md5[:7]}..." in msg
-    assert f"{'0' * 7}..." in msg
+    assert md5[:7] in msg
+    assert "0" * 7 in msg
     # 完整摘要不该出现在提示里
     assert md5 not in msg
 
@@ -89,8 +89,8 @@ def test_short_digest_not_padded():
 
     assert _short_digest("abc") == "abc"
     assert _short_digest("1234567") == "1234567"
-    assert _short_digest("12345678") == "1234567..."
-    assert _short_digest("820574c3c7185559957fcee1098b6912") == "820574c..."
+    assert _short_digest("12345678") == "1234567"
+    assert _short_digest("820574c3c7185559957fcee1098b6912") == "820574c"
 
 
 def test_uppercase_expectation_accepted(sample):

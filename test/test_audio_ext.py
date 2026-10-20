@@ -29,7 +29,7 @@ def test_常见格式原样返回(url, expect):
 def test_未知格式保留真实扩展名(url, expect, capsys):
     # 标成 mp3 会产出错扩展名的文件，播放器打不开
     assert get_type_from_url(url) == expect
-    assert "未预期的音频格式" in capsys.readouterr().err
+    assert "暂不支持元数据嵌入" in capsys.readouterr().err
 
 
 @pytest.mark.parametrize(
@@ -39,14 +39,14 @@ def test_未知格式保留真实扩展名(url, expect, capsys):
 def test_没有可用扩展名时归mp3且不警告(url, capsys):
     out = capsys.readouterr().out
     assert get_type_from_url(url) == "mp3"
-    assert "未预期的音频格式" not in capsys.readouterr().err
+    assert "暂不支持元数据嵌入" not in capsys.readouterr().err
     assert out == ""
 
 
 def test_警告每种格式各出一次(capsys):
     for _ in range(3):
         get_type_from_url("http://h/1.m4a")
-    assert capsys.readouterr().err.count("未预期的音频格式") == 3
+    assert capsys.readouterr().err.count("暂不支持元数据嵌入") == 3
 
 
 def test_常见格式不产生任何输出(capsys):

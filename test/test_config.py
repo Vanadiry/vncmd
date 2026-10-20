@@ -345,24 +345,27 @@ class Test没拦住的类型:
         [
             (
                 lambda c: c.__setitem__("download", 5),
-                "[download] 必须是一段配置，实际是 int",
+                "[download] 配置不合法，应当为配置段，实际是 int",
             ),
-            (lambda c: c.__setitem__("cache", 5), "[cache] 必须是一段配置，实际是 int"),
+            (
+                lambda c: c.__setitem__("cache", 5),
+                "[cache] 配置不合法，应当为配置段，实际是 int",
+            ),
             (
                 lambda c: c.__setitem__("display", 5),
-                "[display] 必须是一段配置，实际是 int",
+                "[display] 配置不合法，应当为配置段，实际是 int",
             ),
             (
                 lambda c: c["download"].update(audio=5),
-                "[download.audio] 必须是一段配置，实际是 int",
+                "[download.audio] 配置不合法，应当为配置段，实际是 int",
             ),
             (
                 lambda c: c["download"].update(lyric=5),
-                "[download.lyric] 必须是一段配置，实际是 int",
+                "[download.lyric] 配置不合法，应当为配置段，实际是 int",
             ),
             (
                 lambda c: c["download"].update(cover=5),
-                "[download.cover] 必须是一段配置，实际是 int",
+                "[download.cover] 配置不合法，应当为配置段，实际是 int",
             ),
         ],
     )
@@ -411,11 +414,10 @@ class Test没拦住的类型:
         with pytest.raises(SystemExit):
             validate_config(quiet=True)
         出错 = capsys.readouterr().err
-        assert "必须是一段配置" in 出错
+        assert "配置不合法，应当为配置段" in 出错
         # 逐项报错一出现就说明段检查没排在逐项校验前面
-        assert "必须为" not in 出错
-        assert "不为" not in 出错
-        assert "只能包含" not in 出错
+        assert "concurrency" not in 出错
+        assert "content" not in 出错
 
 
 class Test报错带实际值:
@@ -614,11 +616,11 @@ class Test命令行的config参数:
     @pytest.mark.parametrize(
         ("参数", "该说的"),
         [
-            ("download.concurrency=abc", "要整数"),
-            ("download.check=yes", "只能是 true 或 false"),
-            ("download.audio.qualty=max", "没有"),
-            ("download.concurrency", "不是 key=value"),
-            ("=5", "key 是空的"),
+            ("download.concurrency=abc", "不合法，应当为整数"),
+            ("download.check=yes", "不合法，应当为 true 或 false"),
+            ("download.audio.qualty=max", "不存在"),
+            ("download.concurrency", "不合法，应当为 key=value"),
+            ("=5", "key 为空"),
         ],
     )
     def test_写错了就退出(self, 参数, 该说的, capsys):

@@ -24,7 +24,7 @@ def _run_check(monkeypatch, capsys, path, check):
 
 
 def _names(out):
-    lines = [ln for ln in out.splitlines() if "OK" in ln]
+    lines = [ln for ln in out.splitlines() if "通过" in ln and '"' in ln]
     return [re.search(r'"([^"]+)"', ln).group(1) for ln in lines]
 
 

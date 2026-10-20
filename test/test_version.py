@@ -85,13 +85,13 @@ class Test早于一切副作用:
 class Test包读不到时:
     def test_兜unknown而不是抛栈(self, monkeypatch):
         """装成非包的形式直接跑源码时会抛 PackageNotFoundError
-        打印 unknown 比抛一整段栈好"""
+        打印版本未知比抛一整段栈好"""
 
         def boom(_name):
             raise PackageNotFoundError("vncmd")
 
         monkeypatch.setattr(vncmd, "_pkg_version", boom)
-        assert vncmd._version_string() == "vncmd unknown"
+        assert vncmd._version_string() == "vncmd 版本未知"
 
 
 class Test帮助:

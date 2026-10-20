@@ -33,7 +33,7 @@ def get_type_from_url(url: str) -> str:
         return ext
     # 没有扩展名的 URL 会把末段整串当成扩展名，长度与字符集都对不上时仍归 mp3
     if ext.isalnum() and len(ext) <= 5:
-        warning(f"未预期的音频格式 .{ext}，该格式暂不支持元数据嵌入")
+        warning(f"音频格式 .{ext} 暂不支持元数据嵌入")
         return ext
     return "mp3"
 

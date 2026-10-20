@@ -134,7 +134,7 @@ def _fetch_audio_curl(
     except OSError as e:
         return f"无法读取下载结果：{e}"
     if not looks_like_audio(blob):
-        return "服务器返回的不是音频"
+        return "服务器返回的内容不是音频"
     return None
 
 
@@ -202,9 +202,7 @@ def fetch_audio(
     if use_curl:
         # 配了 curl 却没装就直接说清楚，不静默退回内建，否则用户以为 --curl 生效了
         if not shutil.which("curl"):
-            return (
-                "找不到 curl，可执行 vncmd init 检查依赖，或把 downloader 改回 builtin"
-            )
+            return "未找到 curl，downloader 无法使用"
         return _fetch_audio_curl(
             url,
             path,
@@ -263,10 +261,10 @@ def _fetch_audio_builtin(
             )
             chunks = resp.iter_content(chunk_size=8192)
             head = next(chunks, b"")
-            # 续传段并非文件开头，魔数只对全新内容有意义
+            # 续传段不是文件开头，魔数只对全新内容有意义
             if fresh and not looks_like_audio(head):
                 ctype = resp.headers.get("content-type", "未知类型")
-                return f"服务器返回的不是音频：{ctype}"
+                return f"服务器返回的内容不是音频，content-type 为 {ctype}"
             stream = chain([head], chunks)
 
             if progress is not None and task_id is not None:

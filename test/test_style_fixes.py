@@ -73,7 +73,9 @@ def test_check按文件名排序输出(tmp_path, monkeypatch, capsys):
 
     import re
 
-    lines = [ln for ln in capsys.readouterr().out.splitlines() if "OK" in ln]
+    lines = [
+        ln for ln in capsys.readouterr().out.splitlines() if "通过" in ln and '"' in ln
+    ]
     assert len(lines) == 4
     assert [re.search(r'"([^"]+)"', ln).group(1) for ln in lines] == [
         "a.flac",

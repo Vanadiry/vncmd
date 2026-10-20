@@ -50,29 +50,29 @@ class _ArgumentParser(argparse.ArgumentParser):
         sys.exit(2)
 
     def _friendly(self, message: str) -> str:
-        hint = f"可以用 {self.prog} -h 查看帮助"
+        hint = f"帮助：{self.prog} -h"
         if message.startswith("the following arguments are required: "):
             missing = message.split(": ", 1)[1]
-            return f"缺少参数 {missing}。{hint}"
+            return f"缺少参数 {missing}，{hint}"
         if message.startswith("unrecognized arguments: "):
             extra = message.split(": ", 1)[1]
-            return f"不认识的参数 {extra}。{hint}"
+            return f"不认识的参数 {extra}，{hint}"
         if "invalid choice: " in message:
             tail = message.split("invalid choice: ", 1)[1]
             # 不列候选命令，只说明错在哪
             value = tail.split("'")[1]
-            return f"没有 {value} 这个命令。{hint}"
+            return f"没有 {value} 这个命令，{hint}"
         if message.startswith("argument ") and ": " in message:
             head, body = message.split(": ", 1)
             head = head[len("argument ") :]
             if body.startswith("invalid int value: "):
-                body = "要一个整数，给的是 " + body.split(": ", 1)[1]
+                body = "要一个整数，实际是 " + body.split(": ", 1)[1]
             elif body.startswith("not allowed with argument "):
                 body = "不能与 " + body[len("not allowed with argument ") :] + " 同时给"
             elif body == "expected one argument":
                 body = "需要一个值"
-            return f"{head}：{body}。{hint}"
-        return f"{message}。{hint}"
+            return f"{head}：{body}，{hint}"
+        return f"{message}，{hint}"
 
 
 def _version_string() -> str:
@@ -80,7 +80,7 @@ def _version_string() -> str:
     try:
         return f"vncmd {_pkg_version('vncmd')}"
     except PackageNotFoundError:
-        return "vncmd unknown"
+        return "vncmd 版本未知"
 
 
 def _add_json_arg(parser: object) -> None:
@@ -104,7 +104,7 @@ def _add_list_args(parser: object) -> None:
         type=int,
         default=None,
         metavar="N",
-        help="最多处理曲目数（默认：面板 10，JSON 与下载全部）",
+        help="最多处理曲目数，默认面板 10，JSON 与下载全部",
     )
     parser.add_argument(
         "--offset",
@@ -131,7 +131,7 @@ def _add_download_args(parser: object, download_group: object = None) -> None:
 def build_parser() -> _ArgumentParser:
     parser = _ArgumentParser(
         prog="vncmd",
-        description="网易云音乐 CLI — 搜索、预览与下载",
+        description="网易云音乐 CLI，搜索、预览与下载",
     )
     # 打印后立即退出，早于锁与配置检查
     # 走 argparse 原生输出，避免颜色与方括号标记
@@ -158,8 +158,9 @@ def build_parser() -> _ArgumentParser:
         action="append",
         default=[],
         metavar="key=value",
-        help="临时覆盖某一项配置，如 --config download.audio.quality=128（可重复，"
-        "后者生效）。能覆盖的键见 doc/config.md。必须写在子命令之前",
+        help="临时覆盖某一项配置，可重复，后者生效。"
+        "如 --config download.audio.quality=128，可覆盖的键见 doc/config.md，"
+        "必须写在子命令之前",
     )
 
     p_cookie = sub.add_parser("cookie", help="设置 Cookie")
@@ -190,7 +191,7 @@ def build_parser() -> _ArgumentParser:
         type=_search_limit,
         default=None,
         metavar="N",
-        help=f"最大结果数，1-{SEARCH_LIMIT_MAX}（默认：10）",
+        help=f"最大结果数，1 至 {SEARCH_LIMIT_MAX}，默认 10",
     )
     p_search.add_argument("--offset", "-o", type=int, default=0, help="分页偏移量")
     # search 没有下载动作，不存在互斥问题
@@ -215,14 +216,14 @@ def build_parser() -> _ArgumentParser:
     p_al.add_argument("id", type=int, help="专辑 ID")
     _add_list_args(p_al)
     _add_json_arg(p_al)
-    _add_dlink_arg(p_al, "取下载链接（需配合 --json）")
+    _add_dlink_arg(p_al, "取下载链接，需配合 --json")
     _add_download_args(p_al)
 
     p_pl = sub.add_parser("playlist", help="预览或下载歌单")
     p_pl.add_argument("id", type=int, help="歌单 ID")
     _add_list_args(p_pl)
     _add_json_arg(p_pl)
-    _add_dlink_arg(p_pl, "取下载链接（需配合 --json）")
+    _add_dlink_arg(p_pl, "取下载链接，需配合 --json")
     _add_download_args(p_pl)
 
     p_tracker = sub.add_parser("tracker", help="追踪音乐来源变更并批量下载")
@@ -251,7 +252,7 @@ def build_parser() -> _ArgumentParser:
         "-F",
         action="store_true",
         help=(
-            "配 --fetch 时无条件覆盖 songs.json。"
+            "配 --fetch 时无条件覆盖 songs.json，"
             "diff.json 有变化才更新，连续两次会顶掉前一个备份"
         ),
     )
@@ -260,7 +261,7 @@ def build_parser() -> _ArgumentParser:
         "--diff",
         "-x",
         action="store_true",
-        help="上次 --fetch 记下的变更，不联网。配 -d 下载新增的，配 --json 输出三类",
+        help="上次 --fetch 记下的变更，不联网，配 -d 下载新增的，配 --json 输出三类",
     )
     # --json 只配纯读视图
     _add_json_arg(p_tracker)
@@ -270,7 +271,7 @@ def build_parser() -> _ArgumentParser:
         type=int,
         default=None,
         metavar="N",
-        help="最多处理曲目数（默认：面板 10，JSON 全部）",
+        help="最多处理曲目数，默认面板 10，JSON 全部",
     )
     p_tracker.add_argument(
         "--offset",
@@ -293,12 +294,12 @@ def _search_limit(raw: str) -> int:
     try:
         value = int(raw)
     except ValueError:
-        raise argparse.ArgumentTypeError(f"取回条数须为整数，给的是 {raw!r}") from None
-    if not 1 <= value <= SEARCH_LIMIT_MAX:
-        # 只有超上限时才提示 offset
-        hint = "。更多结果用 --offset 分页取得" if value > SEARCH_LIMIT_MAX else ""
         raise argparse.ArgumentTypeError(
-            f"取回条数须在 1 至 {SEARCH_LIMIT_MAX} 之间，给的是 {value}{hint}"
+            f"搜索条数不合法，应当为整数，实际是 {raw!r}"
+        ) from None
+    if not 1 <= value <= SEARCH_LIMIT_MAX:
+        raise argparse.ArgumentTypeError(
+            f"搜索条数不合法，应当为 1 至 {SEARCH_LIMIT_MAX}，实际是 {value}"
         )
     return value
 
@@ -309,7 +310,7 @@ def _reject_json_download(args: argparse.Namespace) -> None:
     argparse 无法表达非传递排除，退出码与用法错误一致
     """
     if getattr(args, "json", False) and getattr(args, "download", False):
-        show_error("--json 与 --download 互斥：--json 输出结构化数据，--download 落盘")
+        show_error("--json 与 --download 不能同时使用")
         sys.exit(2)
 
 
@@ -337,7 +338,7 @@ def main() -> None:
     if args.init:
         # init 只写默认模板，不接受覆盖
         if args.config:
-            show_error("--init 不接受 --config：它只写默认配置，覆盖没有意义")
+            show_error("--init 不接受 --config，它只写默认配置")
             sys.exit(2)
         acquire_lock()
         cmd_init(args)

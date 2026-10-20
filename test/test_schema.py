@@ -47,14 +47,14 @@ from vncmd.core import schema
 # 放在模块级常量里，塞进 parametrize 元组会被 ruff format 折开字符串
 # 缺键不报，那几条样本不在此列
 _逐字样本 = [
-    "[download] filename_artist 必须为 front、back、drop",
-    "[download] content 只能包含 a、l、c，多余的字符：x",
-    "[download] content 里 l 重复了，每个字母最多一次",
+    "[download] filename_artist 不合法，应当为 front、back、drop",
+    "[download] content 不合法，只能包含 a、l、c，多余字符：x",
+    "[download] content 不合法，l 重复，每个字母最多一次",
     # 带实际值那条最容易被误抄，它有一半为逗号分隔的值域
-    "[download.audio] quality 必须为以下之一：128, 192, 320, max，实际是 '999'",
-    "[download.lyric] embed_mode 必须为 line、block、drop，实际是 '2'",
-    "[download.lyric] save_mode 必须为 line、block、split、drop，实际是 '2'",
-    '[download] downloader 只能是 "builtin" 或 "curl"',
+    "[download.audio] quality 不合法，可选 128, 192, 320, max，实际是 '999'",
+    "[download.lyric] embed_mode 不合法，应当为 line、block、drop，实际是 '2'",
+    "[download.lyric] save_mode 不合法，应当为 line、block、split、drop，实际是 '2'",
+    '[download] downloader 不合法，应当为 "builtin" 或 "curl"',
 ]
 
 
@@ -62,24 +62,30 @@ _逐字样本 = [
 # 措辞之间的几处不一致为既有行为
 # ttl 与 check 不带实际值，dir 报类型名
 # parse_credits 与 auto_trim 的缺键与写错值同一句话，统一措辞就是行为变化
-_措辞_download_dir = "[download] dir 必须是字符串，实际是 int"
-_措辞_download_concurrency = "[download] concurrency 必须为 1-16 的整数，实际是 99"
-_措辞_download_check = "[download] check 必须为 true 或 false"
-_措辞_download_curl_arg = "[download] curl_arg 必须是字符串"
-_措辞_download_audio_parse_credits = "[download.audio] parse_credits 缺失或不为布尔值"
-_措辞_download_lyric_auto_trim = "[download.lyric] auto_trim 缺失或不为布尔值"
+_措辞_download_dir = "[download] dir 不合法，应当为字符串，实际是 int"
+_措辞_download_concurrency = (
+    "[download] concurrency 不合法，应当为 1 至 16 的整数，实际是 99"
+)
+_措辞_download_check = "[download] check 不合法，应当为 true 或 false"
+_措辞_download_curl_arg = "[download] curl_arg 不合法，应当为字符串"
+_措辞_download_audio_parse_credits = (
+    "[download.audio] parse_credits 不合法，应当为 true 或 false"
+)
+_措辞_download_lyric_auto_trim = (
+    "[download.lyric] auto_trim 不合法，应当为 true 或 false"
+)
 _措辞_download_lyric_credit_scan_lines = (
-    "[download.lyric] credit_scan_lines 缺失或不为正整数"
+    "[download.lyric] credit_scan_lines 不合法，应当为正整数"
 )
 _措辞_download_cover_embed_compress = (
-    "[download.cover] embed_compress 必须为 true 或 false，实际是 'x'"
+    "[download.cover] embed_compress 不合法，应当为 true 或 false，实际是 'x'"
 )
 _措辞_download_cover_save_compress = (
-    "[download.cover] save_compress 必须为 true 或 false，实际是 'x'"
+    "[download.cover] save_compress 不合法，应当为 true 或 false，实际是 'x'"
 )
-_措辞_cache_enabled = "[cache] enabled 必须为 true 或 false，实际是 'false'"
-_措辞_cache_ttl = "[cache] ttl 不为非负整数"
-_措辞_display_artist_color = "[display] artist_color 不为布尔值"
+_措辞_cache_enabled = "[cache] enabled 不合法，应当为 true 或 false，实际是 'false'"
+_措辞_cache_ttl = "[cache] ttl 不合法，应当为非负整数"
+_措辞_display_artist_color = "[display] artist_color 不合法，应当为 true 或 false"
 
 _类型样本 = [
     ("download.dir", 123, _措辞_download_dir),
@@ -145,7 +151,7 @@ class Test表的形状:
         try:
             错 = schema.validate(完整配置)
             assert 错, "漏填措辞时 validate 一声不吭"
-            assert "没写值错时的提示" in 错[0]
+            assert "配置表缺少错误提示" in 错[0]
         finally:
             schema.SCHEMA = 原
 
@@ -301,23 +307,23 @@ class Test内容校验:
     @pytest.mark.parametrize("值", ["x", "alx", "1", "a l"])
     def test多余字符被拦下(self, 值):
         错 = schema.validate(改配置("download.content", 值))
-        assert len(错) == 1 and "多余的字符" in 错[0]
+        assert len(错) == 1 and "多余字符" in 错[0]
 
     @pytest.mark.parametrize("值", ["aa", "all", "cc", "llaa"])
     def test重复字母被拦下(self, 值):
         """每字母最多一次，两个 c 与两个 l 为同一件事"""
         错 = schema.validate(改配置("download.content", 值))
-        assert len(错) == 1 and "重复了" in 错[0]
+        assert len(错) == 1 and "重复" in 错[0]
 
     def test空格也算多余字符(self):
         """写成 “alc c” 的人多半以为空格不算内容"""
         错 = schema.validate(改配置("download.content", "alc c"))
-        assert len(错) == 1 and "多余的字符" in 错[0]
+        assert len(错) == 1 and "多余字符" in 错[0]
 
     def test多余字符与重复同时出现时先报多余(self):
         """两个都错时先说打错字母那个，一次只让人改一处"""
         错 = schema.validate(改配置("download.content", "aax"))
-        assert "多余的字符" in 错[0]
+        assert "多余字符" in 错[0]
 
     @pytest.mark.parametrize("值", ["", 12, ["a", "l"], True])
     def test不是字符串的报缺引号(self, 值):
@@ -509,7 +515,7 @@ class Test类型与范围:
         """路径值打出来为一长串，写 int、list 这种类型名一眼能认"""
         for 值, 名 in [(123, "int"), (["a"], "list")]:
             错 = schema.validate(改配置("download.dir", 值))
-            assert 错 == [f"[download] dir 必须是字符串，实际是 {名}"]
+            assert 错 == [f"[download] dir 不合法，应当为字符串，实际是 {名}"]
 
     def test_字符串写成null算缺键(self):
         """toml 的 null 解析为 None，与没写分不开，取到 None 即判缺键"""
@@ -701,12 +707,12 @@ class Test命令行的键值解析:
         assert schema.split_override("curl_arg=-H X=1") == ("curl_arg", "-H X=1")
 
     def test_没有等号算写法错(self):
-        with pytest.raises(ValueError, match="不是 key=value"):
+        with pytest.raises(ValueError, match="不合法，应当为 key=value"):
             schema.split_override("download.concurrency")
 
     def test_等号前面空着算写法错(self):
         """--config =5 为漏了键名，不能当成给空键赋值"""
-        with pytest.raises(ValueError, match="key 是空的"):
+        with pytest.raises(ValueError, match="key 为空"):
             schema.split_override("=5")
 
     def test_值可以是空串(self):
@@ -727,7 +733,7 @@ class Test按类型转换命令行给的值:
     @pytest.mark.parametrize("raw", ["True", "False", "yes", "1", ""])
     def test_布尔不认别的写法(self, raw):
         """与 TOML 一致，True 在 TOML 里也不合法"""
-        with pytest.raises(ValueError, match="只能是 true 或 false"):
+        with pytest.raises(ValueError, match="不合法，应当为 true 或 false"):
             schema.coerce("download.check", raw)
 
     def test_整数要转成整数(self):
@@ -736,7 +742,7 @@ class Test按类型转换命令行给的值:
 
     @pytest.mark.parametrize("raw", ["abc", "4.5", "", "true"])
     def test_整数转不动就报错(self, raw):
-        with pytest.raises(ValueError, match="要整数"):
+        with pytest.raises(ValueError, match="应当为整数"):
             schema.coerce("download.concurrency", raw)
 
     @pytest.mark.parametrize(
@@ -755,5 +761,5 @@ class Test按类型转换命令行给的值:
 
     def test_不认识的路径立刻报(self):
         """拼错的键名在这里就该有话说，别等校验那一步"""
-        with pytest.raises(ValueError, match=r"没有 .* 这一项"):
+        with pytest.raises(ValueError, match=r"配置项 .* 不存在"):
             schema.coerce("download.audio.qualty", "max")

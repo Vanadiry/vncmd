@@ -44,7 +44,6 @@ class Test缺参数:
         出错 = capsys.readouterr().err
         assert "缺少参数" in 出错, 出错
         assert "--stats" in 出错 and "--clear" in 出错, 出错
-        assert "vncmd tool cache -h" in 出错, 出错
 
     def test_cookie用同一句形状(self, capsys):
         """value 与 --check 都为空才报错，这一条由 cmd_cookie 自己判
@@ -56,7 +55,6 @@ class Test缺参数:
         出错 = capsys.readouterr().err
         assert "缺少参数" in 出错, 出错
         assert "Cookie" in 出错, 出错
-        assert "vncmd cookie -h" in 出错, 出错
 
 
 class Test写错命令:

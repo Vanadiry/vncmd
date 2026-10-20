@@ -48,7 +48,7 @@ def acquire_lock() -> None:
     try:
         _locker.acquire(timeout=0)
     except Timeout:
-        print("已有其他 vncmd 实例在运行。", file=sys.stderr)
+        print("已有其他 vncmd 实例在运行", file=sys.stderr)
         sys.exit(1)
 
 
@@ -79,7 +79,7 @@ def validate_config(quiet: bool = False, overrides: dict | None = None) -> None:
             print(
                 f"未能找到配置文件，已创建：{abbrev_home(CONFIG_FILE)}", file=sys.stderr
             )
-            print("首次运行？请执行 vncmd --init 以获取更多信息", file=sys.stderr)
+            print("首次运行，更多信息见 vncmd --init", file=sys.stderr)
 
     try:
         cfg = load_config()
@@ -132,13 +132,18 @@ def check_config(cfg: dict) -> None:
             # 整段未写按缺键处理，由各项取默认值
             continue
         if not isinstance(container, dict):
-            _die([f"[{section}] 必须是一段配置，实际是 {type(container).__name__}"])
+            _die(
+                [
+                    f"[{section}] 配置不合法，应当为配置段，"
+                    f"实际是 {type(container).__name__}"
+                ]
+            )
 
     # 段检查在前，逐项表才能区分缺键与段写坏
     errors.extend(schema_validate(cfg))
 
     # 未知段与键一律报错，避免旧键静默失效
-    errors.extend(f"{item}，表里没有这个键" for item in unknown_keys(cfg))
+    errors.extend(f"未知配置项：{item}" for item in unknown_keys(cfg))
 
     if errors:
         _die(errors)
@@ -147,7 +152,7 @@ def check_config(cfg: dict) -> None:
 def _die(errors: list[str]) -> None:
     from vncmd.core.output import err_console, error
 
-    err_console.print("[red]配置验证失败：[/]")
+    err_console.print("[red]配置验证失败[/]：")
     for e in errors:
         error(e)
     sys.exit(1)

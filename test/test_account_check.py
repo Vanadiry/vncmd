@@ -548,7 +548,7 @@ class TestAnnounceAccount:
         """查不出来不等于查出来没有，这两种提示不能混"""
         out = self._say(monkeypatch, capsys, None)
         assert "检查失败" in out
-        assert "不影响" in out
+        assert "不受影响" in out
 
     def test_一切正常时也报一次(self, monkeypatch, capsys):
         """一切正常也要报一次，否则用户看不出权限有没有生效"""

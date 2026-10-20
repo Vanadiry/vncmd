@@ -74,14 +74,14 @@ class TestAvailable:
     def test_字段值正确(self, capsys):
         out = show(capsys, READY)
         assert "flac" in out
-        assert "1848 kbps (1848126 bps)" in out
+        assert "1848 kbps，1848126 bps" in out
         assert "48000 Hz" in out
         assert "2:34" in out, "154835 毫秒应显示为 2:34"
         assert "0e2403ed33777cce040157439a4a0da5" in out
         assert "20 分钟内有效" in out
 
     def test_大小带上易读单位(self, capsys):
-        assert "34.1 MB (35772329 字节)" in show(capsys, READY)
+        assert "34.1 MB，35772329 字节" in show(capsys, READY)
 
     def test_音质用中文(self, capsys):
         """level 为英文字段名，直接嵌进提示里会中英文硬拼"""
@@ -212,7 +212,7 @@ class TestFormatters:
     def test_比特率带原始值(self):
         from vncmd.core.output import _fmt_kbps
 
-        assert _fmt_kbps(320000) == "320 kbps (320000 bps)"
+        assert _fmt_kbps(320000) == "320 kbps，320000 bps"
 
     def test_比特率为零返回空(self):
         from vncmd.core.output import _fmt_kbps

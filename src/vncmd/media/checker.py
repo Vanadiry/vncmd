@@ -43,9 +43,9 @@ def has_flac() -> bool:
 
 # 三样工具各管一段校验，探测函数与说明同表维护
 CHECK_TOOLS = {
-    "ffprobe": (has_ffprobe, "读时长与码率，用于时长交叉验证"),
-    "ffmpeg": (has_ffmpeg, "全量解码，能查出文件截断与容器损坏"),
-    "flac": (has_flac, "flac 文件的无损流 CRC 校验"),
+    "ffprobe": (has_ffprobe, "时长交叉验证"),
+    "ffmpeg": (has_ffmpeg, "全量解码"),
+    "flac": (has_flac, "flac CRC 校验"),
 }
 
 
@@ -72,8 +72,7 @@ def describe_missing_check_tools() -> str:
         return ""
     roles = "、".join(CHECK_TOOLS[name][1] for name in missing)
     return (
-        f"系统缺少 {' / '.join(missing)}，"
-        f"本次不会做{roles}。size 与 md5 的校验不受影响。"
+        f"系统缺少 {' / '.join(missing)}，本次不会做{roles}，size 与 md5 的校验不受影响"
     )
 
 
@@ -192,7 +191,7 @@ def flac_test(path: str) -> str | None:
 
 def _short_digest(digest: str, n: int = 7) -> str:
     """摘要只留前几位，md5 有雪崩效应，不符时开头必然不同，全长为噪音"""
-    return digest if len(digest) <= n else digest[:n] + "..."
+    return digest if len(digest) <= n else digest[:n]
 
 
 def check_md5(path: str, expect_md5: str, expect_size: int = 0) -> tuple[bool, str]:
@@ -208,7 +207,7 @@ def check_md5(path: str, expect_md5: str, expect_size: int = 0) -> tuple[bool, s
 
     if not expect_md5:
         if size_bad:
-            return False, f"大小不符 (声明 {expect_size} 实际 {actual_size})"
+            return False, f"大小不符，声明 {expect_size} 字节，实际 {actual_size} 字节"
         return True, ""
 
     h = hashlib.md5()
@@ -222,12 +221,14 @@ def check_md5(path: str, expect_md5: str, expect_size: int = 0) -> tuple[bool, s
     # 截断为下载最常见的坏法，此时大小差异比摘要更能说明问题
     if size_bad:
         return False, (
-            f"大小不符 (声明 {expect_size} 实际 {actual_size})，"
-            f"md5 也不符 ({_short_digest(expect_md5)} 对 {_short_digest(actual)})"
+            f"大小不符，声明 {expect_size} 字节，实际 {actual_size} 字节；"
+            f"md5 不符，声明前缀 {_short_digest(expect_md5)}，"
+            f"实际前缀 {_short_digest(actual)}"
         )
     return (
         False,
-        f"md5 不符 (声明 {_short_digest(expect_md5)} 实际 {_short_digest(actual)})",
+        f"md5 不符，声明前缀 {_short_digest(expect_md5)}，"
+        f"实际前缀 {_short_digest(actual)}",
     )
 
 
@@ -254,15 +255,15 @@ def check_audio(path: str) -> tuple[bool, str]:
             # 尾部异常只在解码完成时放行，超时按失败处理
             note = " | ".join(errors[:3])
             if declared and actual is not None and actual >= declared - DURATION_TOL:
-                return True, f"解码完整但尾部有异常数据 {name}: {note}"
-            return False, f"解码出错 {name}: {note}"
+                return True, f"解码完整，尾部有异常数据，{name}：{note}"
+            return False, f"解码出错，{name}：{note}"
 
     if Path(path).suffix.lower() == ".flac" and tools["flac"]:
         err = flac_test(path)
         if err:
-            return False, f"flac 无损校验失败 {name}: {err}"
+            return False, f"flac 无损校验失败，{name}：{err}"
 
     if declared and actual is not None and actual < declared - DURATION_TOL:
-        return False, f"疑似截断 {name} (声明 {declared:.0f}s 实际 {actual:.0f}s)"
+        return False, f"疑似截断，{name}，声明 {declared:.0f} 秒，实际 {actual:.0f} 秒"
 
     return True, ""

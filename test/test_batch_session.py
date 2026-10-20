@@ -90,7 +90,7 @@ class Test续传:
             _tracks(3), str(本次), "playlist", "p1", None, 0
         )
         assert session_dir != str(别处)
-        assert warns and "将重新开始下载" in warns[0]
+        assert warns and "重新开始下载" in warns[0]
 
     def test_续传时清掉上轮的半截_temp(self, tmp_path, monkeypatch):
         旧的 = tmp_path / "上一轮"
@@ -198,7 +198,7 @@ class Test收尾打印:
 
     def test_列失败ID(self, capsys):
         out = self._跑(capsys, 3, 2, [101, 103])
-        assert "失败 ID：101, 103" in out
+        assert "失败 ID：101，103" in out
 
     def _原始输出(self, monkeypatch, ok, fail, ids=()):
         """收 rich 打印前的原始字符串，capsys 拿不到标记
@@ -309,7 +309,7 @@ class Test并发环境准备:
         workers.show(task_id)
         workers.progress.update(task_id, total=100, completed=40)
         workers.restart(task_id)
-        workers.describe(task_id, "歌0 - 人（重试 1/3）")
+        workers.describe(task_id, "歌0 - 人，重试 1/3")
         assert workers.progress.tasks[task_id].visible is True
         assert "重试 1/3" in str(workers.progress.tasks[task_id].description)
 

@@ -61,7 +61,7 @@ SCHEMA = (
         "download.filename_artist",
         ("front", "back", "drop"),
         "back",
-        "必须为 front、back、drop",
+        "不合法，应当为 front、back、drop",
     ),
     _content("download.content", "alc"),
     # 音质名到码率的映射，合法名即它的键
@@ -70,7 +70,7 @@ SCHEMA = (
         tuple(QUALITY_MAP),
         "max",
         # 带实际值，提醒缺引号的情况
-        "必须为以下之一：{allowed}，实际是 {value!r}",
+        "不合法，可选 {allowed}，实际是 {value!r}",
     ),
     # 译文歌词处理方式，embed 不要译文，save 多一档 split
     _enum(
@@ -78,19 +78,19 @@ SCHEMA = (
         ("line", "block", "drop"),
         "drop",
         # 带实际值，便于发现旧配置值
-        "必须为 line、block、drop，实际是 {value!r}",
+        "不合法，应当为 line、block、drop，实际是 {value!r}",
     ),
     _enum(
         "download.lyric.save_mode",
         ("line", "block", "split", "drop"),
         "line",
-        "必须为 line、block、split、drop，实际是 {value!r}",
+        "不合法，应当为 line、block、split、drop，实际是 {value!r}",
     ),
     _enum(
         "download.downloader",
         ("builtin", "curl"),
         "builtin",
-        '只能是 "builtin" 或 "curl"',
+        '不合法，应当为 "builtin" 或 "curl"',
     ),
     # 类型与范围项的措辞逐字保留，既有测试按原文断言
     # dir 空串合法，只判类型不判非空
@@ -98,7 +98,7 @@ SCHEMA = (
         "download.dir",
         "str",
         default="",
-        wrong_value="必须是字符串，实际是 {typename}",
+        wrong_value="不合法，应当为字符串，实际是 {typename}",
         # 空串合法，缺键与写空串不同
     ),
     Setting(
@@ -108,19 +108,19 @@ SCHEMA = (
         maximum=16,
         default=4,
         # 带实际值，缺键也用这句
-        wrong_value="必须为 1-16 的整数，实际是 {value!r}",
+        wrong_value="不合法，应当为 1 至 16 的整数，实际是 {value!r}",
     ),
     Setting(
         "download.check",
         "bool",
         default=True,
-        wrong_value="必须为 true 或 false",
+        wrong_value="不合法，应当为 true 或 false",
     ),
     Setting(
         "download.curl_arg",
         "str",
         default="",
-        wrong_value="必须是字符串",
+        wrong_value="不合法，应当为字符串",
         # 省略时取默认空串
     ),
     Setting(
@@ -128,54 +128,54 @@ SCHEMA = (
         "bool",
         default=False,
         # 布尔没有空状态，缺键与类型错共用一句
-        wrong_value="缺失或不为布尔值",
+        wrong_value="不合法，应当为 true 或 false",
     ),
     Setting(
         "download.lyric.auto_trim",
         "bool",
         default=False,
         # 布尔没有空状态，缺键与类型错共用一句
-        wrong_value="缺失或不为布尔值",
+        wrong_value="不合法，应当为 true 或 false",
     ),
     Setting(
         "download.lyric.credit_scan_lines",
         "int",
         minimum=1,
         default=10,
-        wrong_value="缺失或不为正整数",
+        wrong_value="不合法，应当为正整数",
     ),
     # 合法值含 false，判键是否存在而非真值
     Setting(
         "download.cover.embed_compress",
         "bool",
         default=True,
-        wrong_value="必须为 true 或 false，实际是 {value!r}",
+        wrong_value="不合法，应当为 true 或 false，实际是 {value!r}",
     ),
     Setting(
         "download.cover.save_compress",
         "bool",
         default=False,
-        wrong_value="必须为 true 或 false，实际是 {value!r}",
+        wrong_value="不合法，应当为 true 或 false，实际是 {value!r}",
     ),
     # "false" 字符串为真值，必须判类型
     Setting(
         "cache.enabled",
         "bool",
         default=True,
-        wrong_value="必须为 true 或 false，实际是 {value!r}",
+        wrong_value="不合法，应当为 true 或 false，实际是 {value!r}",
     ),
     Setting(
         "cache.ttl",
         "int",
         minimum=0,
         default=DEFAULT_CACHE_TTL,
-        wrong_value="不为非负整数",
+        wrong_value="不合法，应当为非负整数",
     ),
     Setting(
         "display.artist_color",
         "bool",
         default=True,
-        wrong_value="不为布尔值",
+        wrong_value="不合法，应当为 true 或 false",
     ),
 )
 
@@ -216,28 +216,28 @@ def coerce(path: str, raw: str) -> Any:
     """
     setting = get(path)
     if setting is None:
-        raise ValueError(f"配置里没有 {path} 这一项")
+        raise ValueError(f"配置项 {path} 不存在")
     if setting.kind == "bool":
         if raw == "true":
             return True
         if raw == "false":
             return False
-        raise ValueError(f"{path} 只能是 true 或 false，给的是 {raw!r}")
+        raise ValueError(f"{path} 不合法，应当为 true 或 false，实际是 {raw!r}")
     if setting.kind == "int":
         try:
             return int(raw)
         except ValueError:
-            raise ValueError(f"{path} 要整数，给的是 {raw!r}") from None
+            raise ValueError(f"{path} 不合法，应当为整数，实际是 {raw!r}") from None
     return raw
 
 
 def split_override(text: str) -> tuple[str, str]:
     """按第一个等号切 key=value，值里允许等号"""
     if "=" not in text:
-        raise ValueError(f"{text!r} 不是 key=value 的写法")
+        raise ValueError(f"{text!r} 不合法，应当为 key=value")
     key, value = text.split("=", 1)
     if not key:
-        raise ValueError(f"{text!r} 的 key 是空的")
+        raise ValueError(f"{text!r} 的 key 为空")
     return key, value
 
 
@@ -246,14 +246,16 @@ def check_content(value: Any, letters: str) -> str | None:
 
     多余与重复分别报，非字符串报缺引号
     """
-    if not isinstance(value, str) or not value:
-        return "缺失或为空，且必须是带引号的字符串"
+    if not isinstance(value, str):
+        return f"不合法，应当为带引号的字符串，实际是 {type(value).__name__}"
+    if not value:
+        return "缺失或为空，应当为带引号的字符串"
     extra = sorted(set(value) - set(letters))
     if extra:
-        return f"只能包含 {'、'.join(letters)}，多余的字符：{'、'.join(extra)}"
+        return f"不合法，只能包含 {'、'.join(letters)}，多余字符：{'、'.join(extra)}"
     dup = sorted({c for c in value if value.count(c) > 1})
     if dup:
-        return f"里 {'、'.join(dup)} 重复了，每个字母最多一次"
+        return f"不合法，{'、'.join(dup)} 重复，每个字母最多一次"
     return None
 
 
@@ -402,7 +404,7 @@ def validate(cfg: dict) -> list[str]:
         parts, key, value = _locate(cfg, setting.path)
         if not setting.wrong_value and setting.kind != "content":
             # wrong_value 为空会让该项静默放行，content 由 check_content 生成措辞
-            errors.append(f"[{setting.path}] 这一项没写值错时的提示，校验不会生效")
+            errors.append(f"[{setting.path}] 配置表缺少错误提示，该项校验不会生效")
             continue
         if not parts:
             continue

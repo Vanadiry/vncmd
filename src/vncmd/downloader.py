@@ -131,9 +131,9 @@ def _notify_downgrade(want_level: str, got_level: str) -> None:
     want_label = LEVEL_LABEL.get(want_level, want_level)
     got_label = LEVEL_LABEL.get(got_level, got_level)
     if get_cookie():
-        warning(f"当前 Cookie 权限不支持{want_label}，本次已按{got_label}下载")
+        warning(f"当前 Cookie 权限不支持{want_label}，本次按{got_label}下载")
     else:
-        warning(f"未登录，本次只能按最高可用的{got_label}下载")
+        warning(f"未登录，本次按最高可用的{got_label}下载")
 
 
 def _discard_temp(paths: list[str]) -> None:
@@ -345,8 +345,8 @@ def download_song(
         if embed_err:
             # 音频已通过校验，标签失败不判整首失败，但要提示
             warning(
-                f"「{song_title} - {song_artist}」元数据嵌入失败"
-                f"（已重试 {_EMBED_ATTEMPTS} 次），本次不带标签：{embed_err}"
+                f"“{song_title} - {song_artist}”元数据嵌入失败，"
+                f"已重试 {_EMBED_ATTEMPTS} 次，本次不带标签：{embed_err}"
             )
 
     # 保存歌词，lyric_text 为空时已在上方挡住
@@ -402,12 +402,12 @@ def download_song(
         parts.append(("完整名字", Path(note_path).name))
 
     if not parts:
-        return False, "未下载任何内容，请检查 download_content 配置", None
+        return False, "未下载任何内容，download_content 配置为空", None
 
-    # 按显示宽度补齐箭头，类型为空的行不留标签
+    # 按显示宽度补齐标签，类型为空的行不留标签
     width = max(cell_len(label) for label, _ in parts)
     lines = [
-        f'{label}{" " * (width - cell_len(label))} → "{name}"' if label else f'"{name}"'
+        f"{label}{' ' * (width - cell_len(label))}  {name}" if label else name
         for label, name in parts
     ]
     return True, "\n".join(lines), music_path
@@ -510,7 +510,7 @@ def download_song_batch(
         tracks, output_dir, dl_type, dl_id, limit, offset
     )
 
-    info(f'下载到 "{abbrev_home(session_dir)}"')
+    info(f"下载到 {abbrev_home(session_dir)}")
 
     want_song = "a" in get_download_content()
     total = len(tracks)
@@ -521,7 +521,7 @@ def download_song_batch(
     concurrency = get_concurrency()
 
     if total == 0:
-        success(f"所有曲目已下载完毕，位于 {session_dir}")
+        success(f"所有曲目已下载完毕，目录为 {session_dir}")
         return success_count, fail_count, session_dir
 
     workers = _prepare_workers(tracks, concurrency)
@@ -546,14 +546,14 @@ def download_song_batch(
 
             try:
                 if not artist:
-                    workers.describe(task_id, f"解析中…（ID: {sid}）")
+                    workers.describe(task_id, f"解析中，ID {sid}")
                     try:
                         track = get_song_details(sid)
                         title = track["title"]
                         artist = track["artist"]
                     except Exception as e:
                         workers.release(task_id)
-                        warning(f"跳过 {title}（ID: {sid}）— 获取详情失败：{e}")
+                        warning(f"跳过 {title}，ID {sid}，获取详情失败：{e}")
                         with counter_lock:
                             fail_count += 1
                             fail_ids.append(sid)
@@ -582,13 +582,12 @@ def download_song_batch(
                         quality,
                         # 默认参数绑定循环变量，避免闭包捕获
                         lambda n, t=task_id, ti=title, ar=artist: workers.describe(
-                            t, f"{ti} - {ar}（获取链接重试 {n}/{_LINK_ATTEMPTS}）"
+                            t, f"{ti} - {ar}，获取链接重试 {n}/{_LINK_ATTEMPTS}"
                         ),
                     )
                     if not source:
                         workers.release(task_id)
-                        warning(f"跳过 {title} - {artist} — 无法获取下载链接")
-                        info(f"  请尝试 vncmd song {sid} 手动下载")
+                        warning(f"跳过 {title} - {artist}，ID {sid}，无法提取下载链接")
                         with counter_lock:
                             fail_count += 1
                             fail_ids.append(sid)
@@ -626,7 +625,7 @@ def download_song_batch(
                         workers.restart(task_id)
                         if attempt < 3:
                             workers.describe(
-                                task_id, f"{title} - {artist}（重试 {attempt}/3）"
+                                task_id, f"{title} - {artist}，重试 {attempt}/3"
                             )
 
                 workers.release(task_id)
@@ -637,7 +636,7 @@ def download_song_batch(
                         _mark_done(dl_type, dl_id, sid)
                 else:
                     with counter_lock:
-                        error(f"「{title} - {artist}」{msg}")
+                        error(f"“{title} - {artist}”{msg}")
                         fail_count += 1
                         fail_ids.append(sid)
 
@@ -646,7 +645,7 @@ def download_song_batch(
                 # 未预期异常不能让 worker 退出，否则队列剩余曲目无人处理
                 workers.release(task_id)
                 with counter_lock:
-                    error(f"「{title} - {artist}」{type(e).__name__}: {e}")
+                    error(f"“{title} - {artist}”{type(e).__name__}：{e}")
                     fail_count += 1
                     fail_ids.append(sid)
 

@@ -53,18 +53,18 @@ def _setup_session(
         cp = load_checkpoint(dl_type, dl_id)
         resume_dir = cp.get("download_dir") if cp else None
         if not resume_dir:
-            info("开始全新下载。")
+            info("开始全新下载")
             session_dir = make_session_dir(output_dir)
             is_resuming = False
         elif not Path(resume_dir).is_dir():
-            info("发现未完成的下载，但原目录已丢失，将重新开始下载。")
+            info("发现未完成的下载，原目录已丢失，重新开始")
             session_dir = make_session_dir(output_dir)
             is_resuming = False
         elif not _is_within(resume_dir, output_dir):
             # 断点目录与本次输出目录不同时重新开始，避免落到未指定位置
             warning(
                 f"未完成的下载在 {resume_dir}，"
-                f"本次输出目录为 {output_dir}，将重新开始下载"
+                f"本次输出目录为 {output_dir}，重新开始下载"
             )
             session_dir = make_session_dir(output_dir)
             is_resuming = False
@@ -87,16 +87,16 @@ def _setup_session(
         # limit 大于曲目数时不必提示剩余 0 首
         info(
             f"只下载第 {offset + 1} 至 {offset + len(selected)} 首，"
-            f"剩余 {len(tracks) - len(selected)} 首下次继续"
+            f"剩余 {len(tracks) - len(selected)} 首留到下次"
         )
     if dl_type is not None and dl_id is not None:
         track_map = {str(t["id"]): t.get("title", "?") for t in tracks}
         if is_resuming:
             pending_ids, has_changes = sync_checkpoint_tracks(dl_type, dl_id, track_map)
             if has_changes:
-                info("发现未完成的下载，但曲目列表已变更，将以更新后的列表继续。")
+                info("发现未完成的下载，曲目列表已变更，按更新后的列表继续")
             else:
-                info("发现未完成的下载，将从中断处继续。")
+                info("发现未完成的下载，从中断处继续")
             err_console.print()
             pending_set = set(pending_ids)
             selected = [t for t in selected if str(t["id"]) in pending_set]
@@ -121,4 +121,4 @@ def _summarize(success_count: int, fail_count: int, fail_ids: list) -> None:
         parts.append("[dim]0 失败[/]")
     err_console.print(f"完成：{'，'.join(parts)}")
     if fail_ids:
-        err_console.print(f"失败 ID：{', '.join(str(i) for i in fail_ids)}")
+        err_console.print(f"失败 ID：{'，'.join(str(i) for i in fail_ids)}")

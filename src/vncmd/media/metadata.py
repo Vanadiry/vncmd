@@ -59,7 +59,7 @@ def _embed_mp3(
     try:
         audio = MP3(music_path)
     except Exception as e:
-        raise ValueError(f"音频标签无法读取，可能不是 mp3：{music_path}") from e
+        raise ValueError(f"音频标签无法读取，文件可能不是 mp3：{music_path}") from e
     if audio.tags is None:
         audio.add_tags()
     tags = audio.tags

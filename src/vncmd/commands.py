@@ -96,7 +96,7 @@ def _download_tracks(
 
 
 def cmd_search(args: argparse.Namespace) -> None:
-    info(f"正在搜索「{args.query}」...")
+    info(f"正在搜索“{args.query}”")
     # search 的分页交给服务端，JSON 要全量，单次上限为 100
     limit = args.count or (SEARCH_LIMIT_MAX if args.json else 10)
     try:
@@ -112,7 +112,7 @@ def cmd_search(args: argparse.Namespace) -> None:
         return
 
     if not result["songs"]:
-        warning("未找到结果。")
+        warning("未找到结果")
         return
 
     # 账号状态 main 已查过，这里读进程内缓存
@@ -165,7 +165,7 @@ def cmd_song(args: argparse.Namespace) -> None:
     """预览或下载单曲"""
     # --translate 只修饰 --lyric，参数写错时先报错再联网
     if args.translate and not args.lyric:
-        error("--translate 需要配合 --lyric 使用：它只决定歌词里要不要带翻译")
+        error("--translate 只能与 --lyric 同时使用")
         sys.exit(2)
 
     try:
@@ -196,7 +196,7 @@ def cmd_song(args: argparse.Namespace) -> None:
         if args.translate:
             tlyric = lyrics_data.get("tlyric", {}).get("lyric", "")
             if tlyric:
-                lyric = lyric + "\n\n--- 翻译 ---\n" + tlyric
+                lyric = lyric + "\n\n翻译\n" + tlyric
         display_lyrics(lyric)
 
     if args.dlink and not args.download:
@@ -213,20 +213,20 @@ def cmd_song(args: argparse.Namespace) -> None:
     quality = get_quality()
     source = None
     if want_song:
-        info(f"正在获取流 URL（音质={get_quality_name()}）...")
+        info(f"正在获取音频流，音质 {get_quality_name()}")
         for attempt in range(1, 4):
             source = get_audio_source(args.id, quality=quality)
             if source:
                 break
             if attempt < 3:
-                info(f"  重试 {attempt}/3 …")
+                info(f"  重试 {attempt}/3")
         if not source:
-            error("无法获取下载链接，若其他曲目能够正常下载，则可能是这个曲目有问题。")
+            error("无法提取下载链接，该曲目可能受限")
             sys.exit(1)
 
     output_dir = make_session_dir(get_download_dir())
-    info(f"正在下载「{song['title']} - {song['artist']}」")
-    info(f'下载到 "{abbrev_home(output_dir)}"')
+    info(f"正在下载“{song['title']} - {song['artist']}”")
+    info(f"下载到 {abbrev_home(output_dir)}")
     lyrics_api = get_lyrics_url(args.id)
     ok, msg, _ = download_song(
         song_url=source.url if source else "",
@@ -256,7 +256,7 @@ def cmd_song(args: argparse.Namespace) -> None:
 def _require_json_for_dlink(args: argparse.Namespace) -> None:
     """album 与 playlist 的 --dlink 只在 --json 下有意义"""
     if args.dlink and not args.json:
-        error("--dlink 需要配合 --json 使用：批量链接是数据，面板读不完")
+        error("--dlink 只能与 --json 同时使用")
         sys.exit(2)
 
 
@@ -276,7 +276,7 @@ def _json_payload(args: argparse.Namespace, source: dict) -> dict:
         missing = _attach_downloads(tracks, get_quality())
         if missing:
             # 只给数量，不按 fee 分类，fee=8 的含义没有可靠依据
-            warning(f"{missing} 首拿不到链接")
+            warning(f"{missing} 首未能提取下载链接")
     return payload
 
 
@@ -334,11 +334,11 @@ def cmd_playlist(args: argparse.Namespace) -> None:
     # 明细跟在 warning 标题下，两边都进 stderr
     if removed:
         err_console.print()
-        warning(f"此歌单中有 {len(removed)} 首已下架曲目：")
+        warning(f"此歌单有 {len(removed)} 首已下架曲目：")
         for r in removed:
             err_console.print(
                 f"    [dim]{r['id']}[/]  [red]{escape(r['title'])}[/]"
-                f"  [dim]— {escape(r['artist'])}  ·  {escape(r['album'])}[/]"
+                f"  [dim]{escape(r['artist'])}，{escape(r['album'])}[/]"
             )
 
     if not args.download:
@@ -372,18 +372,18 @@ def announce_account() -> None:
     """
     # 请求前先提示，避免停顿看起来像卡住
     if account_needs_check():
-        info("正在检查 Cookie 权限，请稍候...")
+        info("正在检查 Cookie 权限")
 
     state = get_account_info()
     if account_stamp()[1]:
         return
 
     if state is None:
-        warning("Cookie 检查失败：无法获取账号信息，不影响本次下载")
+        warning("Cookie 检查失败，未能提取账号信息，本次下载不受影响")
     elif not state["logged_in"]:
-        warning("未检测到登录状态，可能是 Cookie 有问题或登录已失效，可尝试重新获取")
+        warning("未检测到登录状态，Cookie 可能不合法或登录已失效")
     elif not state["vip"]:
-        warning("Cookie 所属账号没有 VIP 权限，高音质将不可用")
+        warning("Cookie 所属账号没有 VIP 权限，高音质不可用")
     else:
         success("Cookie 权限：已登录，有 VIP 权限")
 
@@ -413,7 +413,7 @@ def cmd_init(args: argparse.Namespace) -> None:
         # 同一句里说清文件与用途
         success(
             f"已创建 {COOKIE_FILE.name}，"
-            "粘贴登录 Cookie 到该文件即可下载 VIP 与高音质歌曲"
+            "将登录 Cookie 写入该文件即可下载 VIP 与高音质歌曲"
         )
 
     # 检查系统依赖
@@ -424,13 +424,12 @@ def cmd_init(args: argparse.Namespace) -> None:
         console.print(f"  [dim]存在 {' / '.join(found)}[/]")
     if missing:
         warning(f"未检测到 {' / '.join(missing)}")
-        info("若安装了这些系统库，就可以使用 Check 功能，详细请阅读文档")
+        info("这些系统库用于 Check 功能")
 
     console.print()
-    success("初始化完成。")
+    success("初始化完成")
     console.print(
-        "  [dim]建议阅读详细指南：[/]"
-        "https://github.com/Vanadiry/vncmd/blob/main/doc/guide.md"
+        "  [dim]详细指南：[/]https://github.com/Vanadiry/vncmd/blob/main/doc/guide.md"
     )
     console.print()
 
@@ -439,7 +438,7 @@ def cmd_cookie(args: argparse.Namespace) -> None:
     """设置或检查 Cookie"""
     if not args.check and not args.value:
         # 与其它命令的缺参数提示保持同一形状
-        error("缺少参数 Cookie 值 或 --check。可以用 vncmd cookie -h 查看帮助")
+        error("缺少参数 Cookie 值 或 --check")
         sys.exit(2)
 
     if args.value:
@@ -447,19 +446,19 @@ def cmd_cookie(args: argparse.Namespace) -> None:
         _write_cookie(args.value.strip())
         success("Cookie 已保存")
 
-    info("正在检查账户权限，请稍候...")
+    info("正在检查账户权限")
     # Cookie 刚改过，强制检查，缓存可能属于另一个账号
     account = get_account_info(force=True)
     if account is None:
         # 退出码 2 表示查不成，与查出无效区分
-        error("Cookie 检查失败：无法获取账号信息")
+        error("Cookie 检查失败，未能提取账号信息")
         sys.exit(2)
     if not account["logged_in"]:
-        error("Cookie 无效或登录已失效，请检查，或重新获取")
+        error("Cookie 不合法或登录已失效")
         sys.exit(1)
     if not account["vip"]:
         # 非会员 Cookie 仍可用，只是拿不到高音质
-        warning("Cookie 有效，但所属账号没有 VIP 权限，高音质将不可用")
+        warning("Cookie 有效，所属账号没有 VIP 权限，高音质不可用")
         return
     success("Cookie 有效")
 
@@ -467,7 +466,7 @@ def cmd_cookie(args: argparse.Namespace) -> None:
 def cmd_cache(args: argparse.Namespace) -> None:
     """查看或清理本地缓存，两个开关必须给一个"""
     if not args.stats and not args.clear:
-        error("缺少参数 --stats 或 --clear。可以用 vncmd tool cache -h 查看帮助")
+        error("缺少参数 --stats 或 --clear")
         sys.exit(2)
 
     root = Path(get_cache_dir())
@@ -481,7 +480,7 @@ def cmd_cache(args: argparse.Namespace) -> None:
 
     if args.stats:
         ttl = get_cache_ttl()
-        console.print(f'缓存目录："{abbrev_home(root)}"')
+        console.print(f"缓存目录：{abbrev_home(root)}")
         console.print(f"占用：{size / 1024 / 1024:.1f} MB，共 {len(files)} 个文件")
         console.print(f"曲目：{len(songs)} 首")
         console.print(f"有效期：{'永不过期' if ttl == 0 else f'{ttl} 天'}")
@@ -492,13 +491,13 @@ def cmd_cache(args: argparse.Namespace) -> None:
     else:
         err_console.print()
         # 命令名必须与 parser 一致
-        info("用 vncmd tool cache --clear 清空缓存")
+        info("清空缓存：vncmd tool cache --clear")
 
 
 def cmd_check(args: argparse.Namespace) -> None:
     """检查音频文件完整性"""
     if not any_check_tool():
-        error("没有可用的校验工具，请至少安装 ffmpeg 或 flac 后重试。")
+        error("没有可用的校验工具")
         sys.exit(1)
 
     note = describe_missing_check_tools()
@@ -523,7 +522,7 @@ def cmd_check(args: argparse.Namespace) -> None:
     files.sort()
 
     if not files:
-        info("未找到支持的音频文件。")
+        info("未找到支持的音频文件")
         return
 
     console.print(f"共 [bold]{len(files)}[/] 个文件，开始检查\n")
@@ -545,16 +544,16 @@ def cmd_check(args: argparse.Namespace) -> None:
             if exc is not None:
                 bad_count += 1
                 bad_files.append((f, f"{type(exc).__name__}: {exc}"))
-                console.print(f"  [red]BAD[/] {_show(f)}  检查失败")
+                console.print(f"  [red]损坏[/] {_show(f)}  检查失败")
                 continue
             ok, msg = future.result()
             if ok:
                 ok_count += 1
-                console.print(f"  [cyan]OK[/]  {_show(f)}")
+                console.print(f"  [cyan]通过[/]  {_show(f)}")
             else:
                 bad_count += 1
                 bad_files.append((f, msg))
-                console.print(f"  [red]BAD[/] {_show(f)}  {msg}")
+                console.print(f"  [red]损坏[/] {_show(f)}  {msg}")
 
     console.print(f"\n完成：[cyan]{ok_count} 通过[/]，[red]{bad_count} 损坏[/]")
     if bad_files:

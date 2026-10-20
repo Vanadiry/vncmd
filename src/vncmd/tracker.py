@@ -60,15 +60,15 @@ def _diff_path(name: str) -> Path:
 
 def validate_name(name: str) -> None:
     if not _NAME_RE.match(name):
-        error(f"无效的 Tracker 名称：「{name}」")
-        info("名称只能包含字母（a-z、A-Z）、数字（0-9）、短划线（-）和下划线（_）。")
+        error(f"Tracker 名称不合法：{name}")
+        info("名称只能包含字母 a-z、A-Z，数字 0-9，短划线 -，下划线 _")
         sys.exit(1)
 
 
 def load_settings(name: str) -> dict:
     path = _settings_path(name)
     if not path.exists():
-        error(f"Tracker「{name}」不存在，配置文件缺失：{path}")
+        error(f"Tracker“{name}”不存在，配置文件缺失：{path}")
         sys.exit(1)
     with open(path, "rb") as f:
         data = tomllib.load(f)
@@ -87,7 +87,7 @@ def create_tracker(name: str) -> None:
     validate_name(name)
     tdir = _tracker_path(name)
     if tdir.exists():
-        error(f"Tracker「{name}」已存在：{tdir}")
+        error(f"Tracker“{name}”已存在：{tdir}")
         sys.exit(1)
     tdir.mkdir(parents=True, exist_ok=True)
 
@@ -98,8 +98,8 @@ def create_tracker(name: str) -> None:
         json.dumps(empty_db, ensure_ascii=False, indent=2), encoding="utf-8"
     )
 
-    success(f"Tracker「{name}」已创建：{tdir}")
-    info("请编辑 settings.toml 添加需要跟踪的曲目/歌单/专辑 ID。")
+    success(f"Tracker“{name}”已创建：{tdir}")
+    info("settings.toml 用于添加需要跟踪的曲目、歌单或专辑 ID")
 
 
 def load_songs_db_full(name: str) -> dict:
@@ -237,7 +237,7 @@ def show_tracker(
     if not settings["sources"]:
         # 未配置来源时说明原因
         header.append("\n", style="dim")
-        header.append("尚未配置来源，请编辑 settings.toml 添加来源。", style="yellow")
+        header.append("尚未配置来源，settings.toml 中没有来源", style="yellow")
 
     # 区间放在面板标题
     suffix = _range_suffix(offset, len(shown), total)
@@ -303,7 +303,10 @@ def fetch_all_songs(settings: dict) -> tuple[dict[str, dict], list[dict]]:
                     for track in al["tracks"]:
                         _add_to_raw(raw, track, src_type, src_id)
             except Exception as e:
-                warning(f"获取 {src_type} {src_id} 失败：{e}")
+                label = {"song": "曲目", "playlist": "歌单", "album": "专辑"}.get(
+                    src_type, src_type
+                )
+                warning(f"获取{label} {src_id} 失败：{e}")
 
     result = {}
     for sid, data in raw.items():
@@ -389,7 +392,7 @@ def resolve_conflicts(
     changed = comparison["changed"]
 
     if not added and not removed and not changed:
-        success("已是最新，未检测到变更。")
+        success("未检测到变更")
         return None
 
     result = {s["id"]: s for s in cached_list}
@@ -397,8 +400,8 @@ def resolve_conflicts(
     if added:
         console.print()
         console.print(
-            f"  [bold green]新增[/] — {len(added)} 首，"
-            f"[dim]回车确认、空格切换、a 全选、i 反选[/]"
+            f"  [bold green]新增[/] {len(added)} 首，"
+            f"[dim]回车确认，空格切换，a 全选，i 反选[/]"
         )
         choices = [
             questionary.Choice(
@@ -416,7 +419,7 @@ def resolve_conflicts(
             style=_get_checkbox_style("green"),
         ).ask()
         if selected is None:
-            info("已取消。")
+            info("已取消")
             sys.exit(0)
         for sid in selected:
             result[sid] = fresh_dict[sid]
@@ -424,8 +427,8 @@ def resolve_conflicts(
     if removed:
         console.print()
         console.print(
-            f"  [bold red]删除[/] — {len(removed)} 首，"
-            f"[dim]回车确认、空格切换、a 全选、i 反选[/]"
+            f"  [bold red]删除[/] {len(removed)} 首，"
+            f"[dim]回车确认，空格切换，a 全选，i 反选[/]"
         )
         choices = [
             questionary.Choice(
@@ -443,7 +446,7 @@ def resolve_conflicts(
             style=_get_checkbox_style("red"),
         ).ask()
         if selected is None:
-            info("已取消。")
+            info("已取消")
             sys.exit(0)
         for sid in selected:
             result.pop(sid, None)
@@ -479,7 +482,7 @@ def auto_resolve(
     changed = comparison["changed"]
 
     if not added and not removed and not changed:
-        success("已是最新，未检测到变更。")
+        success("未检测到变更")
         return None
 
     result = {s["id"]: s for s in cached_list}
@@ -493,18 +496,18 @@ def auto_resolve(
 
     summary_parts = []
     if added:
-        summary_parts.append(f"[green]+ {len(added)} 新增[/]")
+        summary_parts.append(f"[green]{len(added)} 首新增[/]")
     if removed:
-        summary_parts.append(f"[red]- {len(removed)} 删除[/]")
+        summary_parts.append(f"[red]{len(removed)} 首删除[/]")
     if changed:
-        summary_parts.append(f"[yellow]~ {len(changed)} 更新[/]")
-    console.print(f"自动同步完成：{', '.join(summary_parts)}")
+        summary_parts.append(f"[yellow]{len(changed)} 首更新[/]")
+    console.print(f"自动同步完成：{'，'.join(summary_parts)}")
 
     return sorted(result.values(), key=lambda x: x.get("title", ""))
 
 
 def _format_song_choice(s: dict) -> str:
-    return f"{s.get('title', '?')}（ID: {s['id']}）"
+    return f"{s.get('title', '?')}，ID {s['id']}"
 
 
 def _apply_force(name: str, fresh: dict, comparison: dict) -> None:
@@ -519,13 +522,13 @@ def _apply_force(name: str, fresh: dict, comparison: dict) -> None:
         save_diff(name, comparison)
     else:
         # 覆盖后 diff 未变时也要说明
-        info("本次未检测到变更，diff 记录保持上次的内容")
+        info("未检测到变更，diff 记录保持上次内容")
 
 
 def download_tracker(name: str, quality: int, output_dir: str) -> None:
     songs = load_songs_db(name)
     if not songs:
-        error(f"Tracker「{name}」未缓存曲目，请先执行 --fetch。")
+        error(f"Tracker“{name}”未缓存曲目")
         sys.exit(1)
 
     download_song_batch(songs, quality, output_dir, dl_type="tracker", dl_id=name)
@@ -538,12 +541,12 @@ def _diff_note(diff: dict) -> str:
     changed = diff.get("changed", [])
     if removed:
         lines = "\n".join(f"{s['id']}  {s['title']}" for s in removed)
-        parts.append(f"以下曲目已从 Tracker 中移除（{len(removed)} 首）：\n{lines}")
+        parts.append(f"以下曲目已从 Tracker 移除，共 {len(removed)} 首：\n{lines}")
     if changed:
         lines = "\n".join(
-            f"{s['id']}  {s['title_old']} -> {s['title_new']}" for s in changed
+            f"{s['id']}  {s['title_old']} 改为 {s['title_new']}" for s in changed
         )
-        parts.append(f"以下曲目标题已变更（{len(changed)} 首）：\n{lines}")
+        parts.append(f"以下曲目标题已变更，共 {len(changed)} 首：\n{lines}")
     return "\n\n".join(parts) + "\n"
 
 
@@ -557,7 +560,7 @@ def download_diff(name: str, quality: int, output_dir: str) -> None:
     added = diff.get("added", [])
 
     if not added and not diff.get("removed") and not diff.get("changed"):
-        info("未找到 diff，请先执行 --fetch。")
+        info("未找到 diff")
         return
 
     if added:
@@ -573,7 +576,7 @@ def download_diff(name: str, quality: int, output_dir: str) -> None:
         )
         note_dir = Path(session_dir)
     else:
-        success("没有需要下载的新曲目。")
+        success("没有需要下载的新曲目")
         # 无新增时没有下载会话，changed.txt 落在输出目录
         note_dir = Path(output_dir)
         note_dir.mkdir(parents=True, exist_ok=True)
@@ -596,17 +599,17 @@ def cmd_tracker(args: argparse.Namespace) -> None:
     # 修饰项必须在前面检查，避免先询问创建 Tracker
     if (args.auto_accept or args.force) and not args.fetch:
         which = "--auto-accept" if args.auto_accept else "--force"
-        error(f"{which} 需要配合 --fetch 使用，它是拉取的修饰而非独立动作")
+        error(f"{which} 只能与 --fetch 同时使用")
         sys.exit(2)
 
     # --json 只用于纯读视图
     if args.json and not args.diff and (args.fetch or args.download):
-        error("--json 只用于纯读视图，与 --fetch、-d 不能同时使用")
+        error("--json 只能用于纯读视图，与 --fetch、-d 互斥")
         sys.exit(2)
 
     # --diff 必须配合 -d 或 --json
     if args.diff and not (args.download or args.json):
-        error("--diff 需要配合 -d 或 --json 使用，只看上次拉取后的变更")
+        error("--diff 只能与 -d 或 --json 同时使用")
         sys.exit(2)
 
     validate_name(name)
@@ -614,37 +617,37 @@ def cmd_tracker(args: argparse.Namespace) -> None:
     tdir = _tracker_path(name)
     if not tdir.is_dir():
         if questionary.confirm(
-            f"Tracker「{name}」不存在，是否创建？",
+            f"Tracker“{name}”不存在，是否创建",
             default=False,
         ).ask():
             create_tracker(name)
         else:
-            info("已取消。")
+            info("已取消")
         return
 
     if args.fetch:
         settings = load_settings(name)
         if not settings["sources"]:
-            error("未配置来源，请先编辑 settings.toml 添加来源。")
+            error("未配置来源，settings.toml 中没有来源")
             sys.exit(1)
 
-        info(f"正在获取 Tracker「{name}」的所有曲目...")
+        info(f"正在拉取 Tracker“{name}”的全部曲目")
         fresh, removed = fetch_all_songs(settings)
 
         if removed:
             err_console.print()
-            warning(f"检测到 {len(removed)} 首已下架曲目（不包含在 diff 中）：")
+            warning(f"检测到 {len(removed)} 首已下架曲目，不计入 diff：")
             for r in removed:
                 err_console.print(
                     f"    [dim]{r['id']}[/]  [red]{escape(r['title'])}[/]"
-                    f"  [dim]— {escape(r['artist'])}  ·  {escape(r['album'])}[/]"
+                    f"  [dim]{escape(r['artist'])}，{escape(r['album'])}[/]"
                 )
 
         if not fresh:
-            warning("未获取到曲目，请检查来源配置。")
+            warning("未能提取曲目")
             return
 
-        info(f"从来源获取到 {len(fresh)} 首独立曲目。")
+        info(f"从来源提取 {len(fresh)} 首独立曲目")
         cached = load_songs_db(name)
         comparison = compare_songs(fresh, cached)
 
@@ -655,13 +658,13 @@ def cmd_tracker(args: argparse.Namespace) -> None:
             if resolved is not None:
                 save_songs_db(name, resolved)
                 save_diff(name, comparison)
-                success(f"已保存 {len(resolved)} 首曲目到数据库。")
+                success(f"已保存 {len(resolved)} 首曲目")
         else:
             resolved = resolve_conflicts(comparison, cached, fresh)
             if resolved is not None:
                 save_songs_db(name, resolved)
                 save_diff(name, comparison)
-                success(f"已保存 {len(resolved)} 首曲目到数据库。")
+                success(f"已保存 {len(resolved)} 首曲目")
 
     elif args.download:
         quality = get_quality()

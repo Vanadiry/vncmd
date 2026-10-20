@@ -22,12 +22,12 @@ for name in TO_CLEAN:
     path = PROJECT_ROOT / name
     if path.is_dir():
         shutil.rmtree(path, ignore_errors=True)
-        print(f"Removed dir:  {name}")
+        print(f"已删除目录：{name}")
     elif path.is_file():
         path.unlink()
-        print(f"Removed file: {name}")
+        print(f"已删除文件：{name}")
     else:
-        print(f"Skipped:      {name} (not found)")
+        print(f"已跳过：{name}，未找到")
 
 for name in TO_CLEAN_RECURSIVE:
     count = 0
@@ -36,4 +36,4 @@ for name in TO_CLEAN_RECURSIVE:
             shutil.rmtree(d, ignore_errors=True)
             count += 1
     if count:
-        print(f"Removed:      {count} {name} dir(s)")
+        print(f"已删除 {count} 个 {name} 目录")

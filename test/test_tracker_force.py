@@ -68,7 +68,7 @@ class Test修饰必须配fetch:
         with pytest.raises(SystemExit):
             tracker.cmd_tracker(ns(force=True))
         err = capsys.readouterr().err
-        assert "修饰" in err, err
+        assert "只能与 --fetch" in err, err
 
     def test_检查在联网之前(self, ready, monkeypatch):
         monkeypatch.setattr(

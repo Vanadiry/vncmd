@@ -334,7 +334,7 @@ class Test拿不到的报法:
         monkeypatch.setattr(commands, "get_album_details", lambda _i: album(3))
         commands.cmd_album(ns())
         _data, _out, err = parsed(capsys)
-        assert "2 首拿不到链接" in err
+        assert "2 首未能提取下载链接" in err
 
     def test_不按fee分类(self, monkeypatch, capsys, two_urls):
         """FEE_NEED 只映射 1 与 4，fee=8 占三分之一，没有依据的分类会被当成结论"""
@@ -353,7 +353,7 @@ class Test拿不到的报法:
         monkeypatch.setattr(commands, "get_album_details", lambda _i: album(3))
         commands.cmd_album(ns())
         _d, _o, err = parsed(capsys)
-        assert "拿不到" not in err
+        assert "未能提取下载链接" not in err
 
     def test_数量只算切出来的那几条(self, monkeypatch, capsys):
         """只统计切出来的那几条，不按全量 300 首算比例"""
@@ -365,7 +365,7 @@ class Test拿不到的报法:
         )
         commands.cmd_album(ns(count=5))
         _d, _o, err = parsed(capsys)
-        assert "4 首拿不到链接" in err
+        assert "4 首未能提取下载链接" in err
 
 
 class Test不带dlink时不查:

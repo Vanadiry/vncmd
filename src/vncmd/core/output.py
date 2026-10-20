@@ -112,7 +112,7 @@ def _range_suffix(offset: int, shown: int, total: int) -> str:
     """标题右侧的分页区间，total 为可切片数量"""
     if shown <= 0:
         # offset 越过末尾，与末尾不足 limit 首不同
-        return f"超出范围（共 {total} 首）"
+        return f"超出范围，共 {total} 首"
     return f"{offset + 1}-{offset + shown}/{total}"
 
 
@@ -127,7 +127,7 @@ def display_search_results(
     suffix = _range_suffix(offset, len(songs), total)
     _display_track_table(
         songs,
-        title=f"搜索：「{escape(query)}」  —  {suffix}",
+        title=f"搜索：“{escape(query)}”，{suffix}",
         blocked=blocked,
         offset=offset,
     )
@@ -150,13 +150,13 @@ def _fmt_size(n: int) -> str:
     if not n:
         return ""
     mb = n / 1024 / 1024
-    return f"{mb:.1f} MB ({n} 字节)" if mb >= 0.1 else f"{n} 字节"
+    return f"{mb:.1f} MB，{n} 字节" if mb >= 0.1 else f"{n} 字节"
 
 
 def _fmt_kbps(bps: int) -> str:
     if not bps:
         return ""
-    return f"{bps // 1000} kbps ({bps} bps)"
+    return f"{bps // 1000} kbps，{bps} bps"
 
 
 def _fmt_validity(expi: int) -> str:
@@ -201,7 +201,7 @@ def _download_lines(
         lines.append(("权限", "允许访问"))
     else:
         reason = FEE_NEED.get(fee, "当前账号没有相应权限")
-        lines.append(("权限", f"不允许访问（{reason}）"))
+        lines.append(("权限", f"不允许访问，{reason}"))
 
     # 空字段不印
     lines = [(k, v) for k, v in lines if v]
@@ -246,7 +246,7 @@ def display_song_detail(song: dict) -> None:
     lines = [
         ("标题", song["title"] or ""),
         ("艺术家", _artist_text(song["artist"] or "", "bright_white")),
-        ("专辑", f"{album}（{album_id}）" if album_id > 0 else album),
+        ("专辑", f"{album}，id {album_id}" if album_id > 0 else album),
         ("封面", song["cover"] or ""),
         ("发行时间", _trim_midnight(song["publish_time"] or "")),
         ("时长", song["duration"] or ""),

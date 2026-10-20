@@ -107,7 +107,7 @@ class Testchanged不再被丢:
         """改标题的曲目也要写进正文，不能整个消失"""
         note = tracker._diff_note(DIFF)
         assert "被删了" in note
-        assert "旧名 -> 新名" in note
+        assert "旧名 改为 新名" in note
 
     def test_撤掉changed那段就会红(self):
         """锚定在 _diff_note 自己的源码上
@@ -128,8 +128,8 @@ class Testchanged不再被丢:
 
     def test_标题写明两类各多少(self):
         note = tracker._diff_note(DIFF)
-        assert "已从 Tracker 中移除（1 首）" in note
-        assert "标题已变更（1 首）" in note
+        assert "已从 Tracker 移除，共 1 首" in note
+        assert "标题已变更，共 1 首" in note
 
     def test_只有一类时只给那一类(self):
         note = tracker._diff_note({"removed": DIFF["removed"]})
@@ -192,7 +192,7 @@ class Test下载diff落盘:
         tracker.download_diff("like", 320, str(out))
         text = (out / "session" / "changed.txt").read_text(encoding="utf-8")
         assert "被删了" in text
-        assert "旧名 -> 新名" in text
+        assert "旧名 改为 新名" in text
 
     def test_没有新增时文件落在输出目录(self, ready, monkeypatch, tmp_path):
         monkeypatch.setattr(
@@ -207,7 +207,7 @@ class Test下载diff落盘:
             tracker, "load_diff", lambda n: {"added": [], "removed": [], "changed": []}
         )
         tracker.download_diff("like", 320, "/tmp/x")
-        assert "--fetch" in capsys.readouterr().err
+        assert "未找到 diff" in capsys.readouterr().err
 
     def test_只有changed时不再说未找到diff(self, ready, monkeypatch, tmp_path, capsys):
         """只看 added 与 removed 时，changed 非空会被当成没有 diff"""

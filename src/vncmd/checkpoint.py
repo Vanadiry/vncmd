@@ -75,13 +75,14 @@ def sync_checkpoint_tracks(
 
     # album 与 playlist 提示增删
     if dl_type in ("album", "playlist") and has_changes:
+        label = "专辑" if dl_type == "album" else "歌单"
         for tid in sorted(new_ids):
             # current_tracks 的键恒为 str，int(tid) 那一路永远取不到值
             title = current_tracks.get(tid, "?")
-            info(f"  {dl_type} 新增曲目：{title}（ID {tid}）")
+            info(f"  {label}新增曲目：{title}，ID {tid}")
         for tid in sorted(removed_ids):
-            info(f"  {dl_type} 曲目已移除：ID {tid}")
-        info("  提示：如果列表经常变动，建议使用 Tracker 功能（vncmd tracker --help）")
+            info(f"  {label}曲目已移除：ID {tid}")
+        info("  列表经常变动时可用 Tracker 功能，命令：vncmd tracker --help")
 
     for tid in removed_ids:
         del cp["tracks"][tid]

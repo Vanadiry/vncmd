@@ -428,9 +428,9 @@ class Test路径缩写:
         )
         commands_mod.cmd_init(ns())
         got = capsys.readouterr()
-        assert "粘贴" in got.err, got
-        assert "粘贴到 ~/.vSoft" not in got.err, f"路径不该重复一遍：{got.err}"
-        assert "粘贴到" not in got.out, got
+        assert "写入" in got.err, got
+        assert "写入到 ~/.vSoft" not in got.err, f"路径不该重复一遍：{got.err}"
+        assert "写入到" not in got.out, got
 
     def test_tracker面板的路径也走缩写(self, ready, monkeypatch, capsys, tmp_path):
         """面板那行与 init 同一个写法
@@ -664,7 +664,7 @@ class Test曲目表:
 
     def test_超出范围给提示(self, ready, capsys):
         tracker.cmd_tracker(ns(offset=999))
-        assert "超出范围（共 200 首）" in capsys.readouterr().out
+        assert "超出范围，共 200 首" in capsys.readouterr().out
 
     def test_没有artist的老条目那一列是空的(self, ready, monkeypatch, capsys):
         monkeypatch.setattr(

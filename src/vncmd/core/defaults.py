@@ -1,18 +1,18 @@
 CONFIG_TOML = """\
 [download]
-# 绝对路径、相对于 VNCMD_HOME 的路径，或留空使用 ~/Downloads
+# 绝对路径，或相对于 VNCMD_HOME 的路径，留空使用 ~/Downloads
 dir = ""
-# 艺术家在文件名里的位置：back=曲目-艺术家，front=艺术家-曲目，drop=仅曲目
+# 艺术家在文件名中的位置：back=曲目-艺术家，front=艺术家-曲目，drop=仅曲目
 filename_artist = "back"
 # 下载内容：a=音频，l=歌词，c=封面，任意组合（如 alc=全部，cl=歌词和封面）
 content = "alc"
 # 并发下载数：1-16（默认 4）
 concurrency = 4
-# 下载后是否做 ffmpeg 全量解码校验；size 与 md5 的校验始终执行
+# 下载后是否做 ffmpeg/flac 全量解码校验
 check = true
-# 下载方式：builtin 用内建请求，curl 交给系统 curl
+# 下载方式：builtin=内建下载实现，curl=系统 curl
 downloader = "builtin"
-# 追加给 curl 的参数，仅从配置读取，不接受命令行传入
+# 追加给 curl 的参数
 curl_arg = ""
 
 [download.audio]
@@ -26,9 +26,9 @@ parse_credits = false
 embed_mode = "drop"
 # 下载译文时，与原文的合并模式：line=交错，block=拼接，drop=丢弃译文，split=拆分文件
 save_mode = "line"
-# 自动裁剪无用歌词数据，如作曲人、“纯音乐，请欣赏”行等
+# 自动裁剪无用歌词数据，如纯音乐占位行等
 auto_trim = false
-# credit 检测时要扫描的歌词行数
+# parse_credits 扫描的歌词行数
 credit_scan_lines = 10
 
 [download.cover]
@@ -38,7 +38,7 @@ embed_compress = true
 save_compress = false
 
 [cache]
-# 启用本地缓存（曲目详情和歌词）
+# 启用本地缓存（曲目详情与歌词）
 enabled = true
 # 缓存有效期，单位为天，0 表示永不过期
 ttl = 3

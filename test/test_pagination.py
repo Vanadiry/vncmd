@@ -123,7 +123,7 @@ class Test标题的区间:
                 playlist(298), max_tracks=10, offset=300
             )
         )
-        assert "超出范围（共 298 首）" in text
+        assert "超出范围，共 298 首" in text
 
     def test_分母是可切片的数量而不是接口声明的总数(self, rendered):
         """拿 track_count 当分母等于承诺 100 首而实际只有 20 首，翻到第 21 首为空白"""

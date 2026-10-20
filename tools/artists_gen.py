@@ -18,7 +18,7 @@ def main():
         cache_root = Path.home() / ".vSoft" / "vncmd" / "cache" / "song"
 
     if not cache_root.is_dir():
-        print(f"Cache directory not found: {cache_root}", file=sys.stderr)
+        print(f"未找到缓存目录：{cache_root}", file=sys.stderr)
         sys.exit(1)
 
     artists: set[str] = set()
@@ -39,7 +39,7 @@ def main():
                 artists.add(name)
 
     if not artists:
-        print("No artists found in cache.", file=sys.stderr)
+        print("缓存中没有艺人", file=sys.stderr)
         sys.exit(1)
 
     date_str = datetime.now(UTC).strftime("%Y%m%d")
@@ -50,7 +50,7 @@ def main():
         for name in sorted(artists):
             f.write(f"{name}\n")
 
-    print(f"Wrote {len(artists)} artists to {out_path}")
+    print(f"已写入 {len(artists)} 个艺人：{out_path}")
 
 
 if __name__ == "__main__":
