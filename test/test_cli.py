@@ -39,7 +39,7 @@ class TestCliPreview:
         assert r.returncode == 0
 
     def test_song_lyrics(self):
-        r = _run(["song", str(SONG_ID), "--lyrics"])
+        r = _run(["song", str(SONG_ID), "--lyric"])
         assert r.returncode == 0
 
     def test_song_url(self):
