@@ -331,6 +331,7 @@ def fetch_all_songs(settings: dict) -> tuple[dict[str, dict], list[dict]]:
             # 老条目没这个键，留空而不是回退到现查 API：
             # 529 首是 6 个批次，明显不划算，下次 --fetch 自然补齐
             "artist": data.get("artist", ""),
+            "publish_time": data.get("publish_time", ""),
         }
         if len(data["sources"]) > 1:
             entry["at"] = data["sources"]
@@ -341,10 +342,14 @@ def fetch_all_songs(settings: dict) -> tuple[dict[str, dict], list[dict]]:
 def _add_to_raw(raw: dict, track: dict, src_type: str, src_id: int) -> None:
     sid = track["id"]
     source_ref = {"type": src_type, "id": src_id}
+    publish_time = track.get("publish_time") or ""
     if sid in raw:
         existing_sources = raw[sid]["sources"]
         if source_ref not in existing_sources:
             existing_sources.append(source_ref)
+        # 第一次有值的为准，后面的源只补空日期，不覆盖已有值
+        if not raw[sid].get("publish_time"):
+            raw[sid]["publish_time"] = publish_time
     else:
         raw[sid] = {
             "id": sid,
@@ -352,6 +357,7 @@ def _add_to_raw(raw: dict, track: dict, src_type: str, src_id: int) -> None:
             # 三种来源都已经在 track 里解析过 artist 了，
             # 这里只是没往下带 —— removed 那条一直在用 rt.get("artist", "")
             "artist": track.get("artist", ""),
+            "publish_time": publish_time,
             "sources": [source_ref],
         }
 

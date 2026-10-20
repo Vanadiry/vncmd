@@ -114,6 +114,77 @@ class TestArtist入库:
         assert captured["songs"][0]["artist"] == "A"
 
 
+class TestPublishTime入库:
+    def test_raw里存了publish_time(self):
+        raw = {}
+        tracker._add_to_raw(
+            raw,
+            {"id": 1, "title": "T", "publish_time": "2021-01-01 08:00:00"},
+            "album",
+            5,
+        )
+        assert raw[1]["publish_time"] == "2021-01-01 08:00:00"
+
+    def test_曲目没有日期时留空(self):
+        raw = {}
+        tracker._add_to_raw(raw, {"id": 1, "title": "T"}, "song", 5)
+        assert raw[1]["publish_time"] == ""
+
+    def test_同一首来自多个源时第一次有值的为准(self):
+        raw = {}
+        tracker._add_to_raw(
+            raw,
+            {"id": 1, "title": "T", "publish_time": "A"},
+            "album",
+            1,
+        )
+        tracker._add_to_raw(
+            raw,
+            {"id": 1, "title": "T", "publish_time": "B"},
+            "playlist",
+            2,
+        )
+        assert raw[1]["publish_time"] == "A"
+        assert len(raw[1]["sources"]) == 2
+
+    def test_第一次为空时用后面的补(self):
+        raw = {}
+        tracker._add_to_raw(
+            raw,
+            {"id": 1, "title": "T", "publish_time": ""},
+            "album",
+            1,
+        )
+        tracker._add_to_raw(
+            raw,
+            {"id": 1, "title": "T", "publish_time": "B"},
+            "playlist",
+            2,
+        )
+        assert raw[1]["publish_time"] == "B"
+
+    def test_entry把publish_time带进结果(self, monkeypatch):
+        monkeypatch.setattr(
+            tracker,
+            "get_song_details",
+            lambda sid: {
+                "id": sid,
+                "title": "T",
+                "artist": "A",
+                "publish_time": "2021-01-01 08:00:00",
+            },
+        )
+        fresh, _removed = tracker.fetch_all_songs(
+            {"sources": [{"type": "song", "ids": [1]}]}
+        )
+        assert fresh[1]["publish_time"] == "2021-01-01 08:00:00"
+
+    def test_老库没有publish_time键(self):
+        old = db(with_artist=False)["songs"][0]
+        assert "publish_time" not in old
+        assert old.get("publish_time", "") == ""
+
+
 class Test面板给设置路径:
     def test_路径用波浪号(self, ready, monkeypatch, capsys):
         """设置、init、cache 三处都是同一个写法"""
