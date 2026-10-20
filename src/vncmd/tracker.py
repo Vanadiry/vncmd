@@ -68,7 +68,7 @@ def validate_name(name: str) -> None:
 def load_settings(name: str) -> dict:
     path = _settings_path(name)
     if not path.exists():
-        error(f"Tracker“{name}”不存在，配置文件缺失：{path}")
+        error(f"Tracker “{name}”不存在，配置文件缺失：{path}")
         sys.exit(1)
     with open(path, "rb") as f:
         data = tomllib.load(f)
@@ -87,7 +87,7 @@ def create_tracker(name: str) -> None:
     validate_name(name)
     tdir = _tracker_path(name)
     if tdir.exists():
-        error(f"Tracker“{name}”已存在：{tdir}")
+        error(f"Tracker “{name}”已存在：{tdir}")
         sys.exit(1)
     tdir.mkdir(parents=True, exist_ok=True)
 
@@ -98,7 +98,7 @@ def create_tracker(name: str) -> None:
         json.dumps(empty_db, ensure_ascii=False, indent=2), encoding="utf-8"
     )
 
-    success(f"Tracker“{name}”已创建：{tdir}")
+    success(f"Tracker “{name}”已创建：{tdir}")
     info("settings.toml 用于添加需要跟踪的曲目、歌单或专辑 ID")
 
 
@@ -528,7 +528,7 @@ def _apply_force(name: str, fresh: dict, comparison: dict) -> None:
 def download_tracker(name: str, quality: int, output_dir: str) -> None:
     songs = load_songs_db(name)
     if not songs:
-        error(f"Tracker“{name}”未缓存曲目")
+        error(f"Tracker “{name}”未缓存曲目")
         sys.exit(1)
 
     download_song_batch(songs, quality, output_dir, dl_type="tracker", dl_id=name)
@@ -617,7 +617,7 @@ def cmd_tracker(args: argparse.Namespace) -> None:
     tdir = _tracker_path(name)
     if not tdir.is_dir():
         if questionary.confirm(
-            f"Tracker“{name}”不存在，是否创建",
+            f"Tracker “{name}”不存在，是否创建",
             default=False,
         ).ask():
             create_tracker(name)
@@ -631,7 +631,7 @@ def cmd_tracker(args: argparse.Namespace) -> None:
             error("未配置来源，settings.toml 中没有来源")
             sys.exit(1)
 
-        info(f"正在拉取 Tracker“{name}”的全部曲目")
+        info(f"正在拉取 Tracker “{name}”的全部曲目")
         fresh, removed = fetch_all_songs(settings)
 
         if removed:

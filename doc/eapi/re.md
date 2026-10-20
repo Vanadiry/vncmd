@@ -1,13 +1,13 @@
-# 下架歌曲 API 逆向
+# 下架曲目 API 逆向
 
 ## 背景
 
-公开 API 对已下架歌曲无效：
+公开 API 对已下架曲目无效：
 
 - `/api/song/enhance/player/url` → code=405
 - `/api/song/enhance/download/url` → code=-110
 
-桌面客户端可正常下载，经抓包确认走的是 `/eapi/` 加密端点。
+桌面客户端可正常下载，经抓包确认使用 `/eapi/` 加密端点。
 
 ## 端点
 

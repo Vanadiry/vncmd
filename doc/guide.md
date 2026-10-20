@@ -18,7 +18,7 @@
 | `tracker <名称>` | 新建/查看 Tracker |
 | `cookie "..."` | 写入 Cookie |
 | `cookie --check` | 不写文件，只检查当前 Cookie 状态 |
-| `tool check "目录/文件"` | 检查音频数据完整性 |
+| `tool check "文件或目录"` | 校验音频完整性 |
 
 对于 `song/playlist/album` 的参数：
 
@@ -27,7 +27,7 @@
 
 详细参数见 [music](music.md)。
 
-### 获取 ID
+### 查找 ID
 
 曲目、歌单、专辑 ID 均位于链接的 `id` 参数中：
 `https://.../song?id=409926`
@@ -35,10 +35,10 @@
 官方客户端：分享 → 复制链接。短链请先在浏览器中打开，再复制地址栏。  
 网页版：直接看地址栏。
 
-## 完整性检查
+## 完整性校验
 
-如果你的系统中安装 ffmpeg 和 flac 库，那么程序会自动在下载完毕后检查音频的完整性。  
-你可以使用 `vncmd tool check "目录/文件"` 来检查其他目录下的音频。
+如果系统中安装了 ffmpeg 和 flac 工具，程序会自动在下载完毕后校验音频完整性。  
+你可以使用 `vncmd tool check "文件或目录"` 来校验其他目录下的音频。
 
 支持格式：mp3、flac、m4a、wav、ogg、opus、wma、ape。  
 

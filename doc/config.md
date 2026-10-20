@@ -3,11 +3,11 @@
 配置文件存放在 `VNCMD_HOME/config.toml`。
 Cookie 存放在 `VNCMD_HOME/cookie`，纯文本。
 
-启动时会校验配置，对于错误的配置会提示，对于未写出的配置会以默认值替代。  
+启动时会校验配置，不合法的配置会给出提示，未写出的配置项使用默认值。  
 若配置文件不存在，会自动创建默认配置。  
 同一时间只能运行一个 vncmd 实例。
 
-程序已经预设了足够正常使用的配置，手动修改配置之前，请确保你了解每个配置的用途。
+程序已经提供了足够正常使用的默认配置，手动修改配置之前，请确保你了解每个配置的用途。
 
 ## 临时覆盖
 
@@ -22,7 +22,7 @@ vncmd --config download.content=l song 2742965504
 vncmd --config download.audio.quality=320 --config download.dir=/tmp song 2742965504
 ```
 
-这是全局参数，需要在子命令之前使用。
+该参数为全局参数，需要在子命令之前使用。
 `key` 使用完整的点号路径，例如 `[download.audio]` 段的 `quality`，为 `download.audio.quality`。
 同一个键传两次时，后一个生效。
 
@@ -65,7 +65,7 @@ vncmd --config download.audio.quality=320 --config download.dir=/tmp song 274296
 下载后做全量解码校验。默认 `true`。
 
 开启后，会用 ffmpeg/flac 对音频完整解码，可以查出文件截断、容器损坏等不易发现的问题。  
-需要系统中装有 ffmpeg/flac 库。若部分/全部未安装，则会跳过对应校验。
+需要系统中装有 ffmpeg/flac 工具。若部分或全部未安装，则会跳过对应校验。
 
 ### downloader
 
@@ -90,10 +90,10 @@ vncmd --config download.audio.quality=320 --config download.dir=/tmp song 274296
 - `"128"`：128 kbps
 - `"192"`：192 kbps
 - `"320"`：320 kbps
-- `"max"`：可用的最高质量
+- `"max"`：可用的最高音质
 
-`max` 是服务端根据你 Cookie 所属账号的权限，返回的可下载的最高质量。  
-如果你有 VIP 或购买了特定曲目/专辑的，则设为 `max` 能够获取它们的 SQ/Hi-Res 的无损质量（如有）。
+`max` 为服务端根据你 Cookie 所属账号的权限返回的可下载最高音质。  
+若账号拥有 VIP 或已购买特定曲目/专辑，则设为 `max` 能够获取它们的 SQ/Hi-Res 无损音质（如有）。
 
 ### parse_credits
 
@@ -146,9 +146,9 @@ vncmd --config download.audio.quality=320 --config download.dir=/tmp song 274296
 
 ### credit_scan_lines
 
-检查 credit 数据的行数。默认 `10`。在启用 `auto_trim` 或/和 `parse_credits` 时生效。
+扫描 credit 数据的行数。默认 `10`。在启用 `auto_trim` 或 `parse_credits` 时生效。
 
-检测 parse_credits 与/或 auto_trim 中记录的要删除的行，只扫描歌词前 N 行。  
+检测 `parse_credits` 或 `auto_trim` 中记录的要删除的行，只扫描歌词前 N 行。  
 这能避免将正文中出现的角色关键词误判为 credit。
 
 ## [download.cover]
@@ -171,7 +171,7 @@ vncmd --config download.audio.quality=320 --config download.dir=/tmp song 274296
 
 本地缓存。默认 `true`。
 
-关闭后，歌词、曲目详情每次都会从 API 拉取，更慢但更实时。
+关闭后，歌词、曲目详情每次都会从 API 拉取，更慢但数据更新更及时。
 
 ### ttl
 
@@ -185,5 +185,5 @@ vncmd --config download.audio.quality=320 --config download.dir=/tmp song 274296
 
 艺术家按各自代表色着色。默认 `true`。
 
-将展示的艺术家名字，按照 vncmd 预设的颜色对照表着色。  
+将展示的艺术家名字，按照 vncmd 内置的颜色对照表着色。  
 目前收录类型有 Vocaloid、世界计划、VTuber等。

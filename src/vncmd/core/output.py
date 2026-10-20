@@ -246,7 +246,7 @@ def display_song_detail(song: dict) -> None:
     lines = [
         ("标题", song["title"] or ""),
         ("艺术家", _artist_text(song["artist"] or "", "bright_white")),
-        ("专辑", f"{album}，id {album_id}" if album_id > 0 else album),
+        ("专辑", f"{album}（{album_id}）" if album_id > 0 else album),
         ("封面", song["cover"] or ""),
         ("发行时间", _trim_midnight(song["publish_time"] or "")),
         ("时长", song["duration"] or ""),

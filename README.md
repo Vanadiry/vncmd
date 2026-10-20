@@ -1,10 +1,10 @@
 # vncmd
 
-网易云音乐 CLI 下载工具。
+网易云音乐 CLI 下载与管理工具。
 
-之前用的下载器不好使了，又找不到其他能嵌入元数据，还方便的工具，所以自己造了一个。
+之前用的下载器不好用了，又找不到其他能嵌入元数据，又方便的工具，所以自己写了一个。
 
-本项目不提供越权操作，如果你想下载 VIP 音乐，那你要确保你是 VIP。  
+本项目不提供越权操作，下载 VIP 音乐需要确保账号有 VIP 权限。  
 本项目仅供学习交流，使用本项目获取的数据，请于 24 小时内删除。
 
 [GitHub](https://github.com/Vanadiry/vncmd)｜[PyPI](https://pypi.org/project/vncmd/)｜[Blog](https://magic.vanadiry.com/wiki/vncmd/)｜[LICENSE](LICENSE)
@@ -39,7 +39,7 @@ vncmd 有各种方便的功能，但可能不适合所有用户，因此默认�
 # 搜索
 vncmd search "Beyond"
 
-# 使用。数字为曲目ID，专辑歌单同理。加入-d参数即为下载。
+# 使用。数字为曲目 ID，专辑歌单同理。加入 -d 参数即为下载。
 # 单曲：song｜歌单：playlist｜专辑：album。
 vncmd song 409926           # 预览单曲
 vncmd song 409926 -d        # 下载单曲
@@ -51,10 +51,10 @@ vncmd album 405493 -d       # 下载专辑
 vncmd cookie "..."
 
 # Tracker
-vncmd tracker my-list          # 新建/查看Tracker
+vncmd tracker my-list          # 新建/查看 Tracker
 vncmd tracker my-list -f       # 交互式更新
 
-# 音频完整性检查
+# 音频完整性校验
 vncmd tool check ~/Music
 ```
 

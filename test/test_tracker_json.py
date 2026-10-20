@@ -138,7 +138,7 @@ class Test面板显示更新时间:
         """三个月没更新的库，面板上与刚建的一样，看不出该不该再 --fetch"""
         tracker.cmd_tracker(ns(json=False))
         out = capsys.readouterr().out
-        assert "2026-10-01T00:00:00Z" in out
+        assert "2026-10-01 08:00:00" in out
 
     def test_没有更新时间也给那一行(self, ready, monkeypatch, capsys):
         """更新于固定占一行，不随有没有值增删，避免面板高度变化像出错"""

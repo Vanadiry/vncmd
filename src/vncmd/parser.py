@@ -39,11 +39,11 @@ class _ArgumentParser(argparse.ArgumentParser):
             return f"缺少参数 {missing}，{hint}"
         if message.startswith("unrecognized arguments: "):
             extra = message.split(": ", 1)[1]
-            return f"不认识的参数 {extra}，{hint}"
+            return f"未知参数 {extra}，{hint}"
         if "invalid choice: " in message:
             tail = message.split("invalid choice: ", 1)[1]
             value = tail.split("'")[1]
-            return f"没有 {value} 这个命令，{hint}"
+            return f"未知命令 {value}，{hint}"
         if message.startswith("argument ") and ": " in message:
             head, body = message.split(": ", 1)
             head = head[len("argument ") :]
@@ -75,26 +75,26 @@ def _search_limit(raw: str) -> int:
 def _add_json_arg(parser: object) -> None:
     """给命令加上 --json"""
     parser.add_argument(
-        "--json",
         "-j",
+        "--json",
         action="store_true",
-        help="以 JSON 输出结果并退出，供脚本读取",
+        help="以 JSON 输出结果并退出",
     )
 
 
 def _add_list_args(parser: object) -> None:
     """给有曲目表的命令加 --count 与 --offset"""
     parser.add_argument(
-        "--count",
         "-c",
+        "--count",
         type=int,
         default=None,
         metavar="N",
         help="最多处理曲目数，默认面板 10，JSON 与下载全部",
     )
     parser.add_argument(
-        "--offset",
         "-o",
+        "--offset",
         type=int,
         default=0,
         metavar="N",
@@ -104,19 +104,19 @@ def _add_list_args(parser: object) -> None:
 
 def _add_dlink_arg(parser: object, help_text: str) -> None:
     """加 --dlink，help 按命令区分"""
-    parser.add_argument("--dlink", "-u", action="store_true", help=help_text)
+    parser.add_argument("-u", "--dlink", action="store_true", help=help_text)
 
 
 def _add_download_args(parser: object, download_group: object = None) -> None:
     """加 --download，download_group 非空时放进互斥组"""
     add = download_group.add_argument if download_group else parser.add_argument
-    add("--download", "-d", action="store_true", help="下载而非仅预览")
+    add("-d", "--download", action="store_true", help="下载而非仅预览")
 
 
 def build_parser(version: str) -> _ArgumentParser:
     parser = _ArgumentParser(
         prog="vncmd",
-        description="网易云音乐 CLI，搜索、预览与下载",
+        description="网易云音乐 CLI 下载与管理工具",
     )
     parser.add_argument(
         "-v",
@@ -130,11 +130,11 @@ def build_parser(version: str) -> _ArgumentParser:
     )
 
     parser.add_argument(
-        "--init", "-i", action="store_true", help="初始化 vncmd 并写入默认配置"
+        "-i", "--init", action="store_true", help="初始化 vncmd 并写入默认配置"
     )
     parser.add_argument(
-        "--config",
         "-C",
+        "--config",
         action="append",
         default=[],
         metavar="key=value",
@@ -161,8 +161,8 @@ def build_parser(version: str) -> _ArgumentParser:
     p_search = sub.add_parser("search", help="搜索曲目")
     p_search.add_argument("query", help="搜索关键词")
     p_search.add_argument(
-        "--count",
         "-c",
+        "--count",
         type=_search_limit,
         default=None,
         metavar="N",
@@ -177,10 +177,10 @@ def build_parser(version: str) -> _ArgumentParser:
     _add_dlink_arg(grp_song, "显示下载链接与音质、费用等详情")
     _add_json_arg(p_song)
     _add_download_args(p_song, download_group=grp_song)
-    p_song.add_argument("--lyric", "-l", action="store_true", help="显示歌词")
+    p_song.add_argument("-l", "--lyric", action="store_true", help="显示歌词")
     p_song.add_argument(
-        "--translate",
         "-t",
+        "--translate",
         action="store_true",
         help="配 --lyric 时一并显示翻译歌词",
     )
@@ -203,45 +203,45 @@ def build_parser(version: str) -> _ArgumentParser:
     p_tracker.add_argument("name", help="Tracker 名称")
     grp_tracker = p_tracker.add_mutually_exclusive_group()
     grp_tracker.add_argument(
-        "--fetch",
         "-f",
+        "--fetch",
         action="store_true",
         help="拉取并对比，交互式解决冲突",
     )
     grp_tracker.add_argument(
-        "--download", "-d", action="store_true", help="下载所有已缓存曲目"
+        "-d", "--download", action="store_true", help="下载所有已缓存曲目"
     )
     grp_fetch = p_tracker.add_mutually_exclusive_group()
     grp_fetch.add_argument(
-        "--auto-accept",
         "-A",
+        "--auto-accept",
         action="store_true",
         help="配 --fetch 时自动接受全部变更，无需交互",
     )
     grp_fetch.add_argument(
-        "--force",
         "-F",
+        "--force",
         action="store_true",
         help="配 --fetch 时覆盖 songs.json，diff.json 变化才更新，连续两次会顶掉备份",
     )
     p_tracker.add_argument(
-        "--diff",
         "-x",
+        "--diff",
         action="store_true",
         help="上次 --fetch 的记录，不联网，可配 -d 或 --json",
     )
     _add_json_arg(p_tracker)
     p_tracker.add_argument(
-        "--count",
         "-c",
+        "--count",
         type=int,
         default=None,
         metavar="N",
         help="最多处理曲目数，默认面板 10，JSON 全部",
     )
     p_tracker.add_argument(
-        "--offset",
         "-o",
+        "--offset",
         type=int,
         default=0,
         metavar="N",

@@ -37,9 +37,9 @@ def _show(capsys, raw):
 class TestAlbumId:
     def test_专辑后面带出ID(self, capsys):
         out = _show(capsys, WITH_ALBUM)
-        assert "PPPP，id 283881237" in out
+        assert "PPPP（283881237）" in out
 
-    def test_ID用逗号隔开(self, capsys):
+    def test_ID用括号包住(self, capsys):
         """点号隔开会被当成专辑名的一部分，看不出括号里那个为编号"""
         out = _show(capsys, WITH_ALBUM)
         assert "PPPP · 283881237" not in out

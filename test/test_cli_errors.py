@@ -58,29 +58,29 @@ class Test缺参数:
 
 
 class Test写错命令:
-    def test只说没有这个命令(self, capsys):
+    def test只说未知命令(self, capsys):
         """cache 已挪进 tool，直接敲会撞这里
         不列候选命令，列出来会让这一行很长，用户下一步看 -h 即可
         """
         assert _报错(["cache"]) == 2
         出错 = capsys.readouterr().err
-        assert "没有 cache" in 出错, 出错
+        assert "未知命令 cache" in 出错, 出错
         assert "vncmd -h" in 出错, 出错
         assert "可用命令" not in 出错, 出错
 
     def test_tool下的子命令也同一套(self, capsys):
         assert _报错(["tool", "xyz"]) == 2
         出错 = capsys.readouterr().err
-        assert "没有 xyz" in 出错, 出错
+        assert "未知命令 xyz" in 出错, 出错
         assert "vncmd tool -h" in 出错, 出错
 
 
 class Test其他用法错误:
-    def test不认识的参数(self, capsys):
+    def test未知参数(self, capsys):
         """--check 已从下载命令移除"""
         assert _报错(["song", "1", "--check"]) == 2
         出错 = capsys.readouterr().err
-        assert "不认识的参数" in 出错, 出错
+        assert "未知参数" in 出错, 出错
         assert "--check" in 出错, 出错
 
     def test整数位置参数写错(self, capsys):
