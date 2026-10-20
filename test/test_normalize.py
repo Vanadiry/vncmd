@@ -62,6 +62,42 @@ def test_字段齐全时照常取出():
         assert r["publish_time"] == "2011-09-01 16:00:00"
 
 
+def test_歌曲日优先于专辑日():
+    with as_tz("UTC"):
+        r = _norm(
+            al={"name": "专", "publishTime": 1314864000000},
+            publishTime=1609459200000,
+        )
+    assert r["publish_time"] == "2021-01-01 08:00:00"
+
+
+def test_只有歌曲日时用它():
+    with as_tz("UTC"):
+        r = _norm(publishTime=1609459200000)
+    assert r["publish_time"] == "2021-01-01 08:00:00"
+
+
+def test_只有专辑日时兜底():
+    with as_tz("UTC"):
+        r = _norm(al={"name": "专", "publishTime": 1314864000000})
+    assert r["publish_time"] == "2011-09-01 16:00:00"
+
+
+def test_歌曲日为0时退回专辑日():
+    with as_tz("UTC"):
+        r = _norm(
+            publishTime=0,
+            al={"name": "专", "publishTime": 1314864000000},
+        )
+    assert r["publish_time"] == "2011-09-01 16:00:00"
+
+
+def test_歌曲日与专辑日都没有时留空():
+    with as_tz("UTC"):
+        r = _norm(publishTime=0, al={"name": "专", "publishTime": 0})
+    assert r["publish_time"] == ""
+
+
 def test_零宽字符被清掉():
     r = _norm(ar=[{"name": "B﻿eyond"}], al={"name": "A﻿lbum"})
     assert r["artist"] == "Beyond"

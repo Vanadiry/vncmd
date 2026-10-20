@@ -168,7 +168,10 @@ def _normalize_song(song: dict) -> dict:
         # 显示时要按「没有」处理而不是印一个 0 出去
         "album_id": album.get("id") or 0,
         "cover": _text(album.get("picUrl")),
-        "publish_time": _fmt_publish_time(album.get("publishTime")),
+        # 歌曲自己的发行日优先，没有才退回专辑日
+        "publish_time": _fmt_publish_time(
+            song.get("publishTime") or album.get("publishTime")
+        ),
         "duration": _fmt_duration(song.get("duration")),
         "track_no": _first_number(song.get("no")),
         "cd_no": _first_number(song.get("cd")),
