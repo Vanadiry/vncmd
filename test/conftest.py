@@ -8,20 +8,20 @@ from pathlib import Path
 
 import pytest
 
-# Isolate all file I/O to a temp directory — set before anything imports config
+# 文件读写全部隔离到临时目录，必须在导入 config 之前设置
 _session_home = tempfile.mkdtemp(prefix="vncmd_home_")
 os.environ["VNCMD_HOME"] = _session_home
 
-# sys.path setup — needed so that `from vncmd.xxx import ...` works in tests
+# 把 src 加入 sys.path，测试里才能导入 vncmd
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(PROJECT_ROOT / "src"))
 
-# Shared test IDs (real NetEase Music IDs for integration tests)
+# 共享测试 ID，为真实网易云 ID，供联网测试用
 PLAYLIST_ID = 17647459371
 SONG_ID = 22699098
 ALBUM_ID = 123388631
 
-# 网易云给的是毫秒，这个值在 UTC 下是 2011-09-01 08:00:00，上海时间下是 16:00:00
+# 网易云返回毫秒，这个值在 UTC 下为 2011-09-01 08:00:00，上海时间为 16:00:00
 SAMPLE_MS = 1314864000000
 
 
@@ -29,13 +29,8 @@ if hasattr(time, "tzset"):
 
     @contextmanager
     def as_tz(name):
-        """Temporarily pin the process timezone, restoring it afterwards
-
-        发行时间固定按 Asia/Shanghai 算，不再走本地时区。
-        这个夹具留在这里，是为了在测试里把进程时区设成 UTC，
-        验证结果不受本机时区影响；其他依赖本地时区的逻辑也能继续用。
-
-        改了 TZ 必须调 tzset，否则 C 库不会重新读取。
+        """临时固定进程时区并还原，验证结果不受本机时区影响
+        改 TZ 后必须调 tzset，否则 C 库不会重新读取
         """
         old = os.environ.get("TZ")
         os.environ["TZ"] = name
@@ -49,7 +44,7 @@ if hasattr(time, "tzset"):
                 os.environ["TZ"] = old
             time.tzset()
 
-else:  # pragma: no cover - 仅 Windows 会走到
+else:  # pragma: no cover，仅 Windows 会走到
 
     @contextmanager
     def as_tz(_name):
@@ -63,7 +58,7 @@ def pytest_configure(config):
 
 @pytest.fixture
 def temp_dir():
-    """Temporary directory that is automatically cleaned up after the test."""
+    """临时目录，测试结束后自动删除"""
     d = tempfile.mkdtemp(prefix="vncmd_test_")
     yield d
     shutil.rmtree(d, ignore_errors=True)
@@ -71,7 +66,7 @@ def temp_dir():
 
 @pytest.fixture(autouse=True)
 def _reset_config_cache():
-    """Reset the config module's cached _cfg so each test sees a fresh state."""
+    """清掉 config 模块缓存的 _cfg，让每条测试拿到干净状态"""
     import vncmd.core.config
 
     vncmd.core.config._cfg = None
@@ -79,10 +74,8 @@ def _reset_config_cache():
 
 @pytest.fixture(autouse=True)
 def _reset_check_tools_cache():
-    """checker 的三个 has_* 带 lru_cache，每条测试前后都清一次。
-
-    那些测试会 monkeypatch shutil.which 来模拟「装没装」，
-    不清就会拿到上一条测试留下的缓存值。
+    """清掉 checker 里带 lru_cache 的 has_ 系列函数
+    测试会 monkeypatch shutil.which 模拟装没装
     """
     from vncmd.media.checker import clear_check_tools_cache
 
@@ -93,7 +86,7 @@ def _reset_check_tools_cache():
 
 @pytest.fixture(scope="session", autouse=True)
 def _ensure_dirs():
-    """Create default config and required directories for tests."""
+    """创建默认配置与测试所需目录"""
     import vncmd.core.config
 
     vncmd.core.config.validate_config()

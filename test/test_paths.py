@@ -41,7 +41,7 @@ def test_路径变短():
     ["曲 [bold] 现场.mp3", "[red]x.mp3", "a]b.mp3", "tail]"],
 )
 def test_check输出不会被markup注入(name, tmp_path):
-    # 文件名含方括号时未转义会被 rich 当成样式标签解析，
+    # 文件名含方括号时未转义会被 rich 当成样式标签解析
     # [/b] 这种不配对的标签会让渲染直接抛 MarkupError
     f = tmp_path / name
     f.write_bytes(b"")

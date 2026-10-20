@@ -81,8 +81,7 @@ class TestProcess:
         assert len(r2) == 2 and "lrc" in r2 and "2.lrc" in r2
 
     def test_split无译文时不出第二个文件(self):
-        """出的是一个 0 字节的 .2.lrc，播放器会把它当成一首独立的翻译歌词。
-        库里没有的译文很常见，而 clean() 只删 [by:] 行，所以这一路是空的"""
+        """译文为空时不能写出 0 字节的 .2.lrc，播放器会把它当成独立的翻译歌词"""
         r2 = process(LRC, "", "split", 99999999)
         assert list(r2) == ["lrc"]
         assert r2["lrc"].strip()
@@ -125,11 +124,8 @@ class TestOutputFiles:
 
 
 class TestProcessDrop:
-    """save_mode = "drop"：只要原文的歌词文件，不写 .2.lrc
-
-    产出的内容与 split 遇到没译文时一模一样，区别在语义：
-    split 是「译文暂时没有」，drop 是「明确不要译文」
-    """
+    """save_mode 为 drop 时只要原文歌词，不写 .2.lrc
+    产出与 split 遇到没译文时相同，区别在语义"""
 
     def test_drop有译文也不出第二个文件(self):
         r = process(LRC, TLYRIC, "drop", 99999999)

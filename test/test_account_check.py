@@ -1,17 +1,4 @@
-"""下载前的 Cookie 状态提示
-
-探测过四种 Cookie 在 account/get 与 player/url 上的表现：
-
-| Cookie | account | vipType | 请求无损 |
-| --- | --- | --- | --- |
-| 有会员 | 有 | 11 | lossless |
-| 登录但无会员 | 有 | 0 | exhigh |
-| 空/失效 | None | — | exhigh |
-| 正常但拿不到账号信息 | — | — | — |
-
-要点：这个接口无论登录与否都返回 code=200，看 code 没有意义；
-登录但无会员的账号 account 同样存在，会员与否要看 vipType 非零。
-"""
+"""下载前的 Cookie 状态提示"""
 
 import json
 import os
@@ -26,16 +13,14 @@ from vncmd.net.api import EXPECTED_LEVEL, LEVEL_LABEL
 
 @pytest.fixture(autouse=True)
 def _fresh_flags():
-    """降级提示是进程内只说一次，每个用例都要重置"""
+    """降级提示在进程内只说一次，每个用例都要重置"""
     downloader._downgrade_notified = False
 
 
 @pytest.fixture
 def disk(tmp_path, monkeypatch):
-    """把磁盘那份账号缓存与 cookie 文件挪进 tmp_path
-
-    不隔离的话，测试会读到用户真目录里的 account.json，
-    请求次数与状态断言全都不可靠。
+    """把账号缓存与 cookie 文件挪进 tmp_path
+    不隔离会读到用户真目录里的 account.json
     """
     import vncmd.net.api as api
     from vncmd.net import cache
@@ -110,7 +95,7 @@ class TestAccountOnDisk:
         assert saved["checked_at"] <= time.time()
 
     def test_缓存写在缓存根目录(self, disk, monkeypatch):
-        """cache --clear 是 rmtree 整个根目录，放对位置才顺带清掉"""
+        """cache --clear 会 rmtree 整个根目录，放对位置才能顺带清掉"""
         import vncmd.net.api as api
 
         _responder(monkeypatch, {"code": 200, "account": {"vipType": 11}})
@@ -132,7 +117,7 @@ class TestAccountOnDisk:
         assert count() == 1
 
     def test_cookie改过就重新查(self, disk, monkeypatch):
-        """记 set_at 覆盖不到手工编辑这条途径，会拿着旧账号状态去下音频"""
+        """set_at 记不到手工编辑，会拿着旧账号状态去下音频"""
         import vncmd.net.api as api
 
         _write_cache(
@@ -163,7 +148,7 @@ class TestAccountOnDisk:
         assert count() == 0
 
     def test_cookie文件不见了重新查(self, disk, monkeypatch):
-        """换了一份 cookie 等于换了个人"""
+        """cookie 换了就等于换了个人"""
         import vncmd.net.api as api
 
         _write_cache(
@@ -215,7 +200,7 @@ class TestAccountCheckFailed:
         assert got == {"logged_in": True, "vip": True, "vip_type": 11}
 
     def test_失败也把时间戳推进(self, disk, monkeypatch):
-        """否则下次运行还会因为「过期」再失败一次，永远走不到好值"""
+        """不推进的话下次运行会因过期再失败一次，永远走不到好值"""
         import vncmd.net.api as api
 
         before = time.time() - 90000
@@ -233,7 +218,7 @@ class TestAccountCheckFailed:
         assert saved["vip"] is True
 
     def test_失败时标为来自缓存(self, disk, monkeypatch):
-        """提示要能说出这份数据不是刚查的"""
+        """提示要说明这份数据来自缓存"""
         import vncmd.net.api as api
 
         _write_cache(
@@ -248,7 +233,7 @@ class TestAccountCheckFailed:
         assert api.account_stamp()[1] is True
 
     def test_没有旧值就返回失败(self, disk, monkeypatch):
-        """没有好值可留，就老实说查不成"""
+        """没有好值可留时返回失败"""
         import vncmd.net.api as api
 
         _responder(monkeypatch, boom=True)
@@ -265,7 +250,7 @@ class TestAccountCheckFailed:
 
 class TestForceCheck:
     def test_强制时缓存再新也查(self, disk, monkeypatch):
-        """cookie 刚被改过，缓存里那份描述的是另一个人"""
+        """cookie 刚被改过，缓存里那份属于另一个人"""
         import vncmd.net.api as api
 
         _write_cache(
@@ -281,7 +266,7 @@ class TestForceCheck:
         assert got["vip"] is False
 
     def test_强制查失败不拿旧值顶替(self, disk, monkeypatch):
-        """强制检查要的是当下的真相，拿一小时前的状态顶替等于没查"""
+        """强制检查要当下的状态，拿一小时前的缓存顶替等于没查"""
         import vncmd.net.api as api
 
         _write_cache(
@@ -312,7 +297,7 @@ class TestForceCheck:
 
 
 class TestAccountNeedsCheck:
-    """预告「正在检查」之前要先知道这次会不会真发请求"""
+    """预告“正在检查”之前要先知道会不会真发请求"""
 
     def test_没有缓存说要查(self, disk):
         import vncmd.net.api as api
@@ -402,11 +387,11 @@ class Test命令改名后的分派:
         return ran
 
     def test_init走的是顶层开关(self, monkeypatch):
-        """它不再是子命令，所以没有 args.command，靠 args.init 认"""
+        """--init 为顶层开关，没有 args.command，靠 args.init 判断"""
         assert self._run(monkeypatch, ["--init"]) == ["init"]
 
     def test_init不走validate_config(self, monkeypatch):
-        """当初它是独立命令时也跳过校验，换成开关后不能丢"""
+        """--init 不校验配置，与它作为独立命令时一致"""
         import vncmd.cli as vncmd
 
         calls = []
@@ -422,7 +407,7 @@ class Test命令改名后的分派:
         assert calls == ["init"]
 
     def test_init后面接命令时init优先(self, monkeypatch):
-        """`vncmd --init song 1` 走 init。给了两个动作不该只做一个"""
+        """同时给 --init 与子命令时走 init"""
         assert self._run(monkeypatch, ["--init", "song", "1"]) == ["init"]
 
     def test_tool_check真的调到cmd_check(self, monkeypatch):
@@ -433,13 +418,12 @@ class Test命令改名后的分派:
         assert self._run(monkeypatch, ["tool", "cache", "--stats"]) == ["cache"]
 
     def test_提示里的命令名要跟着改(self, monkeypatch, capsys, tmp_path):
-        """写死旧命令名的话，用户照着敲会得到一个不存在的命令"""
+        """写死旧命令名时用户照着敲会得到不存在的命令"""
         import argparse
 
         from vncmd import commands as commands_mod
 
-        # 目录必须真存在，否则 cmd_cache 在开头就报「缓存目录不存在」，
-        # 走不到那行提示 —— 早先只给了路径没建目录，断言恒假
+        # 目录必须真存在，否则 cmd_cache 开头就报“缓存目录不存在”，走不到那行提示
         (tmp_path / "cache").mkdir()
         monkeypatch.setattr(
             commands_mod, "get_cache_dir", lambda: str(tmp_path / "cache")
@@ -449,7 +433,7 @@ class Test命令改名后的分派:
         assert "vncmd tool cache --clear" in capsys.readouterr().err
 
     def test_tool不给子命令时报用法错(self, monkeypatch):
-        """打一份顶层帮助像是敲错了：敲的是 tool，回的却是整个应用的帮助"""
+        """敲 tool 却回整个应用的帮助，像敲错了命令"""
         import vncmd.cli as vncmd
 
         monkeypatch.setattr(vncmd, "acquire_lock", lambda: None)
@@ -461,13 +445,8 @@ class Test命令改名后的分派:
 
 class TestAnnounceSkips:
     def test_这几条命令不查(self):
-        """cookie 自己要查账号；tool 下的都不联网：
-        cache --clear 刚清完缓存又被自动写回来就白清了，check 纯本地干活。
-
-        cache 移进 tool 之后不再单独出现在这个集合里 ——
-        顶层命令名只有一个 tool，是否播报由它一个名字决定。
-        init 不在这个集合里：它已经不是命令而是顶层的 --init，
-        在 main 里查 args.init 就收掉了，走不到这一步。
+        """cookie 自己要查账号，tool 下的都不联网，init 由 main 里的 args.init 处理
+        cache --clear 刚清完缓存又被写回来就白清了，check 纯本地干活
         """
         from vncmd.cli import _NO_ACCOUNT_REPORT
 
@@ -480,7 +459,7 @@ class TestAnnounceSkips:
             assert cmd not in _NO_ACCOUNT_REPORT, f"{cmd} 漏了"
 
     def _run_main(self, monkeypatch, argv):
-        """跑一次 main，数一下它有没有去查账号状态"""
+        """跑一次 main，统计账号状态的查询次数"""
         import vncmd.cli as vncmd
 
         calls = {"n": 0}
@@ -499,7 +478,7 @@ class TestAnnounceSkips:
         return calls["n"]
 
     def test_tool_check不联网查(self, monkeypatch, tmp_path):
-        """纯本地操作，多一次请求就是白等一次网络"""
+        """纯本地操作，多一次请求就白等一次网络"""
         assert self._run_main(monkeypatch, ["tool", "check", str(tmp_path)]) == 0
 
     def test_cache不联网查(self, monkeypatch):
@@ -511,7 +490,7 @@ class TestAnnounceSkips:
 
 
 def _cap(capsys):
-    """账号播报与降级提示都是状态而非数据，一律走 stderr"""
+    """账号播报与降级提示走 stderr"""
     return capsys.readouterr().err
 
 
@@ -520,7 +499,7 @@ class TestExpectedLevel:
         assert set(EXPECTED_LEVEL) == {128000, 192000, 320000, 2147483647}
 
     def test_最高档对应无损(self):
-        """实测只有这一档会因权限不足降级，其余三档有无会员一致"""
+        """只有这一档会因权限不足降级，其余三档有无会员一致"""
         assert EXPECTED_LEVEL[2147483647] == "lossless"
         assert EXPECTED_LEVEL[320000] == "exhigh"
 
@@ -540,11 +519,7 @@ class TestLevelLabel:
 
 
 class TestAnnounceAccount:
-    """联网查过 Cookie 权限就播报一次
-
-    原先这条提示挂在下载路径上，只在下载时才出现，
-    现在挪到 main 里统一播报，所以搜索、看详情这些也都会报。
-    """
+    """联网查过 Cookie 权限就播报一次"""
 
     def _say(self, monkeypatch, capsys, state, from_cache=False, needs_check=True):
         from vncmd import commands
@@ -566,7 +541,7 @@ class TestAnnounceAccount:
             monkeypatch, capsys, {"logged_in": False, "vip": False, "vip_type": 0}
         )
         assert "登录状态" in out
-        # 未登录与无会员是两回事，不能混
+        # 未登录与无会员为两回事，不能混
         assert "VIP" not in out
 
     def test_检查失败也要报(self, monkeypatch, capsys):
@@ -576,16 +551,14 @@ class TestAnnounceAccount:
         assert "不影响" in out
 
     def test_一切正常时也报一次(self, monkeypatch, capsys):
-        """原先只在有毛病时出声，一切正常是静默的，
-        用户就看不出权限到底有没有在生效"""
+        """一切正常也要报一次，否则用户看不出权限有没有生效"""
         out = self._say(
             monkeypatch, capsys, {"logged_in": True, "vip": True, "vip_type": 11}
         )
         assert "有 VIP 权限" in out
 
     def test_标签叫Cookie权限(self, monkeypatch, capsys):
-        """「账号状态」听着像在说服务端那边的账号，
-        实际查的是本地这份 Cookie 拿到了什么权限"""
+        """“账号状态”会被理解成服务端账号，这里查本地 Cookie 的权限"""
         out = self._say(
             monkeypatch, capsys, {"logged_in": True, "vip": True, "vip_type": 11}
         )
@@ -601,7 +574,7 @@ class TestAnnounceAccount:
         assert out.index("正在检查") < out.index("Cookie 权限"), "预告要排在结果前面"
 
     def test_不联网时不要预告(self, monkeypatch, capsys):
-        """说了要查结果读的是缓存，前后就对不上了"""
+        """说了要查却读缓存，前后对不上"""
         out = self._say(
             monkeypatch,
             capsys,
@@ -611,11 +584,7 @@ class TestAnnounceAccount:
         assert "正在检查" not in out
 
     def test_用缓存时完全静默(self, monkeypatch, capsys):
-        """报的是「刚查出来是这样」，不是「此刻是这样」
-
-        一天至多刷一次，每次运行都复读只会变成噪声，
-        真要提醒的那一次反而被淹掉。
-        """
+        """缓存只表示上次查出的状态，每次复读会淹掉真正要提醒的那一次"""
         out = self._say(
             monkeypatch,
             capsys,
@@ -644,19 +613,12 @@ class TestAnnounceAccount:
 
 
 class TestNotifyDowngrade:
-    """降级提示什么时候说、说什么、说几次
-
-    「有 Cookie」与「没 Cookie」两种话分在 test_stream_split.py 那组，
-    这里只管与登录态无关的那部分：什么时候该说、说几次、level 认不出来时怎么兜底
-    """
+    """降级提示的时机与次数，登录态分岔在 test_stream_split.py"""
 
     @pytest.fixture(autouse=True)
     def 重置开关(self, monkeypatch):
-        """提示整个进程只报一次，所以每条测试都要把它放回去。
-
-        顺带把 get_cookie 打桩成有登录态 —— 这组验的不是那句话怎么分岔，
-        分岔那几条在 test_stream_split.py。不打桩的话它会跟着本机有没有 Cookie 变，
-        那不是这组要验的东西
+        """提示整个进程只报一次，每条测试都要重置
+        get_cookie 打桩成有登录态，登录态分岔在 test_stream_split.py
         """
         monkeypatch.setattr(downloader, "_downgrade_notified", False)
         monkeypatch.setattr(downloader, "get_cookie", lambda: "NMTID=xxx")
@@ -677,7 +639,7 @@ class TestNotifyDowngrade:
         assert _cap(capsys) == ""
 
     def test_信息不全不提示(self, capsys):
-        """拿不到实际 level 时不能瞎说"""
+        """拿不到实际 level 时不提示"""
         downloader._notify_downgrade("lossless", "")
         downloader._notify_downgrade("", "exhigh")
         assert _cap(capsys) == ""
@@ -688,8 +650,7 @@ class TestNotifyDowngrade:
         assert _cap(capsys).count("不支持无损音质") == 1
 
     def test_未知level用原名兜底(self, capsys):
-        """服务端要是哪天回一个表里没有的 level 名，
-        得把它原样印出来而不是空着 —— 空着的话用户只看到「本次已按下载」"""
+        """表里没有的 level 名要原样印出，空着只剩“本次已按下载”"""
         downloader._notify_downgrade("weird", "other")
         out = _cap(capsys)
         assert "weird" in out and "other" in out
@@ -697,7 +658,7 @@ class TestNotifyDowngrade:
 
 class TestAccountInfoCache:
     def test_结果在进程内缓存(self, monkeypatch):
-        """批量下载只能发一次请求，这是放在 api 层缓存的原因"""
+        """批量下载只发一次请求"""
         import vncmd.net.api as api
 
         calls = {"n": 0}

@@ -65,11 +65,7 @@ from vncmd.session import make_session_dir
 
 
 def _slice(tracks: list[dict], offset: int, limit: int | None) -> list[dict]:
-    """按 offset 与 limit 取一段，limit 为 None 时取到末尾
-
-    album 与 playlist 的分页是纯本地切片：曲目表一次就全给下来了，
-    offset 只是在这份列表上换个起点，不发请求。
-    """
+    """按 offset 与 limit 取一段，limit 为 None 时取到末尾"""
     end = offset + limit if limit else None
     return tracks[offset:end]
 
@@ -85,7 +81,7 @@ def _download_tracks(
     run_check: bool | None = None,
     use_curl: bool | None = None,
 ) -> None:
-    """Shared download for playlists and albums."""
+    """批量下载，专辑与歌单共用"""
     download_song_batch(
         tracks,
         quality,
@@ -101,9 +97,7 @@ def _download_tracks(
 
 def cmd_search(args: argparse.Namespace) -> None:
     info(f"正在搜索「{args.query}」...")
-    # search 的 offset 与 limit 都是服务端的，直接交给接口即可，
-    # 本地再切一刀会把 offset 数两遍。JSON 要全量而服务端单次最多 100 条，
-    # 所以「全量」在这里就是那个上限，与 album 的全量语义一致
+    # search 的分页交给服务端，JSON 要全量，单次上限为 100
     limit = args.count or (SEARCH_LIMIT_MAX if args.json else 10)
     try:
         result = search(args.query, limit=limit, offset=args.offset)
@@ -111,10 +105,8 @@ def cmd_search(args: argparse.Namespace) -> None:
         error(f"搜索失败：{e}")
         sys.exit(1)
 
-    # JSON 模式下一条都没有也是合法结果，输出 {"total": 0, "songs": []}。
-    # 空 stdout 加退出码 0 会让脚本分不清「没搜到」与「跑挂了」。
-    # 权限判定也不进去：它跟着账号变，同一条命令对不同用户给不同结果，
-    # 进了稳定输出就没法缓存也没法 diff。要判的脚本自己调 permission_verdict
+    # 空结果也输出 JSON，避免脚本分不清没搜到与失败
+    # 权限判定随账号变化，不进入稳定输出
     if args.json:
         _dump_json({"search": result})
         return
@@ -123,7 +115,7 @@ def cmd_search(args: argparse.Namespace) -> None:
         warning("未找到结果。")
         return
 
-    # 账号状态 main 里已经查过，这里读的是进程内缓存，不发请求
+    # 账号状态 main 已查过，这里读进程内缓存
     account = get_account_info()
     blocked = [permission_verdict(s, account) for s in result["songs"]]
     display_search_results(
@@ -132,18 +124,9 @@ def cmd_search(args: argparse.Namespace) -> None:
 
 
 def _download_entry(info: dict) -> dict:
-    """从 player/url 的原始条目里挑出脚本要用的字段
+    """从 player/url 条目里挑出脚本字段
 
-    原始响应有三十多个字段，一半是 null，其中 freeTrialPrivilege 之类与取
-    链接无关。批量时每条都带全套，一个 529 首的歌单能撑出十几万字。
-
-    形状固定，取不到时也照样给全，只是值为空 —— 键一直在，脚本就能用
-    .download.url 判断，而不用先问键在不在。
-
-    ``code`` 与 ``payed`` 是判断「为什么拿不到」那两个字段。早先以为失败条目
-    只剩 fee 一个有值的，实测（2026-10-17，id 477933827）不是那样：
-    ``code=404``、``payed=0`` 都在。它们是接口自己给的结论，不是我们猜的 ——
-    与「没依据就不下结论」那条不冲突，恰恰是因为有依据才给。
+    字段固定，取不到也给键；code 与 payed 用于判断失败原因
     """
     return {
         "url": info.get("url") or "",
@@ -159,10 +142,7 @@ def _download_entry(info: dict) -> dict:
 
 
 def _attach_downloads(tracks: list[dict], quality: int) -> int:
-    """给每条曲目补上 download 键，返回拿不到链接的条数
-
-    原地改 tracks：曲目条目已经在那份列表里，复制一份会让 JSON 多一层壳。
-    """
+    """给每条曲目补 download 键，返回拿不到链接的条数"""
     urls = fetch_player_urls([t["id"] for t in tracks], quality)
     missing = 0
     for t in tracks:
@@ -174,22 +154,16 @@ def _attach_downloads(tracks: list[dict], quality: int) -> int:
 
 
 def _dump_json(payload: dict) -> None:
-    """把结构化结果写到 stdout 并结束这条命令
+    """把结构化结果写到 stdout
 
-    用裸 print 而不是 console.print：rich 会把方括号当样式标记解析，
-    而「[Live] 这类标注」这种歌名在本项目里是常事，走 rich 会被吃掉一段
-    或者整个抛错。脚本读的东西不经任何渲染层。
-
-    ensure_ascii=False 让中文原样输出，缩进两格让 `> file` 之后还能 diff。
+    用裸 print，避免 rich 把歌名里的方括号当成样式标记
     """
     print(json.dumps(payload, ensure_ascii=False, indent=2))
 
 
 def cmd_song(args: argparse.Namespace) -> None:
-    """Preview or download a single song."""
-    # --translate 只是 --lyric 的修饰，单独给它什么也做不了。
-    # 早先这一条是静默的：它嵌在 `if args.lyrics` 里面，不给 --lyric 就整段跳过，
-    # 用户以为翻译会出来。放在取详情之前 —— 参数写错了不该先联网
+    """预览或下载单曲"""
+    # --translate 只修饰 --lyric，参数写错时先报错再联网
     if args.translate and not args.lyric:
         error("--translate 需要配合 --lyric 使用：它只决定歌词里要不要带翻译")
         sys.exit(2)
@@ -200,21 +174,19 @@ def cmd_song(args: argparse.Namespace) -> None:
         error(f"获取曲目详情失败：{e}")
         sys.exit(1)
 
-    # 取不到详情时上面已经 error 加 exit 了，stdout 到这里一定是空的，
-    # 所以失败时管道里拿到空输出、退出码非零，不需要再输出 {"error": ...}
+    # 取详情失败已退出，stdout 保持为空
     if args.json:
         payload = {"song": song}
-        # --dlink 与 --json 互补而非冲突：元数据与下载信息一次拿全，
-        # 后面 --link 要的就是这个组合
+        # --dlink 与 --json 互补，元数据与下载信息一次拿全
         if args.dlink:
-            # 收窄成那七个字段，与 album、playlist 的批量同形
+            # 收窄成固定字段，与批量输出同形
             payload["download"] = _download_entry(
                 fetch_player_url(args.id, quality=get_quality())
             )
         _dump_json(payload)
         return
 
-    # --dlink 自己会给一个辨认用的标题，不必再打完整详情卡
+    # --dlink 自带标题，不再重复打详情卡
     if not args.dlink:
         display_song_detail(song)
 
@@ -228,7 +200,7 @@ def cmd_song(args: argparse.Namespace) -> None:
         display_lyrics(lyric)
 
     if args.dlink and not args.download:
-        # 完整详情卡对看下载信息没有帮助，面板里已经带了标题用于辨认
+        # 下载信息面板已带标题，不再打详情卡
         quality = get_quality()
         display_download_detail(
             args.id, song["title"], fetch_player_url(args.id, quality=quality)
@@ -282,23 +254,16 @@ def cmd_song(args: argparse.Namespace) -> None:
 
 
 def _require_json_for_dlink(args: argparse.Namespace) -> None:
-    """album 与 playlist 的 --dlink 只在 --json 下有意义
-
-    单曲的 --dlink 打面板，而一批曲目的链接是数据 —— 专辑打 500 个面板没人读。
-    放在联网之前查，与 tracker 的 --diff 不配 -d 同样处理：
-    让用户在拿到几百首曲目之后才发现参数写错了。
-    """
+    """album 与 playlist 的 --dlink 只在 --json 下有意义"""
     if args.dlink and not args.json:
         error("--dlink 需要配合 --json 使用：批量链接是数据，面板读不完")
         sys.exit(2)
 
 
 def _json_payload(args: argparse.Namespace, source: dict) -> dict:
-    """按 4.1 那条规则切出要输出的曲目，并按需补上下载链接
+    """切出要输出的曲目，并按需补下载链接
 
-    顺序是「先切再取链接」：反过来会为没要的那几百首发一次请求，
-    而 stderr 报的还是「529 首中 1 首拿不到」，那个 1 大概率不在用户要的
-    那几条里，比例也被无关的条目稀释了。
+    先切再取链接，避免为未选中的曲目发请求
     """
     tracks = source["tracks"]
     if args.count is not None or args.offset:
@@ -310,15 +275,13 @@ def _json_payload(args: argparse.Namespace, source: dict) -> dict:
     if args.dlink:
         missing = _attach_downloads(tracks, get_quality())
         if missing:
-            # 只给数量。不按 fee 分类：FEE_NEED 只映射了 1 与 4，
-            # 而实测里 fee=8 出现在三分之一的曲目上，没有任何依据说明它是什么。
-            # 分类出来大概率是错的解释，比不给更糟
+            # 只给数量，不按 fee 分类，fee=8 的含义没有可靠依据
             warning(f"{missing} 首拿不到链接")
     return payload
 
 
 def cmd_album(args: argparse.Namespace) -> None:
-    """Preview or download an album."""
+    """预览或下载专辑"""
     _require_json_for_dlink(args)
     try:
         al = get_album_details(args.id)
@@ -326,8 +289,7 @@ def cmd_album(args: argparse.Namespace) -> None:
         error(f"获取专辑失败：{e}")
         sys.exit(1)
 
-    # 面板只显示一段，JSON 给的是完整曲目表：
-    # 表格给人看要截断免得刷屏，脚本要数据就得齐
+    # 面板截断避免刷屏，JSON 给完整曲目表
     if args.json:
         _dump_json({"album": _json_payload(args, al)})
         return
@@ -353,7 +315,7 @@ def cmd_album(args: argparse.Namespace) -> None:
 
 
 def cmd_playlist(args: argparse.Namespace) -> None:
-    """Preview or download a playlist."""
+    """预览或下载歌单"""
     _require_json_for_dlink(args)
     try:
         pl = get_playlist_details(args.id)
@@ -361,7 +323,7 @@ def cmd_playlist(args: argparse.Namespace) -> None:
         error(f"获取歌单失败：{e}")
         sys.exit(1)
 
-    # 同 album：面板截断，JSON 给全量
+    # 面板截断，JSON 给全量
     if args.json:
         _dump_json({"playlist": _json_payload(args, pl)})
         return
@@ -369,7 +331,7 @@ def cmd_playlist(args: argparse.Namespace) -> None:
     display_playlist(pl, max_tracks=args.count or 10, offset=args.offset)
 
     removed = pl.get("removed_tracks", [])
-    # 明细跟在 warning 的标题下面，两边都进 stderr
+    # 明细跟在 warning 标题下，两边都进 stderr
     if removed:
         err_console.print()
         warning(f"此歌单中有 {len(removed)} 首已下架曲目：")
@@ -399,21 +361,16 @@ def cmd_playlist(args: argparse.Namespace) -> None:
 
 def _write_cookie(value: str) -> None:
     COOKIE_FILE.write_text(value, encoding="utf-8")
-    # Cookie 是完整的登录凭证，umask 022 下默认是同机可读。
-    # Windows 只认只读位，那里的 chmod 等于确保可写，无害
+    # Cookie 为登录凭证，收窄为仅本人可读
     os.chmod(COOKIE_FILE, 0o600)
 
 
 def announce_account() -> None:
     """联网查过 Cookie 权限才报一次，命中缓存就静默
 
-    必须放在取链接之前：付费歌拿不到链接时会直接退出，
-    等到落盘那一步就永远等不到这条提示了。
-
-    报的是「刚查出来是这样」，不是「此刻是这样」。缓存里那份一天至多刷新一次，
-    每次运行都复读一遍只会变成噪声，用户真正要提醒的那一次反而被淹掉。
+    必须放在取链接之前，否则付费歌拿不到链接会直接退出
     """
-    # 请求之前先说一声，不然中间那一下停顿看着像卡住了
+    # 请求前先提示，避免停顿看起来像卡住
     if account_needs_check():
         info("正在检查 Cookie 权限，请稍候...")
 
@@ -432,20 +389,17 @@ def announce_account() -> None:
 
 
 def cmd_init(args: argparse.Namespace) -> None:
-    """Initialize ~/.vSoft/vncmd/ with default config and empty cookie."""
+    """初始化 VNCMD_HOME，写入默认配置与空 Cookie"""
     console.print()
 
     v = sys.version_info
     console.print(f"  Python {v.major}.{v.minor}.{v.micro}")
 
-    # 路径一律走 abbrev_home，主目录那段替成 ~：
-    # 设置、tracker 面板、cache 都用同一个写法，
-    # 而 VNCMD_HOME 是环境变量换出来的，展开写会是一长串
+    # 路径统一走 abbrev_home，避免展开后过长
     console.print(f"  VNCMD_HOME: {abbrev_home(VNCMD_HOME)}")
     VNCMD_HOME.mkdir(parents=True, exist_ok=True)
 
-    # 这几行一律只报文件名，不带路径：上面已经给过 VNCMD_HOME 了，
-    # 同一屏里把同一段路径写两遍是重复
+    # 上方已给出 VNCMD_HOME，这里只报文件名
     if CONFIG_FILE.exists():
         console.print(f"  [dim]存在 {CONFIG_FILE.name}[/]")
     else:
@@ -456,13 +410,13 @@ def cmd_init(args: argparse.Namespace) -> None:
         console.print(f"  [dim]存在 {COOKIE_FILE.name}[/]")
     else:
         _write_cookie("")
-        # 同一句话里说清位置与用途，不再单起一行重复路径
+        # 同一句里说清文件与用途
         success(
             f"已创建 {COOKIE_FILE.name}，"
             "粘贴登录 Cookie 到该文件即可下载 VIP 与高音质歌曲"
         )
 
-    # Check system dependencies
+    # 检查系统依赖
     tools = check_tools()
     found = [name for name in tools if tools[name]]
     missing = [name for name in tools if not tools[name]]
@@ -482,12 +436,9 @@ def cmd_init(args: argparse.Namespace) -> None:
 
 
 def cmd_cookie(args: argparse.Namespace) -> None:
-    """Set or check the Cookie.
-
-    值与 --check 同给由 argparse 的互斥组拦住，这里不再重复校验。
-    """
+    """设置或检查 Cookie"""
     if not args.check and not args.value:
-        # 与其它命令的「缺参数」保持同一句形状，用户不用记两种说法
+        # 与其它命令的缺参数提示保持同一形状
         error("缺少参数 Cookie 值 或 --check。可以用 vncmd cookie -h 查看帮助")
         sys.exit(2)
 
@@ -497,30 +448,24 @@ def cmd_cookie(args: argparse.Namespace) -> None:
         success("Cookie 已保存")
 
     info("正在检查账户权限，请稍候...")
-    # 强制检查：cookie 刚被改过，缓存里那份描述的是另一个人
+    # Cookie 刚改过，强制检查，缓存可能属于另一个账号
     account = get_account_info(force=True)
     if account is None:
-        # 断网、DNS 失败、CDN 返回 HTML 都会走到这里，
-        # 退出码 2 让脚本能分辨「查不成」与「查出无效」
+        # 退出码 2 表示查不成，与查出无效区分
         error("Cookie 检查失败：无法获取账号信息")
         sys.exit(2)
     if not account["logged_in"]:
         error("Cookie 无效或登录已失效，请检查，或重新获取")
         sys.exit(1)
     if not account["vip"]:
-        # 非会员的 Cookie 是能用的，只是拿不到高音质，
-        # 判成失败会让脚本以为 Cookie 没设成功
+        # 非会员 Cookie 仍可用，只是拿不到高音质
         warning("Cookie 有效，但所属账号没有 VIP 权限，高音质将不可用")
         return
     success("Cookie 有效")
 
 
 def cmd_cache(args: argparse.Namespace) -> None:
-    """查看或清理本地缓存。
-
-    两个开关必须给一个：都不给时原来默认当成 --stats，
-    但那让「我本想清缓存却忘了给开关」这类误操作看起来像成功。
-    """
+    """查看或清理本地缓存，两个开关必须给一个"""
     if not args.stats and not args.clear:
         error("缺少参数 --stats 或 --clear。可以用 vncmd tool cache -h 查看帮助")
         sys.exit(2)
@@ -546,19 +491,19 @@ def cmd_cache(args: argparse.Namespace) -> None:
         success(f"已清空缓存，释放 {size / 1024 / 1024:.1f} MB")
     else:
         err_console.print()
-        # 命令名跟 parser 一起改的，写错会让用户照着敲出一个不存在的命令
+        # 命令名必须与 parser 一致
         info("用 vncmd tool cache --clear 清空缓存")
 
 
 def cmd_check(args: argparse.Namespace) -> None:
-    """Check audio file integrity."""
+    """检查音频文件完整性"""
     if not any_check_tool():
         error("没有可用的校验工具，请至少安装 ffmpeg 或 flac 后重试。")
         sys.exit(1)
 
     note = describe_missing_check_tools()
     if note:
-        # 只说一次，不影响检查本身 —— 缺哪样就只跳过那一步
+        # 只在任务开始时说一次，缺哪样只跳过那一步
         warning(note)
 
     path = Path(os.path.expanduser(args.path))
@@ -586,17 +531,16 @@ def cmd_check(args: argparse.Namespace) -> None:
     bad_files = []
 
     def _show(f: Path) -> str:
-        """传目录时只显示相对路径，绝对路径折行会把文件名断在中间。
-        加引号是为了让 rich 把它当字符串整体着色，否则目录与文件名会被涂成两种颜色"""
+        """传目录时只显示相对路径，避免长路径折行
+        加引号让 rich 把整段当字符串着色"""
         rel = f.relative_to(path) if path.is_dir() else f.name
         return f'"{escape(str(rel))}"'
 
     with ThreadPoolExecutor(max_workers=4) as pool:
-        # 按提交顺序取结果而不是 as_completed，否则输出顺序随线程完成顺序变，
-        # 同一个目录两次运行长得不一样。检查本身仍是并发的
+        # 按提交顺序取结果，保证输出稳定，检查本身仍并发
         futures = [(f, pool.submit(check_audio, str(f))) for f in files]
         for f, future in futures:
-            # 一个文件抛异常不能让整条命令中断，已经检查过的结果不能白跑
+            # 单个文件异常不中断整条命令
             exc = future.exception()
             if exc is not None:
                 bad_count += 1

@@ -1,8 +1,4 @@
-"""歌单曲目的发行日
-
-歌曲日优先，歌曲日与专辑日都空时再用 v0 批量补专辑日。
-批量只查空日期的 id，不碰 get_song_details_many，也不写单曲缓存。
-"""
+"""歌单曲目的发行日与批量兜底"""
 
 import json
 from urllib.parse import unquote

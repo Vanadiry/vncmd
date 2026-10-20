@@ -1,9 +1,4 @@
-"""run_check 参数与 [download] check 配置的优先级
-
-命令行那个 --check 已经收了，现在只走 --config download.check。
-但 download_song 这个参数还在，这几条测试守的是它的语义：
-None 表示按配置走，True / False 表示显式压过配置。
-"""
+"""run_check 与配置项的优先级"""
 
 import pytest
 
@@ -35,7 +30,7 @@ def harness(tmp_path, monkeypatch):
 
 
 def test_flag_on_forces_decode(harness, monkeypatch):
-    """显式传 True 就一定要解码，哪怕配置是关的"""
+    """显式传 True 就一定要解码，哪怕配置为关闭"""
     calls, tmp = harness
     monkeypatch.setattr(downloader, "get_check_enabled", lambda: False)
     ok, _msg, _ = run(tmp, run_check=True)
@@ -44,7 +39,7 @@ def test_flag_on_forces_decode(harness, monkeypatch):
 
 
 def test_flag_absent_falls_back_to_config(harness, monkeypatch):
-    """传 None 时必须读配置，不能当成关掉 —— 那是 store_true 的老陷阱"""
+    """传 None 时必须读配置，不能当成关掉"""
     calls, tmp = harness
     monkeypatch.setattr(downloader, "get_check_enabled", lambda: True)
     ok, _msg, _ = run(tmp, run_check=None)
@@ -61,7 +56,7 @@ def test_config_off_skips_decode(harness, monkeypatch):
 
 
 def test_explicit_false_beats_config_on(harness, monkeypatch):
-    """显式关掉要能压过配置，这是覆盖的应有之义"""
+    """显式关掉要能压过配置"""
     calls, tmp = harness
     monkeypatch.setattr(downloader, "get_check_enabled", lambda: True)
     ok, _msg, _ = run(tmp, run_check=False)
@@ -98,7 +93,7 @@ def test_md5_runs_regardless_of_check_flag(harness, monkeypatch):
 
 class TestConfigGetter:
     def test_missing_key_defaults_on(self, monkeypatch):
-        """老用户的配置文件里没有这个键，不能因此关掉校验"""
+        """配置文件缺这个键时默认开启，不能因此关掉校验"""
         monkeypatch.setattr(
             "vncmd.core.config._get_cfg", lambda: {"download": {"dir": ""}}
         )
@@ -118,12 +113,8 @@ class TestConfigGetter:
 
 
 class TestParser:
-    """--check 不再是命令行参数
-
-    它与配置项 download.check 干的是同一件事，两条路并存只会让
-    「为什么我传了 --check 却没生效」这种问题多一个来源。
-    现在只走 --config，而它比原来那个开关更完整 ——
-    原来的 --check 只能开不能关。
+    """--check 已从命令行移除，与 download.check 重复
+    只走 --config，它能开也能关
     """
 
     def _parse(self, argv):
@@ -143,16 +134,13 @@ class TestParser:
         assert args.config == ["download.check=true"]
 
     def test_cookie的check还在(self):
-        """cookie --check 是「只查状态不写文件」，与下载校验无关，不受影响"""
+        """cookie --check 表示只查状态不写文件，与下载校验无关"""
         assert self._parse(["cookie", "--check"]).check is True
 
 
 class Test命令行不再单独传校验开关:
-    """--check 收了之后，commands 必须传 None 让配置说了算
-
-    传 False 会变成「永远不解码」，传 True 会变成「永远解码」，
-    两种都是把配置项架空 —— 而这条路上原来正好有 args.check，
-    删参数时最容易顺手写成 args.check or False
+    """commands 必须传 None 让配置说了算
+    传 True 或 False 都会把配置项架空
     """
 
     def _捕获(self, monkeypatch, tmp_path):

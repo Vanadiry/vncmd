@@ -1,9 +1,4 @@
-"""填充字符会把表格竖线错开
-
-U+3164 HANGUL FILLER 看着是空白，Unicode 标它为 Wide，终端按宽渲染；
-但 rich 的 cell_len 按零宽算。表格按 cell_len 分列宽、终端按真实宽度画边框，
-差多少，后面所有行就错开多少。
-"""
+"""填充字符与表格列宽"""
 
 import pytest
 from rich.cells import cell_len
@@ -29,7 +24,7 @@ class TestBlankFiller:
         assert _clean("Unhappy Refrain") == "Unhappy Refrain"
 
     def test_韩文字母不能误伤(self):
-        """U+3161 到 U+3163 是真字母，只清 FILLER 这一个"""
+        """U+3161 到 U+3163 为真字母，只清 FILLER 这一个"""
         assert _clean("ㅁㅂㅃ") == "ㅁㅂㅃ"
         assert _clean("안녕하세요") == "안녕하세요"
 
@@ -76,10 +71,10 @@ class TestNormalizationReachesFiller:
         assert out["album"] == ""
 
     def test_清理后宽度不再错位(self):
-        """这才是真正要修的东西：宽度测量与终端渲染要对得上"""
+        """真正要修的是宽度测量与终端渲染对齐"""
         assert cell_len(_clean(FILLER * 2)) == 0
 
 
 def test_真实问题曲目的专辑名已可清空():
-    """3316857125 的专辑名是两个 HANGUL FILLER，清理后应为空串"""
+    """3316857125 的专辑名为两个 HANGUL FILLER，清理后应为空串"""
     assert _clean(FILLER * 2) == ""

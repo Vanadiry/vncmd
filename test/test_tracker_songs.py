@@ -1,9 +1,4 @@
-"""tracker 的曲目表与 artist 入库
-
-`songs.json` 里每条原来只有 `{id, title}`。`fetch_all_songs` 的 `raw`
-里已经解析过 artist（`removed` 那条一直在用 `rt.get("artist", "")`），
-只是没往下带 —— 补一个字段即可，不需要重新拉历史数据。
-"""
+"""tracker 曲目表与 artist 入库"""
 
 import argparse
 import contextlib
@@ -70,10 +65,7 @@ def ready(monkeypatch, tmp_path):
 
 class TestArtist入库:
     def test_raw里存了artist(self):
-        """fetch_all_songs 的 raw 早就解析过 artist，只是没往下带。
-
-        走 fetch_all_songs 要联网，所以直接测它拼 raw 的那一步。
-        """
+        """直接测拼 raw 的那一步，走 fetch_all_songs 要联网"""
         raw = {}
         tracker._add_to_raw(raw, {"id": 1, "title": "T", "artist": "A"}, "album", 5)
         assert raw[1]["artist"] == "A"
@@ -99,7 +91,7 @@ class TestArtist入库:
         assert len(raw[1]["sources"]) == 2
 
     def test_老库读出来仍能用(self):
-        """老条目是没有 artist 键，不是值为空串，下游一律 .get 而非 ["artist"]"""
+        """老条目没有 artist 键，下游一律用 .get 取，不能下标访问"""
         old = db(with_artist=False)["songs"][0]
         assert "artist" not in old
         assert old.get("artist", "") == "", "缺键时给空串，表格那一列才有东西可填"
@@ -182,7 +174,7 @@ class TestPublishTime入库:
 
 class Test面板给设置路径:
     def test_路径用波浪号(self, ready, monkeypatch, capsys):
-        """设置、init、cache 三处都是同一个写法"""
+        """设置、init、cache 三处为同一个写法"""
         monkeypatch.setattr(
             tracker, "_settings_path", lambda n: Path("/Users/tester/.vSoft/x.toml")
         )
@@ -193,7 +185,7 @@ class Test面板给设置路径:
         assert "~/.vSoft/x.toml" in capsys.readouterr().out
 
 
-# 一份只含必需键的配置，测试在上面改某个键
+# 只含必需键的配置，测试在其上改某个键
 _MINIMAL_CFG = """\
 [download]
 dir = ""
@@ -228,8 +220,9 @@ ttl = 3
 
 class TestArtistColor改名:
     def test_配置键是artist_color(self):
-        """表里不只 Vocaloid（37 个名字里 25 个是 PIAPRO 系），
-        所以 virtual_singer_color 既不准也不通用"""
+        """表里不只 Vocaloid，37 个名字里 25 个为 PIAPRO 系
+        virtual_singer_color 既不准也不通用
+        """
         from vncmd.core.defaults import CONFIG_TOML
 
         assert "artist_color = true" in CONFIG_TOML
@@ -246,7 +239,7 @@ class TestArtistColor改名:
         assert not hasattr(config_mod, "is_virtual_singer_color")
 
     def test_注释不再说虚拟歌姬(self):
-        """表里 37 个名字只有 12 个是 Vocaloid，25 个是 PIAPRO 系"""
+        """表里 37 个名字只有 12 个为 Vocaloid，25 个为 PIAPRO 系"""
         from vncmd.core.defaults import CONFIG_TOML
 
         line = next(ln for ln in CONFIG_TOML.splitlines() if "代表色着色" in ln)
@@ -267,15 +260,7 @@ class TestArtistColor改名:
         assert not any("virtual_singer" in ln for ln in caught), caught
 
     def test_旧键名会被当成未知键报错(self, monkeypatch, tmp_path):
-        """旧键不再静默放过
-
-        以前这里断言的是「未知键放行」，理由是项目没发版、付得起那个代价。
-        现在不这么看了：静默失效的代价是用户以为改了而实际没改，
-        比报一个错难查得多。
-
-        virtual_singer_color 是 artist_color 改名前的键名，
-        这里拿它当样本 —— 真正会踩到的正是这一类改名后的残留
-        """
+        """virtual_singer_color 为旧键名，改名后的残留会静默失效，比报错难查"""
         from vncmd.core import config as config_mod
 
         cfg = tmp_path / "config.toml"
@@ -289,11 +274,7 @@ class TestArtistColor改名:
         assert any("virtual_singer_color" in ln for ln in caught), caught
 
     def test_报错里点名是哪个键(self, monkeypatch, tmp_path):
-        """只说「有未知键」等于让人自己猜，报错里要写出是哪个
-
-        项目还没发版，不做旧键到新键的对照表那种迁移提示 ——
-        点名到键就够了，用户对着文档改
-        """
+        """只说有未知键等于让人猜，报错里要写出哪一个"""
         from vncmd.core import config as config_mod
 
         cfg = tmp_path / "config.toml"
@@ -305,16 +286,11 @@ class TestArtistColor改名:
         monkeypatch.setattr(config_mod, "_die", lambda lines: caught.extend(lines))
         config_mod.validate_config(quiet=True)
         assert any("virtual_singer_color" in ln for ln in caught), caught
-        # 不认识的那几项之外的键不该被连带点名
+        # 已知键不该被连带点名
         assert not any("artist_color" in ln for ln in caught), caught
 
     def test_两个歌词模式各说各的(self):
-        """两边的值域是包含关系：embed 是 save 的子集，save 多一档 split
-
-        split 只对存文件有意义 —— 嵌进音频的只有一个歌词字段，
-        分不出两个文件来。drop 两边都有，都是丢弃译文。
-        曾把这两行注释合并成一段共用说明，合并之后那层因果就丢了
-        """
+        """embed 的值域为 save 的子集，save 多一档 split，split 只对存文件有意义"""
         from vncmd.core.config import LYRIC_MODES
         from vncmd.core.defaults import CONFIG_TOML
 
@@ -337,13 +313,8 @@ class Test路径缩写:
         return home
 
     def test_init的路径都走缩写(self, monkeypatch, capsys, tmp_path):
-        """只断言输出不含真实主目录路径，不断言它调没调 abbrev_home。
-
-        早先这里把 abbrev_home 整个 monkeypatch 掉了，于是代码走不走它都一样，
-        撤掉调用测试照样绿 —— 断言得落在输出上，不是落在调用上。
-
-        下面几行只报文件名（不重复 VNCMD_HOME 那行），所以这个环境下
-        唯一该带路径的是粘贴 Cookie 那句操作指引。
+        """断言落在输出上，把 abbrev_home 整个换掉测不出调用
+        这里只有粘贴 Cookie 那句该带路径
         """
         from vncmd import commands as commands_mod
 
@@ -366,7 +337,7 @@ class Test路径缩写:
         assert "VNCMD_HOME: ~/.vSoft/vncmd" in out, out
 
     def test_下面几行不重复路径(self, monkeypatch, capsys, tmp_path):
-        """上面已经给过 VNCMD_HOME，同一屏里再写一遍是重复"""
+        """上面已经给过 VNCMD_HOME，同一屏里不必再写一遍"""
         from vncmd import commands as commands_mod
 
         home = self._home(tmp_path)
@@ -388,7 +359,7 @@ class Test路径缩写:
         assert "存在 config.toml" in out, out
         assert "存在 cookie" in out, out
         assert "存在 ~/.vSoft" not in out, f"存在那两行不该带路径：{out}"
-        # VNCMD_HOME 那一行仍要给全，它是唯一说出位置的地方
+        # VNCMD_HOME 那一行仍要给全，它唯一说出位置
         assert out.count("~/.vSoft/vncmd") == 1, f"路径只该出现一次：{out}"
 
     def test_新建时也只报文件名(self, monkeypatch, capsys, tmp_path):
@@ -410,8 +381,7 @@ class Test路径缩写:
         )
         commands_mod.cmd_init(ns())
         got = capsys.readouterr()
-        # success 走 stderr，「存在」走 stdout，两条流都要看 ——
-        # 早先只读 stdout，于是「已创建」那两行怎么写都测不到
+        # success 走 stderr，“存在”走 stdout，两条流都要看
         assert "已创建 config.toml" in got.err, got
         assert "已创建 cookie" in got.err, got
         assert "已创建" not in got.out, "已创建那两行该在诊断流里"
@@ -439,7 +409,7 @@ class Test路径缩写:
         assert "VIP" in err and "高音质" in err, err
 
     def test_cookie那句不再单起一行(self, monkeypatch, capsys, tmp_path):
-        """位置由上面 VNCMD_HOME 那行给出，不再重复一遍路径"""
+        """位置由上面 VNCMD_HOME 那行给出，不必重复路径"""
         from vncmd import commands as commands_mod
 
         home = self._home(tmp_path)
@@ -464,11 +434,7 @@ class Test路径缩写:
 
     def test_tracker面板的路径也走缩写(self, ready, monkeypatch, capsys, tmp_path):
         """面板那行与 init 同一个写法
-
-        终端要拉宽，断言要落在 settings.toml 那一行上 ——
-        原来是对整个输出做子串搜索，而路径一长 rich 就从左边截断，
-        str(home) 永远不会连续出现，于是撤掉 abbrev_home 调用它照样绿。
-        同一个文件里 test_路径用波浪号 用的是短路径不触发截断，那条是有效的
+        路径一长 rich 从左边截断，整段输出做子串搜索会恒假
         """
         from rich.console import Console
 
@@ -502,7 +468,7 @@ class Test路径缩写:
         monkeypatch.setattr(
             config_mod, "Path", type("P", (), {"home": staticmethod(lambda: home)})
         )
-        # _die 走 sys.exit，那是 BaseException，suppress(Exception) 拦不住
+        # _die 走 sys.exit，它属于 BaseException，suppress(Exception) 拦不住
         with contextlib.suppress(BaseException):
             config_mod.validate_config(quiet=False)
         err = capsys.readouterr().err
@@ -533,7 +499,7 @@ class Test路径缩写:
         assert "~/.vSoft/vncmd/config.toml" in capsys.readouterr().err
 
     def test_提示里的命令名是新的(self, monkeypatch, capsys, tmp_path):
-        """命令从 vncmd init 改成 vncmd --init，提示里写旧的会让人敲错"""
+        """提示里的命令名为 vncmd --init，写成 vncmd init 会让人敲错"""
         from vncmd.core import config as config_mod
 
         home = self._home(tmp_path)
@@ -546,7 +512,7 @@ class Test路径缩写:
         monkeypatch.setattr(
             config_mod, "Path", type("P", (), {"home": staticmethod(lambda: home)})
         )
-        # _die 走 sys.exit，那是 BaseException，suppress(Exception) 拦不住
+        # _die 走 sys.exit，它属于 BaseException，suppress(Exception) 拦不住
         with contextlib.suppress(BaseException):
             config_mod.validate_config(quiet=False)
         err = capsys.readouterr().err
@@ -567,11 +533,7 @@ class Test艺术家着色:
         return buf.getvalue()
 
     def _artist_cell(self, text):
-        """取第一条数据行的艺术家那一格
-
-        要跳过表头：表头第四格是「艺术家」三个字，
-        早先没跳过，抓到的是它，于是断言恒假。
-        """
+        """取第一条数据行的艺术家那一格，要跳过表头"""
         for line in text.splitlines():
             if not line.startswith("│"):
                 continue
@@ -585,7 +547,7 @@ class Test艺术家着色:
         return ""
 
     def test_虚拟歌手有代表色(self, monkeypatch):
-        """早先那列给的是裸字符串，初音ミク与普通歌手长得一样"""
+        """代表色片段带 38;2 色值，其余部分保持白字"""
         out = self._rendered(
             monkeypatch, [{"id": 1, "title": "A", "artist": "なきそ, 初音ミク"}]
         )
@@ -601,9 +563,7 @@ class Test艺术家着色:
         assert "38;2;" not in cell, f"普通歌手不该有代表色：{cell!r}"
 
     def test_关掉着色后全是白字(self, monkeypatch):
-        # patch 的是 output 模块里那个名字：_artist_text 早就把
-        # is_artist_color 绑到自己模块的命名空间了，
-        # patch config_mod 那个不改变已绑定的引用
+        # 要 patch output 模块里的名字，config_mod 那个改不了已绑定的引用
         monkeypatch.setattr("vncmd.core.output.is_artist_color", lambda: False)
         out = self._rendered(
             monkeypatch, [{"id": 1, "title": "A", "artist": "なきそ, 初音ミク"}]
@@ -612,7 +572,7 @@ class Test艺术家着色:
         assert "38;2;" not in cell, cell
 
     def test_artist为空也不炸(self, monkeypatch):
-        """老条目没有 artist 键，早先 fill 测试挖过这个"""
+        """老条目没有 artist 键时表格仍要渲染"""
         out = self._rendered(monkeypatch, [{"id": 1, "title": "A"}])
         assert out.strip()
 
@@ -628,11 +588,7 @@ class Test曲目表宽度:
         assert max(len(ln) for ln in songs_rows) >= 140, "曲目表没占满终端宽度"
 
     def test_标题与艺术家有ratio(self, ready, monkeypatch, capsys):
-        """4:3 是退让顺序。没有它时最长那列通吃，标题能被压到三个汉字宽。
-
-        只量宽度测不出来 —— expand=True 时两列照样撑满，
-        得直接量那两列各自占多少格。
-        """
+        """4:3 为退让顺序，否则最长那列通吃；expand=True 时量不出宽度，得量各列格数"""
         from rich.table import Table
 
         monkeypatch.setattr(tracker, "console", Console(width=100))
@@ -664,17 +620,14 @@ class Test曲目表:
         assert "已缓存曲目：200" in capsys.readouterr().out
 
     def test_面板给设置文件的路径(self, ready, capsys):
-        """来源是用户自己写的，每次列一遍没有新信息，而 529 首一屏放不下。
-
-        给路径就够：要看或改直接开那个文件。
-        """
+        """来源由用户自己写，列出来没有新信息且 529 首一屏放不下，给路径就够"""
         tracker.cmd_tracker(ns(count=3))
         out = capsys.readouterr().out
         assert "settings.toml" in out
         assert "819104208" not in out, "来源列表不该再出现在面板上"
 
     def test_没配来源时说清(self, ready, monkeypatch, capsys):
-        """一个来源都没配时那行路径是死的，得说清为什么"""
+        """一个来源都没配时那行路径为空，得说清为什么"""
         monkeypatch.setattr(
             tracker, "load_settings", lambda n: {"description": "d", "sources": []}
         )
@@ -730,7 +683,7 @@ class Test曲目表:
 
 class TestLimitOffset现在对面板生效:
     def test_help不再说只作用于json(self):
-        """曲目表做完了，那句得删"""
+        """--count 与 --offset 已对面板生效，帮助里不该再说只作用于 --json"""
 
         out = _out_of(["tracker", "like", "--help"])
         assert "只作用于 --json" not in out

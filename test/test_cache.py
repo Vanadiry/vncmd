@@ -61,7 +61,7 @@ def test_歌词同样受有效期约束(cached):
 
 
 def test_翻译变空时删掉旧文件(cached):
-    # 不删的话 get_lyrics 会一直读到上一次的翻译
+    # 不删的话 get_lyrics 会一直读到旧翻译
     cache_mod.put_lyrics(3, {"lrc": {"lyric": "a"}, "tlyric": {"lyric": "旧翻译"}})
     tpath = cache_mod._song_dir(3) / "tlyric.lrc"
     assert tpath.exists()
@@ -91,10 +91,7 @@ def test_旧配置没有ttl时用默认值(monkeypatch):
 
 
 def test_cache段里不再有dir():
-    """dir 这个键拆掉了 —— 缓存固定在 VNCMD_HOME 下。
-
-    留着它会让人以为改它有用，而它早就不被读了
-    """
+    """dir 键已移除，缓存固定在 VNCMD_HOME 下，留着会让人以为改它有用"""
     import tomllib
 
     from vncmd.core.defaults import CONFIG_TOML
@@ -105,13 +102,7 @@ def test_cache段里不再有dir():
 @pytest.mark.parametrize("bad", ['"3"', "1.5", "true", "-1"])
 def test_非法ttl被拦下(monkeypatch, tmp_path, bad):
     """ttl 写错类型要报出来
-
-    这里必须用完整模板当基底、只替换 ttl 那一行。原来是把 cache 段
-    单独写出来，那样有两个问题让它恒真：
-    一是没写段头，写出的键落在顶层，cache.ttl 根本取不到值；
-    二是用 repr() 拼值，布尔会写成 True 而 TOML 只认小写 true，
-    整份文件在第一行就解析失败，于是走的是「解析失败」那条分支，
-    ttl 的值从头到尾没被校验过 —— 撤掉 ttl 的校验它照样绿
+    必须用完整模板当基底只替换 ttl 行，单独拼 cache 段会走解析失败分支而恒真
     """
     from vncmd.core.defaults import CONFIG_TOML
 

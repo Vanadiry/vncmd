@@ -1,8 +1,4 @@
-"""会话目录与断点
-
-定一次批量下载落在哪个目录、要下哪几首，以及收尾时把结果说清楚。
-全是文件操作，不碰网络也不碰音频，所以这几个函数都能用 tmp_path 直接测
-"""
+"""会话目录与断点"""
 
 import shutil
 from datetime import datetime
@@ -17,7 +13,7 @@ from vncmd.core.output import err_console, info, warning
 
 
 def make_session_dir(base_dir):
-    """Create a timestamped subdirectory and return its path."""
+    """建带时间戳的会话目录"""
     ts = datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
     path = Path(base_dir) / ts
     path.mkdir(parents=True, exist_ok=True)
@@ -25,9 +21,7 @@ def make_session_dir(base_dir):
 
 
 def _is_within(path: str, parent: str) -> bool:
-    """判断 path 是否为 parent 本身或其子目录
-    配置路径与 --output 写法可能不同，展开后才能判定为同一目录
-    """
+    """判断 path 是否为 parent 或子目录"""
     try:
         resolved = Path(path).expanduser().resolve()
         root = Path(parent).expanduser().resolve()
@@ -39,11 +33,7 @@ def _is_within(path: str, parent: str) -> bool:
 def _select_batch(
     tracks: list[dict], offset: int, limit: int | None
 ) -> tuple[list[dict], int]:
-    """按 offset 与 limit 挑出本次要下的曲目
-
-    单独抽出来是为了让测试能直接量到「切出来的」与「记进断点的」是两批：
-    早先那段逻辑埋在 download_song_batch 中间，测它要驱动整个下载流程。
-    """
+    """按 offset 与 limit 挑出本次要下的曲目"""
     if not (offset or limit):
         return tracks, 0
     end = offset + limit if limit else None
@@ -58,12 +48,7 @@ def _setup_session(
     limit: int | None,
     offset: int,
 ) -> tuple[str, list[dict], int]:
-    """定本次下载落在哪个目录、要下哪几首
-
-    返回 session_dir、待下的曲目、切片后的起点。
-    纯文件与断点操作，不碰网络也不碰音频，
-    所以四个会话分支与两条断点路径都能用 tmp_path 直接测
-    """
+    """定本次下载目录、待下曲目与切片起点"""
     if dl_type is not None and dl_id is not None:
         cp = load_checkpoint(dl_type, dl_id)
         resume_dir = cp.get("download_dir") if cp else None
@@ -76,8 +61,7 @@ def _setup_session(
             session_dir = make_session_dir(output_dir)
             is_resuming = False
         elif not _is_within(resume_dir, output_dir):
-            # 断点记录了上次运行的目录，output_dir 变了还沿用它会让文件落到
-            # 用户没有指定的位置，且用户拿不到任何提示
+            # 断点目录与本次输出目录不同时重新开始，避免落到未指定位置
             warning(
                 f"未完成的下载在 {resume_dir}，"
                 f"本次输出目录为 {output_dir}，将重新开始下载"
@@ -91,7 +75,7 @@ def _setup_session(
         session_dir = make_session_dir(output_dir)
         is_resuming = False
 
-    # 续传时上一轮留下的半截文件要清掉，否则重下会撞同名
+    # 续传前清掉上一轮半截文件
     if is_resuming:
         temp = Path(session_dir) / "_temp"
         if temp.exists():
@@ -100,7 +84,7 @@ def _setup_session(
 
     selected, offset = _select_batch(tracks, offset, limit)
     if len(selected) < len(tracks):
-        # limit 给得比曲目还多时切出来还是全量，不必报「剩余 0 首」
+        # limit 大于曲目数时不必提示剩余 0 首
         info(
             f"只下载第 {offset + 1} 至 {offset + len(selected)} 首，"
             f"剩余 {len(tracks) - len(selected)} 首下次继续"
@@ -124,10 +108,7 @@ def _setup_session(
 
 
 def _summarize(success_count: int, fail_count: int, fail_ids: list) -> None:
-    """收尾打印
-
-    计数为 0 时也要说出来，用户分不清「没成功」与「没打印」
-    """
+    """收尾打印成功与失败计数"""
     err_console.print()
     parts = []
     if success_count:

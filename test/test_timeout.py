@@ -1,8 +1,4 @@
-"""下载传输的超时设定
-
-读超时踩过坑：原先 10 秒对 25 MB 单连接过于激进，传输中卡一下就被整个掐断，
-真实下载时反复命中 ReadTimeout。这些测试把取值钉住，避免被顺手改回去。
-"""
+"""下载传输超时设定"""
 
 import inspect
 
@@ -59,7 +55,7 @@ def test_read_timeout_is_thirty_seconds(session, monkeypatch):
 
 
 def test_read_timeout_matches_curl_speed_floor(session, monkeypatch):
-    """两条路径对卡死的容忍度应当相当，curl 侧是 --speed-time 30"""
+    """两条路径对卡死的容忍度应当相当，curl 侧为 --speed-time 30"""
     import vncmd.net.download as dl
 
     monkeypatch.setattr("sys.stdout.isatty", lambda: False)
@@ -72,7 +68,7 @@ def test_read_timeout_matches_curl_speed_floor(session, monkeypatch):
 
 
 def test_builtin_still_retries_on_server_errors():
-    """放宽读超时是改传输层的容错，不该动 5xx 的重试策略"""
+    """放宽读超时为改传输层的容错，不该动 5xx 的重试策略"""
     adapter = _get_dl_session().get_adapter("https://music.163.com")
     assert adapter.max_retries.total == 3
     assert 500 in adapter.max_retries.status_forcelist

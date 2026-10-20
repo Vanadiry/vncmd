@@ -103,11 +103,9 @@ def create_tracker(name: str) -> None:
 
 
 def load_songs_db_full(name: str) -> dict:
-    """读整个曲目库文件，含 updated_at
+    """读曲目库全文，含 updated_at
 
-    与 load_songs_db 同一个文件、同一个备份退回路径，只是不把 updated_at 丢掉 ——
-    那是判断数据有多旧的唯一依据，纯读面板与 --json 都要它。
-    面板与 JSON 都从这里取，不重新组装，两者不会漂。
+    主文件损坏时退回备份
     """
     path = _songs_path(name)
     if not path.exists():
@@ -124,10 +122,9 @@ def load_songs_db_full(name: str) -> dict:
 
 
 def load_songs_db(name: str) -> list[dict]:
-    """读曲目库，主文件坏了退回 backup_db 留下的那份
+    """读曲目库，主文件损坏时退回备份
 
-    这里不能像缓存那样读不出来就当空：曲目库是用户攒下来的，
-    返回空列表会被后续同步当成「没有需要下载的曲目」，等于静默清空。
+    不能读成空列表，否则后续同步会当成无需下载
     """
     return load_songs_db_full(name)["songs"]
 
@@ -184,17 +181,12 @@ def load_diff(name: str) -> dict:
 def _display_songs(songs: list[dict], offset: int) -> None:
     """已缓存曲目的表
 
-    与 album、playlist 的曲目表同一套做法：序号报绝对序号、占满终端宽度。
-    区间不再给这张表，而是放在上面那个面板的标题里 ——
-    与「歌单详情 - 819104208 - 101-200/298」同一个位置、同一个读法。
-
-    传进来的已经是切好的那几条，所以序号要从 offset 起算。
+    序号从 offset 起算，表格占满终端
     """
     from rich import box
     from rich.table import Table
 
-    # expand 与另外三个命令的曲目表一致：都是曲目表，都该占满终端。
-    # 下面的来源表故意不给 expand —— 三列固定内容，拉到 150 列会散成一片空白
+    # 曲目表占满终端
     table = Table(
         box=box.ROUNDED,
         show_header=True,
@@ -203,8 +195,7 @@ def _display_songs(songs: list[dict], offset: int) -> None:
     )
     table.add_column("#", style="dim")
     table.add_column("ID", style="dim")
-    # ratio 与另外三个命令一致：4:3 是标题与艺术家的退让顺序，
-    # 没有它时最长那列会通吃，标题能被压到三个汉字宽
+    # 4:3 为标题与艺术家的退让顺序，避免最长列通吃
     table.add_column("标题", style="bright_white", ratio=4, overflow="fold")
     table.add_column("艺术家", style="bright_white", ratio=3, overflow="fold")
     for i, s in enumerate(songs, offset + 1):
@@ -212,8 +203,7 @@ def _display_songs(songs: list[dict], offset: int) -> None:
             str(i),
             str(s["id"]),
             escape(s.get("title", "")),
-            # 走 _artist_text 才有虚拟歌手的代表色，与另外三张曲目表一致。
-            # 直接给字符串就只有 bright_white，初音ミク与普通歌手长得一样
+            # 走 _artist_text 才有虚拟歌手的代表色
             _artist_text(s.get("artist", ""), "bright_white"),
         )
     console.print(table)
@@ -232,27 +222,24 @@ def show_tracker(
     total = len(songs)
     shown = songs[offset : offset + max_tracks]
 
-    # 三行一行一项，不再挤成「描述：X  |  曲目数：N」：
-    # 现在有三项了，竖线分隔会让最长的一项被折行挤掉
+    # 一行一项，避免竖线分隔挤掉最长项
     header = Text()
     header.append("描述：", style="dim")
     header.append(f"{settings['description']}\n", style="yellow")
-    # 这库是什么时候拉的只能从这里看出来：三个月没更新的库，
-    # 曲目表上与刚拉的完全一样
+    # 更新于只能从这里看出，旧库与刚拉的曲目表相同
     header.append("更新于：", style="dim")
     header.append(f"{updated_at}\n", style="green")
     header.append("已缓存曲目：", style="dim")
     header.append(f"{total}\n", style="green")
-    # 只给路径不给来源列表：来源是用户自己写的，每次跑一遍没有新信息，
-    # 而 529 首的歌单一屏放不下。路径给了，要看或改直接开那个文件
+    # 来源由用户维护，这里只给设置文件路径
     header.append("设置：", style="dim")
     header.append(abbrev_home(_settings_path(name)), style="green")
     if not settings["sources"]:
-        # 一个来源都没配时那行路径是死的，得说清为什么
+        # 未配置来源时说明原因
         header.append("\n", style="dim")
         header.append("尚未配置来源，请编辑 settings.toml 添加来源。", style="yellow")
 
-    # 区间跟着曲目表走，所以放在它的面板标题上 —— 与「歌单详情」同一位置
+    # 区间放在面板标题
     suffix = _range_suffix(offset, len(shown), total)
     console.print(
         Panel(
@@ -270,12 +257,7 @@ def show_tracker(
 def tracker_payload(settings: dict, db: dict, args: argparse.Namespace) -> dict:
     """纯读视图的 JSON 形状
 
-    信封与 song、album、playlist 一致，不用裸的 {"updated_at", "songs"} ——
-    那样切分页只能在外面套一层，返回形状也会与另外三个命令不一样，
-    会让人以为这文件是某个命令的输出。
-
-    songs 直接取 songs.json，不重新组装，面板与 JSON 出自同一份。
-    切片按 4.1 那条统一规则：显式给了 limit 或 offset 才切。
+    信封与 song、album、playlist 一致，songs 直接取 songs.json
     """
     songs = db["songs"]
     if args.count is not None or args.offset:
@@ -291,8 +273,8 @@ def tracker_payload(settings: dict, db: dict, args: argparse.Namespace) -> dict:
 
 
 def fetch_all_songs(settings: dict) -> tuple[dict[str, dict], list[dict]]:
-    raw = {}  # id -> {id, title, sources: [(type, id)]}
-    removed = []  # removed tracks from playlist sources
+    raw = {}  # id 到曲目与来源的映射
+    removed = []  # 歌单来源里已下架的曲目
 
     for src in settings["sources"]:
         src_type = src["type"]
@@ -328,8 +310,7 @@ def fetch_all_songs(settings: dict) -> tuple[dict[str, dict], list[dict]]:
         entry = {
             "id": data["id"],
             "title": data["title"],
-            # 老条目没这个键，留空而不是回退到现查 API：
-            # 529 首是 6 个批次，明显不划算，下次 --fetch 自然补齐
+            # 老条目缺 artist 时留空，下次 --fetch 补齐
             "artist": data.get("artist", ""),
             "publish_time": data.get("publish_time", ""),
         }
@@ -354,8 +335,7 @@ def _add_to_raw(raw: dict, track: dict, src_type: str, src_id: int) -> None:
         raw[sid] = {
             "id": sid,
             "title": track["title"],
-            # 三种来源都已经在 track 里解析过 artist 了，
-            # 这里只是没往下带 —— removed 那条一直在用 rt.get("artist", "")
+            # artist 已在三种来源里解析好
             "artist": track.get("artist", ""),
             "publish_time": publish_time,
             "sources": [source_ref],
@@ -530,13 +510,7 @@ def _format_song_choice(s: dict) -> str:
 def _apply_force(name: str, fresh: dict, comparison: dict) -> None:
     """无条件覆盖 songs.json，diff.json 有变化才更新
 
-    两个文件的时间戳从此不同步，而这是对的：一个是当前状态，
-    一个是上次变更的快照 —— 覆盖之后「上次变了什么」就再也拿不回来了，
-    所以那次快照必须留住。
-
-    它与两个 resolve 恰恰相反：那两个「无变更就什么都不动」，
-    而这里恰恰要写库 —— compare_songs 只比 title，
-    artist 变了不算 changed，两个 resolve 都会把它静默丢掉。
+    compare_songs 只比标题，artist 变化不算 changed
     """
     save_songs_db(name, list(fresh.values()))
     success(f"已用上游覆盖 {len(fresh)} 首曲目")
@@ -544,7 +518,7 @@ def _apply_force(name: str, fresh: dict, comparison: dict) -> None:
     if any(comparison[k] for k in ("added", "removed", "changed")):
         save_diff(name, comparison)
     else:
-        # 「覆盖了但 diff 没变」用户看不到，不说就以为 diff 已经是新的了
+        # 覆盖后 diff 未变时也要说明
         info("本次未检测到变更，diff 记录保持上次的内容")
 
 
@@ -558,11 +532,7 @@ def download_tracker(name: str, quality: int, output_dir: str) -> None:
 
 
 def _diff_note(diff: dict) -> str:
-    """把 removed 与 changed 写成一个文件的正文
-
-    两类都是「变了但不用下载」的，放一个文件里，跑一次 --diff 只拿一个。
-    分开两个文件的话，用户得自己记得上次那个还在不在。
-    """
+    """把 removed 与 changed 写成 changed.txt 的正文"""
     parts = []
     removed = diff.get("removed", [])
     changed = diff.get("changed", [])
@@ -578,14 +548,7 @@ def _diff_note(diff: dict) -> str:
 
 
 def diff_payload(name: str) -> dict:
-    """上次 --fetch 记下的差异，直接取 diff.json 不重新组装
-
-    与 -d --diff 读到的是同一份数据、同一套三类，一致是理由：
-    --json 在别的命令上是「换成机器可读」，不是「换一批数据」。
-
-    读的是上次 --fetch 时的结论，不是「现在相对 sources 的差异」——
-    后者要联网，那是 --fetch 的事。不联网也正是这个途径的价值所在。
-    """
+    """上次 --fetch 记下的差异，直接读 diff.json"""
     return load_diff(name)
 
 
@@ -598,8 +561,7 @@ def download_diff(name: str, quality: int, output_dir: str) -> None:
         return
 
     if added:
-        # -fF 是升级前提，added 的 id 都在 songs.json 里；
-        # 不跑 -fF 导致的缺失不处理，直接按 id 取
+        # -fF 为升级前提，added 的 id 都在 songs.json 里
         songs_by_id = {s["id"]: s for s in load_songs_db(name)}
         added_songs = [songs_by_id[sid] for sid in added]
         _, _, session_dir = download_song_batch(
@@ -612,11 +574,10 @@ def download_diff(name: str, quality: int, output_dir: str) -> None:
         note_dir = Path(session_dir)
     else:
         success("没有需要下载的新曲目。")
-        # 没有新增就没有下载会话，changed.txt 落在输出目录本身
+        # 无新增时没有下载会话，changed.txt 落在输出目录
         note_dir = Path(output_dir)
         note_dir.mkdir(parents=True, exist_ok=True)
 
-    # changed 原来一次都没读，改了标题的曲目被整个丢掉了
     note = _diff_note(diff)
     if note.strip():
         note_path = note_dir / "changed.txt"
@@ -632,24 +593,18 @@ def download_diff(name: str, quality: int, output_dir: str) -> None:
 def cmd_tracker(args: argparse.Namespace) -> None:
     name = args.name
 
-    # 两个修饰都是 --fetch 的修饰，单独给在代码里落不到任何分支。
-    # 什么都不做也没有提示，与其静默，不如说清它要配合什么。
-    # 检查放在最前面：放到 tracker 存在性判断之后的话，
-    # 用户会先被问「是否创建 tracker」，才发现自己的参数写错了
+    # 修饰项必须在前面检查，避免先询问创建 Tracker
     if (args.auto_accept or args.force) and not args.fetch:
         which = "--auto-accept" if args.auto_accept else "--force"
         error(f"{which} 需要配合 --fetch 使用，它是拉取的修饰而非独立动作")
         sys.exit(2)
 
-    # --json 配 --diff 是合法组合：读本地 diff.json，给的是数据不是动作。
-    # 其余动作的结果都是文件，给一份没人会读的动作结果 JSON，
-    # 不如说清它只管纯读视图。
+    # --json 只用于纯读视图
     if args.json and not args.diff and (args.fetch or args.download):
         error("--json 只用于纯读视图，与 --fetch、-d 不能同时使用")
         sys.exit(2)
 
-    # --diff 是 -d 或 --json 的修饰，单独给它在代码里落不到任何分支，
-    # 什么都不做也没有提示。与其静默，不如说清它要配合什么。
+    # --diff 必须配合 -d 或 --json
     if args.diff and not (args.download or args.json):
         error("--diff 需要配合 -d 或 --json 使用，只看上次拉取后的变更")
         sys.exit(2)
@@ -717,11 +672,10 @@ def cmd_tracker(args: argparse.Namespace) -> None:
             download_tracker(name, quality, output_dir)
 
     else:
-        # 四个动作结果都是文件，纯读视图的结果是数据，所以只有这里给 --json
+        # 只有纯读视图给 --json
         if args.json:
             if args.diff:
-                # 与 -d --diff 读同一份 diff.json、同样的三类，
-                # 用户拿它生成的链接与 -d --diff 下的完全一致
+                # 与 -d --diff 读同一份 diff.json
                 _dump_json({"tracker": {"diff": diff_payload(name)}})
                 return
             db = load_songs_db_full(name)

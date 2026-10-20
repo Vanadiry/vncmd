@@ -33,8 +33,8 @@ jobs:
       - name: Lint
         run: uvx ruff check .
 
-      # 刻意不设 TZ：发行时间走本地时区，测试用 as_tz 自己钉住断言。
-      # runner 默认就是 UTC，这样任何新写的时区相关断言都会当场暴露，
-      # 而不是被一个固定的 TZ 变量掩盖过去。
+      # 刻意不设 TZ：发行时间固定按 Asia/Shanghai 算，测试用 as_tz 把进程
+      # 时区切成 UTC，验证结果不受本机时区影响。runner 默认就是 UTC，
+      # 任何误用本地时区的写法都会当场暴露，而不是被固定的 TZ 变量掩盖过去。
       - name: Unit tests
         run: uv run pytest -m "not network" --cov=vncmd --cov-report=term-missing

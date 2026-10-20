@@ -1,11 +1,6 @@
-"""Generate a known artists list from vncmd song cache.
+"""从曲目缓存生成艺人列表
 
-Reads all cached song info.json files, extracts artist names,
-and writes one normalized artist per line to a dated txt file.
-
-Usage:
-    python3 gen.py              # uses VNCMD_HOME or default ~/.vSoft/vncmd
-    VNCMD_HOME=/path python3 gen.py
+用法：python3 tools/artists_gen.py
 """
 
 import json

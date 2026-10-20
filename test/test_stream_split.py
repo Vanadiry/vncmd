@@ -1,11 +1,4 @@
-"""钉住 stdout 与 stderr 的分工
-
-stdout 只放命令的结果（表格、面板、链接、统计），stderr 放进行中的状态与异常
-（info / warning / success / error、进度条、完成汇总）。这样
-`vncmd search xxx > r.txt` 写进去的全是数据，`--link` 才能直接喂给下载器。
-
-这些断言是跟着行为走的，路由改回去就会红。
-"""
+"""stdout 与 stderr 的分工"""
 
 import argparse
 from pathlib import Path
@@ -49,11 +42,7 @@ SONG = {
 
 @pytest.fixture
 def two_streams(capsys):
-    """同时收下两个流
-
-    刻意用 capsys 而不是 contextlib.redirect_stdout：rich 的 Console 在
-    构造时就把 file 定下来了，redirect 换 sys.stdout 它看不见。
-    """
+    """同时收下两个流。rich 的 Console 在构造时定下 file，redirect_stdout 换不掉"""
 
     def read():
         captured = capsys.readouterr()
@@ -63,7 +52,7 @@ def two_streams(capsys):
 
 
 class Test状态走stderr:
-    """info / warning / success / error 是诊断，一律不进 stdout"""
+    """info / warning / success / error 为诊断信息，一律不进 stdout"""
 
     @pytest.mark.parametrize(
         "fn,frag",
@@ -82,7 +71,7 @@ class Test状态走stderr:
         assert err.count("ℹ") == 2
 
     def test_err_console确实指向stderr(self):
-        """否则上面那些断言只是在测 redirect 有没有生效"""
+        """否则上面的断言只在测 redirect 有没有生效"""
         assert err_console.stderr is True
 
 
@@ -131,7 +120,7 @@ class Test结果走stdout:
 
 
 class Test下架明细跟警告同流:
-    """明细挂在 warning 标题下面，两边分家就成了一段没有标题的裸数据"""
+    """明细挂在 warning 标题下面，分家就成了一段没有标题的裸数据"""
 
     def test_歌单里的下架曲目进stderr(self, monkeypatch, capsys):
         from vncmd import commands
@@ -187,7 +176,7 @@ class Test账号播报:
 
 class Test配置坏了:
     def test_验证失败走stderr(self, capsys):
-        """否则 `vncmd x > out.txt` 会把报错当结果留在文件里"""
+        """否则 vncmd x > out.txt 会把报错当结果留在文件里"""
         from vncmd.core import config
 
         with pytest.raises(SystemExit):
@@ -198,9 +187,8 @@ class Test配置坏了:
 
 
 class Test进度条绑在stderr:
-    """这两条只能查源码：Progress 的落点与 isatty 的闸门都是构造参数，
-    没有返回值可断言。它们防的是「闸门判错流」这个具体错误 ——
-    stdout 被重定向时它不是 tty，进度条会被误关掉，而 stderr 是 tty 时它该出现。
+    """进度条落点与 isatty 闸门都为构造参数，只能查源码
+    判错流会让进度条在重定向时消失
     """
 
     def test_批量进度条显式绑err_console(self):
@@ -220,27 +208,17 @@ class Test进度条绑在stderr:
 
 
 class Test下载降级提示:
-    """降级时要说一声，且要说得准
-
-    「没登录」与「权限不够」原来一律说成「Cookie 权限不支持」，
-    没 Cookie 的人看到那句只会奇怪我明明没有 Cookie。
-    判据是本地有没有 Cookie 文件，不看接口给的字段 ——
-    实测过 fee 与 payed，未登录与登录但无权限这两种情况那两个字段完全一样
-    """
+    """降级时要说一声且说得准，判据为本地有没有 Cookie 文件，不看接口字段"""
 
     @pytest.fixture(autouse=True)
     def 重置开关(self, monkeypatch):
-        """降级提示是整个进程只报一次的，所以每条测试都要把它放回去
-
-        不重置的话第二条测试会因为第一条已经报过而一声不吭，
-        那不是产品行为，是测试之间互相污染
-        """
+        """降级提示整个进程只报一次，每条测试都要把它放回去，否则测试之间互相污染"""
         from vncmd import downloader
 
         monkeypatch.setattr(downloader, "_downgrade_notified", False)
 
     def test_走stderr(self, capsys, monkeypatch):
-        """进度条与完成摘要是同一个视觉单元，都不该进 stdout"""
+        """进度条与完成摘要为同一个视觉单元，都不该进 stdout"""
         from vncmd import downloader
 
         monkeypatch.setattr(downloader, "get_cookie", lambda: "NMTID=xxx")
@@ -250,7 +228,7 @@ class Test下载降级提示:
         assert "无损音质" in err
 
     def test_有Cookie时说权限(self, capsys, monkeypatch):
-        """登录了还是拿不到那一档，那就是权限的事"""
+        """登录了还是拿不到那一档，那属于权限问题"""
         from vncmd import downloader
 
         monkeypatch.setattr(downloader, "get_cookie", lambda: "NMTID=xxx")
@@ -258,7 +236,7 @@ class Test下载降级提示:
         assert "Cookie 权限" in capsys.readouterr().err
 
     def test_没Cookie时说未登录(self, capsys, monkeypatch):
-        """没登录时提权限是空的，一句「Cookie 权限不支持」只会让人奇怪"""
+        """没登录时提权限没有意义，一句“Cookie 权限不支持”只会让人奇怪"""
         from vncmd import downloader
 
         monkeypatch.setattr(downloader, "get_cookie", lambda: "")
@@ -268,7 +246,7 @@ class Test下载降级提示:
         assert "Cookie 权限" not in 出错
 
     def test_没Cookie时仍然说清降到了哪一档(self, capsys, monkeypatch):
-        """光说「未登录」不够，用户还得知道拿到了什么"""
+        """光说“未登录”不够，用户还得知道拿到了什么"""
         from vncmd import downloader
 
         monkeypatch.setattr(downloader, "get_cookie", lambda: "")
@@ -284,10 +262,7 @@ class Test下载降级提示:
         assert out == "" and err == ""
 
     def test_整个进程只报一次(self, capsys, monkeypatch):
-        """一次下载里降级二十次，用户看到一条就够
-
-        那个开关是有意的，删了就变成每首歌刷一行
-        """
+        """一次下载里降级二十次，用户看到一条就够，那个开关不能删"""
         from vncmd import downloader
 
         monkeypatch.setattr(downloader, "get_cookie", lambda: "NMTID=xxx")

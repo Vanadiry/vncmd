@@ -1,4 +1,4 @@
-"""download_song 里两道校验的先后与在无 ffmpeg 环境下的表现"""
+"""download_song 的校验顺序"""
 
 import hashlib
 import inspect
@@ -58,7 +58,7 @@ def run(download_dir, **kw):
 
 
 def test_md5_runs_before_full_decode(harness, monkeypatch):
-    """md5 是纯读文件，必须排在全量解码前面，否则快的那道白排了"""
+    """md5 为纯读文件，必须排在全量解码前面，否则快的那道白排了"""
     calls, tmp = harness
     monkeypatch.setattr(downloader, "any_check_tool", lambda: True)
     ok, _msg, _ = run(tmp)
@@ -78,7 +78,7 @@ def test_both_checks_run_when_ffmpeg_present(harness, monkeypatch):
 
 
 def test_md5_runs_without_ffmpeg(harness, monkeypatch):
-    """没有 ffmpeg 时以前完全不校验，现在 md5 仍然把关"""
+    """没有 ffmpeg 时 md5 仍要把关"""
     calls, tmp = harness
     monkeypatch.setattr(downloader, "any_check_tool", lambda: False)
     ok, _msg, _ = run(
@@ -98,7 +98,7 @@ def test_bad_md5_rejected_without_ffmpeg(harness, monkeypatch):
 
 
 def test_bad_md5_skips_decode(harness, monkeypatch):
-    """md5 已经判定不符就不必再解码，提示要指向 md5 而不是解码错误"""
+    """md5 判定不符时跳过解码，提示要指向 md5 而非解码错误"""
     calls, tmp = harness
     monkeypatch.setattr(downloader, "any_check_tool", lambda: True)
     ok, msg, _ = run(tmp, song_size=len(AUDIO), song_md5="0" * 32)
@@ -128,7 +128,7 @@ def test_expectations_reach_the_checker(harness, monkeypatch):
 
 
 def test_no_expectations_still_decodes(harness, monkeypatch):
-    """服务端没给校验依据时退回原有行为，只跑解码"""
+    """服务端没给校验依据时只跑解码"""
     calls, tmp = harness
     monkeypatch.setattr(downloader, "any_check_tool", lambda: True)
     ok, _msg, _ = run(tmp)
@@ -137,9 +137,9 @@ def test_no_expectations_still_decodes(harness, monkeypatch):
 
 
 def test_embed的位置传参与真签名对得上(harness, monkeypatch):
-    """embed 的形参在 downloader 里全靠位置传，两边对不齐时元数据会串位 ——
-    歌名写进歌手那种。夹具里的 lambda 把签名吃掉了，所以要拿真签名来 bind。
-    以前 embed 带一个从没用过的 song_id，调用方就为它白占一个位置"""
+    """embed 的形参靠位置传，两边对不齐会让元数据串位
+    夹具的 lambda 吃掉签名，所以用真签名 bind
+    """
     _calls, tmp = harness
     seen = {}
     monkeypatch.setattr(

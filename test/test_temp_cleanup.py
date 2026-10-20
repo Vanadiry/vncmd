@@ -1,15 +1,11 @@
-"""临时文件在失败路径上要清干净
-
-下载中断或内容校验不过时，半截文件或错误页会留在 _temp 里。
-这些文件既占地方，又会让下一轮同名的歌撞上。
-"""
+"""失败路径上的临时文件清理"""
 
 import hashlib
 from pathlib import Path
 
 import pytest
 
-from test.conftest import SAMPLE_MS  # noqa: F401  保�� conftest 会被加载
+from test.conftest import SAMPLE_MS  # noqa: F401  保证 conftest 会被加载
 from vncmd import downloader
 
 AUDIO = b"fLaC" + b"vncmd-audio" * 500
@@ -103,14 +99,14 @@ class TestDiscardHelper:
         assert not a.exists() and not b.exists()
 
     def test_missing_path_is_not_an_error(self, tmp_path):
-        """下载可能压根没落盘，清理不能因此抛异常把错误信息盖掉"""
+        """下载可能没有落盘，清理不能因此抛异常把错误信息盖掉"""
         downloader._discard_temp([str(tmp_path / "never-existed")])
 
     def test_none_entries_skipped(self):
         downloader._discard_temp([None, ""])
 
     def test_readonly_or_locked_file_does_not_propagate(self, tmp_path):
-        """清理是善后动作，失败不该盖掉真正的下载错误"""
+        """清理为善后动作，失败不该盖掉真正的下载错误"""
         d = tmp_path / "dir"
         d.mkdir()
         # 传目录进去，unlink 会抛 IsADirectoryError
@@ -119,10 +115,8 @@ class TestDiscardHelper:
 
 
 class TestEmbedFailureDegrades:
-    """元数据嵌不上不该把整首判为下载失败，但要重试过再放弃
-
-    音频已经过了 md5 与解码校验，报失败会让用户重试、白白重下一遍。
-    标签本身对音乐库很关键，所以不能一次失败就降级。
+    """元数据嵌不上不该判为下载失败，但要重试过再放弃
+    音频已过 md5 校验，报失败会让用户重下
     """
 
     @pytest.fixture
@@ -132,7 +126,7 @@ class TestEmbedFailureDegrades:
         monkeypatch.setattr(
             downloader,
             "fetch_audio",
-            # fetch_audio 的约定是「错误说明或 None」，写成功要返回 None 而非字节数
+            # fetch_audio 的约定为“错误说明或 None”，成功返回 None 而非字节数
             lambda url, path, label, progress=None, task_id=None, **kw: (
                 Path(path).write_bytes(audio),
                 None,
@@ -163,7 +157,7 @@ class TestEmbedFailureDegrades:
         assert final and Path(final).exists(), "音频文件没落地"
 
     def test_确实走到了嵌入这一步(self, wired, monkeypatch):
-        """上面的通过不能靠「压根没调嵌入」骗到手"""
+        """上面的通过不能靠没调嵌入骗到手"""
         root, digest, calls = wired
         monkeypatch.setattr(downloader, "embed_metadata", self._failing(calls))
         self._run(root, digest, 12)

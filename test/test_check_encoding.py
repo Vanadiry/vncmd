@@ -1,14 +1,4 @@
-"""校验工具的 stderr 解码与报错里的路径
-
-本项目的文件名就是「曲名 - 歌手」，中日文曲库必然带非 ASCII，
-而「文件损坏」正是会触发工具把完整路径写进 stderr 的场景。
-
-原先 `subprocess.run(text=True)` 用 locale 解码，
-`LC_ALL=C` 的 Linux 与 Docker 上会抛 UnicodeDecodeError 直接穿出去：
-`ffprobe_info` 与 `ffmpeg_decode` 只接 TimeoutExpired 与 OSError，没人接。
-后果是这一首判失败、提示是「'ascii' codec can't decode」，
-而且 `_discard_temp` 不执行，坏文件留在 _temp 里。
-"""
+"""校验工具 stderr 的解码与报错路径"""
 
 import subprocess
 from unittest import mock
@@ -17,7 +7,7 @@ import pytest
 
 from vncmd.media import checker
 
-# ffmpeg 打不开文件时把完整路径写进 stderr，这段是 UTF-8 的
+# ffmpeg 打不开文件时把完整路径写进 stderr，这段为 UTF-8
 FFMPEG_ERR = (
     b"Error opening input file "
     b"/tmp/x/\xe6\xae\x8b\xe6\x9c\x88-\xe3\x82\xab\xe3\x83\xaf\xe3\x82\xa4.mp3.\n"
@@ -35,7 +25,7 @@ def tools(monkeypatch):
 
 
 def _run_returning(stderr: bytes, code: int):
-    """模拟 subprocess 带 encoding 参数时的返回：stderr 已经是解码后的 str"""
+    """模拟 subprocess 带 encoding 参数时的返回：stderr 已是解码后的 str"""
 
     def fake_run(cmd, **kw):
         # 断言参数本身：encoding 与 errors 必须显式给，不能靠 locale
@@ -76,9 +66,9 @@ class Test解码:
             assert checker.flac_test(str(p)) is not None
 
     def test_check_audio整条路都不抛(self, tmp_path):
-        """以前这一路会把 UnicodeDecodeError 抛给调用方，
-        downloader 的兜底 except 接住之后只说一句 codec 出错，
-        用户看不出是环境问题，坏文件还留在 _temp 里"""
+        """UnicodeDecodeError 抛给调用方时，downloader 的兜底 except 只说一句 codec 出错
+        用户看不出原因，坏文件还留在 _temp 里
+        """
         p = tmp_path / "残月-カワイヒデヒロ.mp3"
         p.write_bytes(b"\xff\xfb")
         with mock.patch.object(

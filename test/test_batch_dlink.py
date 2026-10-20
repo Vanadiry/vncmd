@@ -1,8 +1,4 @@
-"""`--json --dlink` 在一批曲目上取下载链接
-
-`album` 与 `playlist` 的 `--dlink` 只在 `--json` 下有意义：
-单曲的 `--dlink` 打面板，而一批曲目的链接是数据。
-"""
+"""批量 --json --dlink 的下载链接形状"""
 
 import argparse
 
@@ -22,8 +18,7 @@ READY = {
     "code": 200,
     "expi": 1200,
 }
-# 实测（id 477933827）的失败条目不是「只剩 fee 一个有值」：
-# code=404 与 payed=0 都在，而 code 才是最直接的答案
+# id 477933827 的失败条目带 code=404 与 payed=0，code 最直接
 BLOCKED = {
     "id": 2,
     "url": None,
@@ -54,12 +49,7 @@ def tracks(n, start=1):
 
 
 def album(n=3):
-    """每次给一份新的
-
-    早先这里是模块级常量，而 _attach_downloads 是原地写 download 键，
-    于是前面的测试把键留给了后面的，「没给 dlink 就不该有 download」
-    那条必然红。共享的可变夹具的问题，不是生产代码的问题。
-    """
+    """每次返回一份新的，_attach_downloads 会原地写 download 键"""
     return {
         "id": 1,
         "name": "某专辑",
@@ -87,11 +77,8 @@ def ns(**kw):
 
 
 def parsed(capsys):
-    """一次读完再拆成 stdout 与 stderr
-
-    capsys.readouterr() 会清空缓冲，读第二次就只剩空的了。
-    早先这里只返回 stdout，于是后面再读 err 永远拿到空串，
-    「stderr 只给数量」那条测试就是这么空转的。
+    """一次读完再拆成 stdout 与 stderr，capsys.readouterr() 会清空缓冲
+    读第二次只剩空串，后面再读 err 的测试会空转
     """
     import json
 
@@ -121,7 +108,7 @@ def two_urls(monkeypatch):
 class Test单独给dlink要报错:
     @pytest.mark.parametrize("extra", [{}, {"download": True}])
     def test_不配json就退出(self, monkeypatch, capsys, extra):
-        """给了一堆参数才开始拉曲目，然后才说参数写错了"""
+        """参数校验要排在拉曲目之前，否则先联网才报参数错"""
         monkeypatch.setattr(
             commands, "get_album_details", lambda _i: pytest.fail("不该联网")
         )
@@ -156,11 +143,7 @@ class Testparser:
 
     @pytest.mark.parametrize("name", ["album", "playlist"])
     def test_help写明要配合json(self, name, capsys):
-        """从 song 过来的用户会在 album 上撞报错，help 要先说清
-
-        断言的是「需配合」而不是「--json」：后者 argparse 的用法行里本来就有，
-        断言它在就恒真了 —— 与 test_search_limit 里那条注释同一个坑。
-        """
+        """help 要写明需配合 --json，argparse 用法行里本来就有 --json"""
         from vncmd.cli import build_parser
 
         sub = next(
@@ -173,7 +156,7 @@ class Testparser:
         assert "需配合 --json" in capsys.readouterr().out
 
     def test_song的help说的是面板(self, capsys):
-        """单曲的形态是面板，与批量不同，两边文案要分开"""
+        """单曲为面板形态，与批量不同，文案要分开"""
         from vncmd.cli import build_parser
 
         with pytest.raises(SystemExit):
@@ -224,7 +207,7 @@ class Test批量取链接:
         assert urls == ["", "", "http://x/3.flac"]
 
     def test_只给七个字段(self, monkeypatch, capsys, two_urls):
-        """原始响应有三十多个字段，一半是 null，批量时能撑出十几万字"""
+        """原始响应有三十多个字段，一半为 null，批量时能撑出十几万字"""
         monkeypatch.setattr(commands, "get_album_details", lambda _i: album())
         commands.cmd_album(ns())
         data, _out, _err = parsed(capsys)
@@ -286,10 +269,10 @@ class Test先切再取链接:
 
 
 class Test失败条目带原因:
-    """code 与 payed 是判断「为什么拿不到」那两个字段"""
+    """code 与 payed 为判断拿不到原因的两个字段"""
 
     def test_失败时带上code(self, monkeypatch, capsys, two_urls):
-        """实测 id 477933827 回的是 code=404，比 fee=0 有用得多"""
+        """id 477933827 回 code=404，比 fee=0 有用"""
         monkeypatch.setattr(commands, "get_album_details", lambda _i: album())
         commands.cmd_album(ns())
         data, _out, _err = parsed(capsys)
@@ -302,7 +285,7 @@ class Test失败条目带原因:
         assert data["album"]["tracks"][0]["download"]["code"] == 200
 
     def test_带payed(self, monkeypatch, capsys, two_urls):
-        """payed 能分「买了」与「没买」，而 fee 不一定分得清"""
+        """payed 能分“买了”与“没买”，而 fee 不一定分得清"""
         monkeypatch.setattr(commands, "get_album_details", lambda _i: album())
         commands.cmd_album(ns())
         data, _out, _err = parsed(capsys)
@@ -321,7 +304,7 @@ class Test失败条目带原因:
         assert entry["url"] == ""
 
     def test_付费但未购时payed与code都在(self, monkeypatch, capsys):
-        """这类最容易靠 payed 判断，而早先那个「七个字段」把它丢了"""
+        """这类要靠 payed 判断，字段不能少"""
         paid_not_owned = {
             "id": 1,
             "url": None,
@@ -354,10 +337,7 @@ class Test拿不到的报法:
         assert "2 首拿不到链接" in err
 
     def test_不按fee分类(self, monkeypatch, capsys, two_urls):
-        """FEE_NEED 只映射 1 与 4，而实测 fee=8 出现在三分之一的曲目上
-
-        没有依据的分类比不给更糟：错的解释会被当成结论。
-        """
+        """FEE_NEED 只映射 1 与 4，fee=8 占三分之一，没有依据的分类会被当成结论"""
         monkeypatch.setattr(commands, "get_album_details", lambda _i: album(3))
         commands.cmd_album(ns())
         _d, _o, err = parsed(capsys)
@@ -376,7 +356,7 @@ class Test拿不到的报法:
         assert "拿不到" not in err
 
     def test_数量只算切出来的那几条(self, monkeypatch, capsys):
-        """全量里 1 首拿不到，用户只问 5 首时报 1/5 而不是 1/529"""
+        """只统计切出来的那几条，不按全量 300 首算比例"""
         monkeypatch.setattr(commands, "get_album_details", lambda _i: album(300))
         monkeypatch.setattr(
             commands,

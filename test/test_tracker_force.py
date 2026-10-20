@@ -1,8 +1,4 @@
-"""`--fetch` 的两个修饰
-
-`--fetch-auto` 退休成 `--fetch --auto-accept`，另加 `--force`。
-两者都是 `--fetch` 的修饰，不是独立动作 —— 与 `--diff` 是 `-d` 的修饰同一个模式。
-"""
+"""--fetch 的 --auto-accept 与 --force"""
 
 import argparse
 import json
@@ -68,7 +64,7 @@ class Test修饰必须配fetch:
         assert shown in capsys.readouterr().err
 
     def test_提示要说清是修饰(self, ready, capsys):
-        """只说「需要配合 --fetch」不说为什么，用户会以为那是个 bug"""
+        """只说“需要配合 --fetch”不说为什么，用户会以为那是个 bug"""
         with pytest.raises(SystemExit):
             tracker.cmd_tracker(ns(force=True))
         err = capsys.readouterr().err
@@ -118,7 +114,7 @@ class TestForce:
         assert [s["id"] for s in got["n"]] == [1, 2, 3, 4, 5]
 
     def test_无变更也覆盖(self, ready, monkeypatch):
-        """无变更不动是那两个 resolve 的行为，--force 恰恰要写库"""
+        """无变更不动为那两个 resolve 的行为，--force 恰恰要写库"""
         monkeypatch.setattr(tracker, "load_songs_db", lambda name: songs())
         called = []
         monkeypatch.setattr(tracker, "save_songs_db", lambda n, s: called.append(1))
@@ -133,7 +129,7 @@ class TestForce:
         assert not written, "没变更时 diff 该保持原样"
 
     def test_无变更时说清diff没更新(self, ready, monkeypatch, capsys):
-        """「覆盖了但 diff 没变」用户看不到，不说就以为 diff 已是新的"""
+        """“覆盖了但 diff 没变”用户看不到，不说就以为 diff 已是新的"""
         monkeypatch.setattr(tracker, "load_songs_db", lambda name: songs())
         monkeypatch.setattr(tracker, "save_songs_db", lambda n, s: None)
         tracker.cmd_tracker(ns(fetch=True, force=True))
@@ -153,7 +149,7 @@ class TestForce:
         assert "5 首" in capsys.readouterr().err
 
     def test_覆盖后songs_json带publish_time(self, ready):
-        """-fF 是升级前提，覆盖一次就把日期写进库"""
+        """-fF 为升级前提，覆盖一次就把日期写进库"""
         tracker.cmd_tracker(ns(fetch=True, force=True))
         data = json.loads((ready / "like" / "songs.json").read_text(encoding="utf-8"))
         assert data["songs"][0]["publish_time"] == "2021-01-01 08:00:00"
@@ -222,7 +218,7 @@ class TestAutoAccept:
 
 class TestHelp:
     def test_force写明只回退一步(self, capsys):
-        """`.bak` 连续两次 force 会被顶掉，这句话得在 help 里说"""
+        """.bak 连续两次 force 会被顶掉，这句话得在 help 里说"""
 
         out = _out_of(["tracker", "like", "--help"])
         assert "备份" in out and "顶掉" in out, out
@@ -233,7 +229,7 @@ class TestHelp:
         assert "--auto-accept" in out and "--force" in out
 
     def test_都不在互斥组里(self):
-        """它们是 --fetch 的修饰，与 --fetch 同给才合法，所以不该进顶层组"""
+        """它们为 --fetch 的修饰，与 --fetch 同给才合法，所以不该进顶层组"""
         from vncmd.cli import build_parser
 
         args = build_parser().parse_args(["tracker", "like", "-f", "--force"])

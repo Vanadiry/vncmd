@@ -1,11 +1,4 @@
-"""曲目详情面板的专辑 ID
-
-接口的 song/detail 里 album.id 是现成的，能直接拿去查专辑详情。
-没有专辑条目的曲目接口给的是 id 为 0，那不是真的专辑，显示时要当没有。
-
-顺带钉住一件踩到的事：字段值为 null 时不能把 None 传到面板，
-rich 的 Text.append 只收 str 与 Text，收到 None 直接抛 TypeError。
-"""
+"""曲目详情面板的专辑 ID 与 null 字段"""
 
 import pytest
 
@@ -26,7 +19,7 @@ WITH_ALBUM = {
     },
 }
 
-# 接口对没有专辑条目的曲目返回的样子：整块是空壳
+# 接口对没有专辑条目的曲目返回空壳
 WITHOUT_ALBUM = {
     "id": 1301714740,
     "name": None,
@@ -47,7 +40,7 @@ class TestAlbumId:
         assert "PPPP（283881237）" in out
 
     def test_ID用括号包住(self, capsys):
-        """点号隔开会被当成专辑名的一部分，看不出括号里那个是编号"""
+        """点号隔开会被当成专辑名的一部分，看不出括号里那个为编号"""
         out = _show(capsys, WITH_ALBUM)
         assert "PPPP · 283881237" not in out
         assert "PPPP283881237" not in out
@@ -63,7 +56,7 @@ class TestAlbumId:
         assert "（）" not in out
 
     def test_旧缓存里的None不会崩(self, capsys):
-        """改动之前写进缓存的专辑名是 None，面板收到 None 会抛 TypeError"""
+        """改动之前写进缓存的专辑名为 None，面板收到 None 会抛 TypeError"""
         song = _normalize_song(dict(WITH_ALBUM))
         song["album"] = None
         song["cover"] = None
@@ -71,7 +64,7 @@ class TestAlbumId:
         assert capsys.readouterr().out
 
     def test_专辑为None且没有ID时不会崩(self, capsys):
-        """这一组才会真的炸：album 为 None 且 album_id 为 0，
+        """这一组才会真的炸：album 为 None 且 album_id 为 0
         值原样进了面板；有 ID 时拼成 f 字符串，反而碰不到"""
         song = _normalize_song(dict(WITH_ALBUM))
         song["album"] = None
@@ -113,5 +106,5 @@ class TestTextHelper:
         assert _text(None) == ""
 
     def test_数字变空串而不是字符串(self):
-        """0 是占位不是内容，变出「0」反而会显示一个假的专辑名"""
+        """0 是占位不是内容，变出“0”反而会显示一个假的专辑名"""
         assert _text(0) == ""

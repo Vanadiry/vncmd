@@ -29,7 +29,7 @@ from vncmd.net.cache import (
 from vncmd.net.cache import put_song as cache_put_song
 
 _BASE_URL = "https://music.163.com"
-# 批量查详情的分片大小，一次 100 个 id 实测约 1300 字符的 URL
+# 批量查详情的分片大小，一次 100 个 id 的 URL 约 1300 字符
 _DETAIL_BATCH_SIZE = 100
 HEADERS = {
     "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 "
@@ -67,9 +67,7 @@ def _build_session() -> requests.Session:
             try:
                 value.encode("latin-1")
             except UnicodeEncodeError:
-                # 截断后的值与原值不同，设上去网易云认不出用户，
-                # 表现是登录态看着有却不生效。这类值多半是复制时没做 URL 编码，
-                # 宁可跳过并出声，不要静默塞一个错的值
+                # 含非 latin-1 的值设上去会静默失效，跳过并提示
                 warning(f"Cookie {name} 含非 latin-1 字符，已跳过")
                 continue
             if name and value:
@@ -78,8 +76,7 @@ def _build_session() -> requests.Session:
 
 
 def _get_session() -> requests.Session:
-    # 下载走线程池，多个 worker 可能同时走到这里。
-    # 检查放在锁外让常态不加锁，真正要建的那次在锁内再确认一遍
+    # 下载走线程池，双重检查避免常态加锁
     global _session
     if _session is None:
         with _session_lock:
@@ -101,14 +98,13 @@ def _fmt_duration(ms: int | None) -> str:
         return ""
     total_sec = ms // 1000
     m, s = divmod(total_sec, 60)
-    # 不足一小时的照旧，超过的补出小时位，
-    # 194:25 这种写法看不出量级，串烧与长现场尤其吃亏
+    # 超过一小时补小时位，194:25 看不出量级
     h, m = divmod(m, 60)
     return f"{h}:{m:02d}:{s:02d}" if h else f"{m}:{s:02d}"
 
 
 def _first_number(value) -> int | None:
-    """Extract the first integer from a value (int, str like '05 [RAY]', or None)."""
+    """提取值里的第一个整数"""
     if value is None:
         return None
     if isinstance(value, int):
@@ -126,10 +122,7 @@ def _get_v1_song_detail(song_id: int) -> dict:
 
 # 网易云数据里混有零宽字符，肉眼看不见，但会被复制进文件名和元数据标签
 _INVISIBLE = re.compile("[\u200b\u200c\u200d\u2060\ufeff]")
-# HANGUL FILLER 看着是空白，实际是个宽字符：Unicode 标它为 Wide，
-# 终端按宽渲染，而表格算列宽时按零宽算，两边对不上会把竖线错开。
-# 它只是拿来顶替空白的填充字符，清掉即可。
-# 同类的 U+2800 盲文空白字符也有这个问题，暂不处理。
+# HANGUL FILLER 被终端按宽字符渲染，表格按零宽计算会错位
 _BLANK_FILLER = re.compile("ㅤ")
 
 
@@ -140,12 +133,9 @@ def _clean(text) -> str:
 
 
 def _text(value) -> str:
-    """取字符串字段，键存在但值为 null 时给空串
+    """取字符串字段，null 转空串
 
-    _clean 遇到非字符串会原样返回，那是给意外类型兜底的，
-    但字段值为 null 时不能把 None 传下去：它会一路流到面板里，
-    rich 的 Text.append 只收 str 与 Text，收到 None 直接抛 TypeError。
-    接口对没有专辑条目的曲目确实返回 name 为 null。
+    null 不能传进 rich 的 Text.append，接口对无专辑的曲目会返回 name 为 null
     """
     return _clean(value) if isinstance(value, str) else ""
 
@@ -156,16 +146,14 @@ def _normalize_song(song: dict) -> dict:
         song["artists"] = song.pop("ar")
     if "al" in song:
         song["album"] = song.pop("al")
-    # 键存在但值为 null 时 .get 的默认值不生效，得用 or 兜住，
-    # 网易云的 v1 接口对部分歌曲确实返回 al 为 null
+    # v1 接口对部分歌曲返回 al 为 null，.get 的默认值不生效
     album = song.get("album") or {}
     return {
         "id": song["id"],
         "title": _text(song.get("name")),
         "artist": _clean(", ".join(a["name"] for a in song.get("artists") or [])),
         "album": _text(album.get("name")),
-        # 没有专辑条目的曲目接口返回 id 为 0，不是真的专辑，
-        # 显示时要按「没有」处理而不是印一个 0 出去
+        # 无专辑的曲目返回 id 为 0，显示时按没有处理
         "album_id": album.get("id") or 0,
         "cover": _text(album.get("picUrl")),
         # 歌曲自己的发行日优先，没有才退回专辑日
@@ -201,7 +189,7 @@ def get_song_details(song_id: int) -> dict:
     if not song:
         raise ValueError(f"曲目 {song_id} 未找到")
 
-    # Merge v1 fields not present in v0
+    # v1 有 cd 时补进 v0 结果
     if v1_data.get("songs"):
         v1_song = v1_data["songs"][0]
         if "cd" not in song and "cd" in v1_song:
@@ -212,10 +200,7 @@ def get_song_details(song_id: int) -> dict:
 
 
 def get_song_details_many(song_ids: list[int]) -> dict[int, dict]:
-    """批量取曲目详情，命中缓存的部分不再请求
-
-    逐个查询在歌单有大量下架曲目时不可用，几百次串行请求要按分钟计
-    """
+    """批量取曲目详情，缓存命中的部分不再请求"""
     result: dict[int, dict] = {}
     missing: list[int] = []
     for song_id in song_ids:
@@ -244,11 +229,10 @@ def get_song_details_many(song_ids: list[int]) -> dict[int, dict]:
 
 
 def get_publish_times(song_ids: list[int]) -> dict[int, str]:
-    """批量补发行日，只给歌单里没有日期的曲目用
+    """批量补歌单缺失的发行日
 
-    v0 的 song/detail 一次能查 100 个，歌曲日与专辑日都在返回里。
-    v1 批量没有日期，所以不复用 get_song_details_many；也不写缓存，
-    避免 v0 缺 cd 污染 get_song_details 的单曲缓存。
+    v0 的 song/detail 一次可查 100 个，歌曲日与专辑日都在响应里
+    v1 批量没有日期，不写缓存，避免缺 cd 的 v0 数据污染单曲缓存
     """
     result: dict[int, str] = {}
     for start in range(0, len(song_ids), _DETAIL_BATCH_SIZE):
@@ -272,7 +256,7 @@ def get_publish_times(song_ids: list[int]) -> dict[int, str]:
 
 
 def get_playlist_details(playlist_id: int) -> dict:
-    # n 取多少都至少是 2000，限量由调用方在拿到完整列表后处理
+    # n 取多少都至少为 2000，限量由调用方在拿到完整列表后处理
     url = f"{_BASE_URL}/api/v6/playlist/detail/?id={playlist_id}&n=2000"
     resp = _get_session().get(url, timeout=15)
     data = resp.json()
@@ -285,7 +269,7 @@ def get_playlist_details(playlist_id: int) -> dict:
     track_ids = pl.get("trackIds", [])
     total = pl.get("trackCount", len(track_ids))
 
-    # Detect removed tracks: in trackIds but not in tracks
+    # trackIds 里不在 tracks 的多为已下架
     t_set = {t["id"] for t in full_tracks}
     removed_ids = []
     for tid in track_ids:
@@ -307,7 +291,6 @@ def get_playlist_details(playlist_id: int) -> dict:
             if sid in details
         ]
 
-    # Map tracks to standard format
     tracks = []
     missing_dates = []
     for t in full_tracks:
@@ -381,9 +364,7 @@ def get_album_details(album_id: int) -> dict:
     }
 
 
-# 搜索接口的单次上限，实测 100 能过而 101 直接回 {'code': 400}。
-# 放这一层而不是 CLI：这是服务端的事实，绕过命令行直接调本模块的人
-# 也该被拦住，而不是拿到一句对用户毫无意义的 {'code': 400}
+# 搜索单次上限，实测 100 可过、101 返回 code 400
 SEARCH_LIMIT_MAX = 100
 
 
@@ -394,8 +375,7 @@ def search(q: str, limit: int = 10, offset: int = 0) -> dict:
     )
     data = resp.json()
     if data.get("code") != 200:
-        # 只给接口返回的东西，不在这里加「搜索失败」的前缀：
-        # 调用方 cmd_search 还会包一层，两边都写就成了「搜索失败：搜索失败：…」
+        # 只返回接口原文，调用方还会加搜索失败前缀
         raise ValueError(str(data))
 
     songs = []
@@ -445,7 +425,7 @@ def get_lyrics(song_id: int) -> dict:
 
 
 class AudioSource:
-    """一次取流返回的内容，url 之外还带上服务端给出的校验依据"""
+    """一次取流的内容，含 url 与服务端校验字段"""
 
     __slots__ = ("expi", "level", "md5", "size", "url")
 
@@ -463,15 +443,10 @@ class AudioSource:
 def fetch_player_urls(
     song_ids: list[int], quality: int | None = None
 ) -> dict[int, dict]:
-    """批量取 player/url 的原始条目，按 id 索引
+    """批量取 player/url 原始条目，按 id 索引
 
-    响应里每条都带自己的 id，所以缺哪几条、下架哪几条都能对上，
-    不靠顺序猜。取不到的 id 不在这份结果里，由调用方补空条目 ——
-    否则「接口没返回这条」与「返回了但 url 为空」会混成一种。
-
-    一次发全部 id 不分批：实测 529 个一次 0.83 秒且全部返回。
-    （早先记过「一次超过 500 个会返回 0 条」，那是撞上限流时的空响应，
-    被当成了长度限制 —— 与这次实测矛盾，按实测来。）
+    缺的 id 不补条目，由调用方区分接口未返回与 url 为空
+    一次发全部 id，实测 529 个 0.83 秒
     """
     if not song_ids:
         return {}
@@ -483,16 +458,12 @@ def fetch_player_urls(
 
 
 def fetch_player_url(song_id: int, quality: int | None = None) -> dict:
-    """取 player/url 的原始条目
-
-    取不到链接时也返回，fee 与 payed 这些判定权限要用的字段照样在里面，
-    所以判断为什么下不了不必再发一次请求。
-    """
+    """取 player/url 原始条目，取不到链接时仍保留 fee 与 payed"""
     return fetch_player_urls([song_id], quality).get(song_id, {})
 
 
 def get_audio_source(song_id: int, quality: int | None = None) -> AudioSource | None:
-    """取下载链接，连同 size 与 md5 一起返回，缺失时按 0 与空串处理"""
+    """取下载链接，size 与 md5 缺失时给 0 与空串"""
     d = fetch_player_url(song_id, quality)
     if d.get("url"):
         return AudioSource(
@@ -510,8 +481,7 @@ def get_song_url(song_id: int, quality: int | None = None) -> str | None:
     return src.url if src else None
 
 
-# br -> 服务端在有权限时应当返回的 level。实测 128/192/320 三档有无 VIP
-# 结果一致，只有最高档会因权限不足被压回 exhigh，所以只有它需要提示。
+# br 对应的服务端 level，只有最高档会因权限不足被压回 exhigh
 EXPECTED_LEVEL = {
     128000: "standard",
     192000: "higher",
@@ -519,7 +489,7 @@ EXPECTED_LEVEL = {
     2147483647: "lossless",
 }
 
-# level 是服务端的英文字段名，直接嵌进提示里中英文硬拼，读着别扭
+# 服务端 level 转中文标签
 LEVEL_LABEL = {
     "standard": "标准音质",
     "higher": "高音质",
@@ -536,20 +506,8 @@ _account_from_cache = False
 def get_account_info(force: bool = False) -> dict | None:
     """查登录态与会员档位，进程内与磁盘都缓存
 
-    返回 ``{"logged_in": bool, "vip": bool, "vip_type": int}``；
-    查询本身失败时返回 None，与「查出来没登录」是两回事，提示不能混。
-
-    磁盘那份一天至多刷新一次，中间的运行都从缓存读，省掉一次请求。
-    失效判据是 cookie 文件的修改时间，见 account_is_fresh。
-    checked_at 存的是浮点秒：截成整秒的话，同一秒内刚写下的 cookie
-    会因为 mtime 带小数而显得比检查时间新，于是每次运行都重查。
-
-    force=True 时既不读缓存，查失败也不拿旧值兜底：
-    「强制检查」要的是当下的真相，拿一小时前的状态顶替等于没查。
-
-    这个接口无论登录与否都返回 code=200，不能看 code，要看 account 有没有。
-    实测登录但无会员的账号 account 同样存在，会员档位是 vipType 字段，
-    非零即有会员。
+    接口始终返回 code=200，登录态看 account 是否存在，会员看 vipType 非零
+    查询失败返回 None，与查出来未登录分开。force 时不读缓存，失败也不回退旧值
     """
     global _account_state, _account_checked_at, _account_from_cache
     if not force and _account_state is not _ACCOUNT_UNSET:
@@ -565,8 +523,7 @@ def get_account_info(force: bool = False) -> dict | None:
     now = time.time()
     state = _fetch_account()
     if state is None:
-        # 查失败时保留上一次的好值，只把时间戳推进。
-        # 不这么做的话，一次网络抖动会让用户一整天看不到权限状态
+        # 查失败时保留旧值并推进时间戳，避免一次抖动让用户整天看不到权限
         if cached:
             _account_state = {k: cached[k] for k in _STATE_KEYS}
             _account_checked_at = now
@@ -584,7 +541,7 @@ def get_account_info(force: bool = False) -> dict | None:
 
 
 def _fetch_account() -> dict | None:
-    """实打实发一次请求，失败返回 None"""
+    """发一次账号请求，失败返回 None"""
     try:
         resp = _get_session().get(f"{_BASE_URL}/api/nuser/account/get", timeout=15)
         acc = resp.json().get("account") or {}
@@ -601,19 +558,14 @@ def _fetch_account() -> dict | None:
 
 
 def account_stamp() -> tuple[int, bool]:
-    """（检查时间，是否来自缓存），供提示说明这份状态的新鲜度
-
-    没查过就返回 (0, False)，调用方按「刚查的」处理。
-    """
+    """返回检查时间与是否来自缓存"""
     return _account_checked_at, _account_from_cache
 
 
 def account_needs_check() -> bool:
-    """这次调用会不会真的发请求
+    """这次调用是否会真的发请求
 
-    播报要在请求之前先说一声「正在检查」，不然那一下停顿看着像卡住了。
-    判据必须与 get_account_info 用的是同一套，否则会出现
-    「预告了要查，结果读的是缓存」这种前后不一。
+    判据与 get_account_info 一致，避免预告要查却读缓存
     """
     if _account_state is not _ACCOUNT_UNSET:
         return False
@@ -626,17 +578,9 @@ _FEE_NEED_VIP = {1, 4}
 
 
 def permission_verdict(song: dict, account: dict | None) -> bool | None:
-    """判断当前账号能不能下这一首
+    """判断账号能否下载，True 为不能，False 为能，None 为无法判断
 
-    三态：True 为确定下不了，False 为确定能下，None 为看不出来。
-    两处返回 None 的理由一样，都是信息不够而不是结论相反：
-
-    - 查不出账号状态时无从判断，标成下不了是在编
-    - 接口没给 fee 时同上，标成能下同样是在编
-
-    有会员一律给 False。实测有会员时 fee=1 的 205 首全部能下，
-    而 fee=4 要看专辑买没买过，接口不给这个信息，
-    样本里「有会员但没买过」这个组合没出现过，没法证伪就不断言。
+    账号状态或 fee 缺失时返回 None。有会员直接判能下，fee=4 是否已购无法从接口得知
     """
     if not account:
         return None

@@ -1,8 +1,4 @@
-"""搜索表的权限列
-
-列只在结果里真出现下不了或看不出来的曲目时才占位。搜索表已经挤到标题和艺术家
-都在截断，能不占地方就不占。用符号而不是文字，一格宽度摆得下。
-"""
+"""搜索表的权限列"""
 
 from vncmd.core.output import display_search_results
 from vncmd.net.api import permission_verdict
@@ -10,7 +6,7 @@ from vncmd.net.api import permission_verdict
 NO_VIP = {"logged_in": True, "vip": False, "vip_type": 0}
 VIP = {"logged_in": True, "vip": True, "vip_type": 11}
 
-# 判定为 True 是下不了，False 是能下，None 是看不出来
+# 判定 True 为下不了，False 为能下，None 为看不出来
 BLOCK_ALL = [True, False, None]
 
 
@@ -34,7 +30,7 @@ def render(capsys, songs, account):
 
 class TestVerdict:
     def test_无会员的单曲购买下不了(self):
-        """实测无会员时 fee=1 的 205 首一首都下不了"""
+        """无会员时 fee=1 的曲目一首都下不了"""
         assert permission_verdict(song(1, 1), NO_VIP) is True
 
     def test_无会员的专辑购买下不了(self):
@@ -45,13 +41,12 @@ class TestVerdict:
         assert permission_verdict(song(1, 8), NO_VIP) is False
 
     def test_有会员一律给能下(self):
-        """实测有会员时 fee=1 的 205 首全部能下；
-        fee=4 要看专辑买没买过，接口不给，没法证伪就不断言"""
+        """有会员时 fee=1 的曲目全部能下；fee=4 要看专辑买没买过，接口不给，不断言"""
         for fee in (0, 1, 4, 8):
             assert permission_verdict(song(1, fee), VIP) is False, f"fee={fee}"
 
     def test_查不出账号状态就说看不出来(self):
-        """标成能下或下不了都是在编"""
+        """标成能下或下不了都为猜测"""
         assert permission_verdict(song(1, 1), None) is None
 
     def test_缺fee就说看不出来(self):
@@ -59,7 +54,7 @@ class TestVerdict:
         assert permission_verdict({"id": 1, "title": "x"}, NO_VIP) is None
 
     def test_未登录等同于无会员(self):
-        """实测两者在下载上表现一致"""
+        """两者在下载上表现一致"""
         anon = {"logged_in": False, "vip": False, "vip_type": 0}
         assert permission_verdict(song(1, 1), anon) is True
 
@@ -72,21 +67,21 @@ class TestColumn:
         assert "✓" in out
 
     def test_有看不清楚的也出现(self, capsys):
-        """问号同样是用户需要知道的事，不该被当成没有这一列的理由"""
+        """问号同样为用户需要知道的事，不该当成不显示这一列的理由"""
         display_search_results("q", [song(1, 8)], 1, [None])
         out = capsys.readouterr().out
         assert "权限" in out
         assert "?" in out
 
     def test_全能下就不出现(self, capsys):
-        """VIP 用户搜出来的歌往往全能下，这一列是白占地方"""
+        """VIP 用户搜出来的歌往往全能下，这一列白占地方"""
         out = render(capsys, [song(1, 8), song(2, 1)], VIP)
         assert "权限" not in out
         assert "✓" not in out
         assert "✗" not in out
 
     def test_不给判定就不出现(self, capsys):
-        """歌单与专辑视图没有 fee，硬塞一列全是猜的"""
+        """歌单与专辑视图没有 fee，硬塞一列全为猜测"""
         display_search_results(
             "q",
             [{"id": 1, "title": "x", "artist": "a", "album": "b", "duration": "1:00"}],
@@ -95,13 +90,13 @@ class TestColumn:
         assert "权限" not in capsys.readouterr().out
 
     def test_全问号也出现(self, capsys):
-        """查不出账号状态时整列都是问号，仍比让用户猜好"""
+        """查不出账号状态时整列都为问号，仍比让用户猜好"""
         out = render(capsys, [song(1, 1), song(2, 1)], None)
         assert "?" in out
         assert "✗" not in out, "问号不能混进叉号里"
 
     def test_标记跟着行走(self, capsys):
-        """第几行标错就是信息错误，比没有这一列更糟"""
+        """第几行标错即为信息错误，比没有这一列更糟"""
         rows = _rows(render(capsys, [song(1, 1), song(2, 8)], NO_VIP))
         assert len(rows) == 2, f"表格只渲染出 {len(rows)} 行"
         assert rows[0][-2].strip() == "✗"
@@ -117,17 +112,17 @@ class TestColumn:
         assert [r[-2].strip() for r in rows] == ["✓", "✗", "?"]
 
     def test_短了不显示也不崩(self, capsys):
-        """短了会 IndexError"""
+        """判定比曲目短时取不到，会 IndexError"""
         display_search_results("q", [song(1, 8), song(2, 1)], 2, [True])
         assert "权限" not in capsys.readouterr().out
 
     def test_长了不显示也不错位(self, capsys):
-        """长了会让整列从第一行起就全错"""
+        """判定比曲目长时整列会从第一行起错位"""
         display_search_results("q", [song(1, 8)], 1, [True, True, True])
         assert "权限" not in capsys.readouterr().out
 
     def test_用文字会把表格撑宽(self, capsys):
-        """「无权限」四个字要四格，符号只占一格，标题能多拿三格"""
+        """“无权限”四个字要四格，符号只占一格，标题能多拿三格"""
         display_search_results("q", [song(1, 8), song(2, 1)], 2, [True, False])
         out = capsys.readouterr().out
         assert "可下" not in out
@@ -169,11 +164,7 @@ class TestMarks:
 
 
 class TestSearchCarriesFee:
-    """search() 必须把 fee 带出来
-
-    少了这一步，判定永远拿到 None，整列一次都不会出现，
-    而且不报错、不出声，看着像「这些歌都能下」。
-    """
+    """search() 要带出 fee，少了判定永远拿到 None，整列一次都不会出现"""
 
     def _search(self, monkeypatch, raw_songs):
         import vncmd.net.api as api

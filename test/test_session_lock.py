@@ -17,7 +17,7 @@ def clean_session(monkeypatch):
 
 
 def test_并发调用只建一次session(monkeypatch):
-    # 下载走线程池，多个 worker 会同时走到 _get_session，
+    # 下载走线程池，多个 worker 会同时走到 _get_session
     # 没锁时每个线程各建一个 Session，后建的把 cookie 覆盖掉
     built = []
     real = requests.Session

@@ -1,11 +1,4 @@
-"""报错不许叠词
-
-只有 search 是叠的：api 层写「搜索失败」，cmd_search 又包一层「搜索失败」，
-于是用户看到「搜索失败：搜索失败：{'code': 400}」。多出来的那半句不增加信息。
-
-其余三处（song / album / playlist）本来就不叠 —— api 抛「专辑 456 未找到」，
-命令层说「获取专辑失败」，两个主语不同。所以改的只有 search 一处。
-"""
+"""报错前缀不叠加"""
 
 import argparse
 
@@ -17,10 +10,7 @@ from vncmd.net import api
 
 class Test搜索失败:
     def test_api层不自带前缀(self, monkeypatch):
-        """api 只负责把接口返回的东西原样抛出去
-
-        它加前缀的话，cmd_search 那边再包一层就成了叠词。
-        """
+        """api 只原样抛出接口返回，加前缀的话命令层再包一层会成为叠词"""
 
         class FakeResp:
             def json(self):
@@ -64,7 +54,7 @@ class Test搜索失败:
 
 
 class Test仍然能报错:
-    """改的是措辞，不是「报不报」"""
+    """前缀只影响措辞，报错与退出照旧"""
 
     @pytest.mark.parametrize("cmd", ["album", "playlist", "song"])
     def test取不到要报错并退出(self, cmd, monkeypatch, capsys):

@@ -21,11 +21,7 @@ def _song_dir(song_id: int) -> Path:
 
 
 def _is_stale(path: Path) -> bool:
-    """缓存文件过了有效期就算未命中，ttl 为 0 时永不过期
-
-    上游改歌名、换专辑或修歌词后，永久缓存会让 vncmd 一直看不到更新。
-    取不到 mtime 时按过期处理，下一次访问会重新拉取并覆盖。
-    """
+    """缓存文件超过有效期算未命中，ttl 为 0 时永不过期"""
     ttl = get_cache_ttl()
     if ttl <= 0:
         return False
@@ -60,7 +56,7 @@ def put_song(song_id: int, data: dict) -> None:
 
 
 def get_lyrics(song_id: int) -> dict | None:
-    """Read lyrics from cache. Returns dict {lrc, tlyric} or None."""
+    """从缓存读歌词"""
     if not is_cache_enabled():
         return None
     d = _song_dir(song_id)
@@ -77,7 +73,7 @@ def get_lyrics(song_id: int) -> dict | None:
 
 
 def put_lyrics(song_id: int, data: dict) -> None:
-    """Save lyrics to cache. data is {lrc: {lyric: str}, tlyric: {lyric: str}}."""
+    """写歌词缓存"""
     if not is_cache_enabled():
         return
     d = _song_dir(song_id)
@@ -99,11 +95,7 @@ def _account_path() -> Path:
 
 
 def load_account() -> dict | None:
-    """读缓存的账号状态，过期与否交给 account_is_fresh 判
-
-    三个状态键缺一不可：手工编辑过或写坏了的半份数据，
-    当成没缓存重新查，比拿它去拼一个残缺的状态安全。
-    """
+    """读账号缓存，三个状态键缺一不可"""
     if not is_cache_enabled():
         return None
     state = read_json_safe(_account_path(), None, what="账号缓存")
@@ -113,12 +105,9 @@ def load_account() -> dict | None:
 
 
 def account_is_fresh(state: dict) -> bool:
-    """判断这份账号状态还能不能用
+    """判断账号缓存是否有效
 
-    失效判据取 cookie 文件的修改时间，而不是记一个 set_at：
-    记 set_at 只覆盖「用命令设置」这一种途径，用户手工编辑 cookie 文件时
-    缓存不会作废，会拿着旧账号状态去下音频。cookie 改了就是换了个人，
-    这是零成本的判据。
+    失效判据为 cookie 文件修改时间
     """
     checked_at = state.get("checked_at") or 0
     if time.time() - checked_at >= ACCOUNT_TTL:
@@ -131,11 +120,7 @@ def account_is_fresh(state: dict) -> bool:
 
 
 def save_account(state: dict, checked_at: int) -> None:
-    """写账号状态到缓存
-
-    写不进去不能让命令失败：缓存只是省一次请求，
-    为了它把整个操作打断是本末倒置。
-    """
+    """写账号缓存，失败不打断命令"""
     if not is_cache_enabled():
         return
     try:

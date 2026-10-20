@@ -1,9 +1,4 @@
-"""下载落盘与逐道校验
-
-这几步以前埋在 download_song 里，触发它们要跑真下载。
-抽出来之后用假文件就能测四个失败出口 —— 而那四个出口都有各自的含义，
-错一个就是用户看到一句莫名其妙的失败
-"""
+"""下载落盘与逐道校验"""
 
 import hashlib
 from pathlib import Path
@@ -15,10 +10,7 @@ from vncmd import downloader
 
 @pytest.fixture
 def 假下载(monkeypatch, tmp_path):
-    """把 fetch_audio 换成写一个指定大小的文件
-
-    记录每次写下的路径与内容，用来断言半截文件有没有被删掉
-    """
+    """把 fetch_audio 换成写指定大小的文件，并记录路径与内容"""
     记录 = []
 
     def 装(大小=1024, 内容=None, 报错=None):
@@ -89,7 +81,7 @@ class Test下载为空:
         assert not (tmp_path / "1.flac").exists()
 
     def test_只有换行不算空(self, 假下载, tmp_path, 不解码):
-        """判的是「有没有内容」而不是纯文本歌词那种「有没有时间戳」"""
+        """判“有没有内容”，与纯文本歌词判时间戳的口径不同"""
         假下载(内容=b"\n")
         assert _跑(tmp_path) is None
 
@@ -111,7 +103,7 @@ class Testmd5:
         assert not (tmp_path / "1.flac").exists()
 
     def test_没给md5就不查(self, 假下载, tmp_path, 不解码):
-        """上游没给校验依据时退回原有行为，不能凭空判失败"""
+        """上游没给校验依据时跳过 md5，不能凭空判失败"""
         假下载(内容=b"hello")
         assert _跑(tmp_path, song_md5="") is None
 
@@ -173,7 +165,7 @@ class Test封面处理:
         assert save == 假封面
 
     def test_封面坏了不连累音频(self, monkeypatch):
-        """降级成不嵌封面并出声告知，而不是让整首失败"""
+        """封面坏了降级为不嵌封面并出声告知，不能让整首失败"""
 
         def 炸(*_a, **_k):
             raise ValueError("图片文件已损坏")

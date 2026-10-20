@@ -19,20 +19,18 @@ from mutagen.mp3 import MP3
 
 from vncmd.media.lyrics import CREDIT_ROLES
 
-# CREDIT_ROLES 里的 mp3 写法只有两种：帧 ID，或者是 TIPL 的角色名
+# MP3 写法为帧 ID 或 TIPL 角色名
 _CREDIT_FRAME_CLASSES = {"TCOM": TCOM, "TEXT": TEXT, "TPE3": TPE3}
 
 
 def _set_text(tags, frame_id: str, frame_cls, text: str) -> None:
-    # 先删再 add。downloader 的 _embed_with_retry 失败后会重跑 embed，
-    # 不删就会在文件里留下重复的帧
+    # 先删再写，避免重试后留下重复帧
     tags.delall(frame_id)
     tags.add(frame_cls(encoding=3, text=[text]))
 
 
 def _write_credits_mp3(tags, credits: dict[str, str]) -> None:
-    # TIPL 只能 add 一次 —— 连续 add 会被后一个覆盖掉，
-    # 所以所有走 TIPL 的角色攒进同一个 people 列表
+    # TIPL 只能 add 一次，所有角色攒进同一列表
     tipl: list[tuple[str, str]] = []
     for role, value in credits.items():
         how = CREDIT_ROLES[role][0]
@@ -88,9 +86,7 @@ def _embed_mp3(
         except ValueError:
             pass
         else:
-            # 只写 TDRL。publish_time 是发行时间，而 ID3v2.4 §4.2.5 里
-            # TDRC 是录制时间、TDRL 才是发行时间 —— 填错语义比不填更糟。
-            # 顺带解决 ffprobe 把两帧都映射成 date 那个键、导致它出现两次
+            # 只写 TDRL，TDRC 为录制时间
             _set_text(tags, "TDRL", TDRL, pt.strftime("%Y-%m-%d"))
 
     if track_no is not None:
@@ -120,10 +116,7 @@ def _embed_flac(
     audio = FLAC(music_path)
 
     if cover_data and cover_mime:
-        # 先清后加，与 mp3 侧的 tags.delall("APIC") 同一个道理。
-        # add_picture 是追加语义，不清的话同一个文件 embed 几次就叠几层 ——
-        # 实测八次之后文件从 23.7 KB 涨到 54.8 KB。
-        # _embed_with_retry 会重跑 embed，--force 重下也会再跑一遍
+        # 先清后加，避免重复嵌入封面
         audio.clear_pictures()
         pic = Picture()
         pic.type = 3

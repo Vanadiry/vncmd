@@ -31,8 +31,8 @@ def test_al为null时按无专辑处理():
     r = _norm(ar=[{"name": "人"}], al=None)
     assert r["album"] == ""
     assert r["cover"] == ""
-    # 统一成 0：接口对真的没有专辑条目的曲目给的就是 id 为 0，
-    # 两种「没有」归成同一个值，显示层只要判一次
+    # 统一成 0：接口对真的没有专辑条目的曲目给的就是 id 为 0
+    # 两种“没有”归成同一个值，显示层只要判一次
     assert r["album_id"] == 0
     assert r["publish_time"] == ""
 

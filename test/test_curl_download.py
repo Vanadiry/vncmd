@@ -1,4 +1,4 @@
-"""--curl 开关、[download] downloader 配置与 curl 调用参数"""
+"""curl 下载路径与参数"""
 
 import shutil
 import subprocess
@@ -17,7 +17,7 @@ class TestCurlArgv:
         assert "--fail" in argv
 
     def test_follows_redirects(self):
-        """CDN 会重定向，必须跟；-sSL 是合并写法"""
+        """CDN 会重定向，必须跟随，-sSL 为合并写法"""
         argv = download._curl_argv("http://x/a.flac", "/tmp/a.flac")
         assert any("L" in a for a in argv if a.startswith("-s"))
 
@@ -33,7 +33,7 @@ class TestCurlArgv:
         assert len([a for a in argv if a == url]) == 1
 
     def test_output_path_after_user_args(self, monkeypatch):
-        """-o 放在用户参数之后，用户误写 -o 也覆盖不掉我们的目标文件"""
+        """-o 放在用户参数之后，用户误写 -o 也盖不掉目标文件"""
         monkeypatch.setattr(download, "get_curl_arg", lambda: "-o /tmp/evil")
         argv = download._curl_argv("http://x/a.flac", "/tmp/good.flac")
         assert argv[argv.index("/tmp/good.flac") + 1] == "http://x/a.flac"
@@ -46,7 +46,7 @@ class TestCurlArgv:
         assert "X-A: b" in argv
 
     def test_speed_floor_present(self):
-        """低速兜底对��内建读超时的等价物，防传输中途卡死"""
+        """低速兜底对应内建路径的读超时，防传输中途卡死"""
         argv = download._curl_argv("http://x/a.flac", "/tmp/a.flac")
         assert "--speed-limit" in argv
         assert "--speed-time" in argv
@@ -81,11 +81,11 @@ class TestFetchAudioDispatch:
         err = download.fetch_audio(
             "http://x/a.flac", str(tmp_path / "a.flac"), "T", use_curl=False
         )
-        # 错误信息正是 builtin 分支那个替身抛的，说明确实走了内建这条路
+        # 错误信息来自 builtin 分支的替身，说明确实走了内建这条路
         assert err == "builtin 分支不该被测到具体网络行为"
 
     def test_absent_falls_back_to_config(self, monkeypatch, tmp_path):
-        """没传标志时必须读配置，否则 downloader = "curl" 永远不生效"""
+        """没传标志时必须读配置，否则 downloader 配成 curl 时永远不生效"""
         seen = []
         monkeypatch.setattr(download.shutil, "which", lambda _x: "/usr/bin/curl")
         monkeypatch.setattr(download, "get_downloader", lambda: "curl")
@@ -160,9 +160,8 @@ class TestParser:
 
     @pytest.mark.parametrize("cmd", ["song", "album", "playlist"])
     def test_curl_arg不再接受(self, cmd):
-        """--curl 与配置项 download.downloader 是同一件事，只留 --config
-
-        原来那个开关只能切到 curl，切不回来；--config 两个方向都行
+        """--curl 与 download.downloader 重复，只留 --config
+        --config 能在两个方向切换
         """
         with pytest.raises(SystemExit) as e:
             self._parse([cmd, "123", "--curl"])
@@ -175,7 +174,7 @@ class TestParser:
 
 
 class TestValidation:
-    """配置校验。基准取自带模板，避免造残缺配置污染全局 _cfg"""
+    """配置校验，基准取自带模板，避免造残缺配置污染全局 _cfg"""
 
     @pytest.fixture(autouse=True)
     def _isolate(self, monkeypatch):
@@ -245,10 +244,9 @@ class TestAgainstRealCurl:
     """真跑一次 curl，确认参数拼得对、退出码读得到"""
 
     def test_海量_stderr_不会阻塞(self, monkeypatch, tmp_path):
-        """curl 写满 stderr 时必须照样下完，不能卡死在管道上
-
-        管道缓冲区约 64 KB，超出后 curl 阻塞在 write，而 _wait_curl 只轮询
-        returncode，两边死锁。--trace-ascii /dev/stderr 稳定复现。
+        """curl 写满 stderr 时也要下完，不能卡死在管道上
+        管道缓冲区约 64 KB，超出后 curl 阻塞在 write
+        _wait_curl 只轮询 returncode 会死锁
         """
         if not shutil.which("curl"):
             pytest.skip("没装 curl")
@@ -276,7 +274,7 @@ class TestAgainstRealCurl:
         assert dst.read_bytes() == payload
 
     def test_stderr_内容仍会带回错误信息(self, tmp_path):
-        """改成临时文件后，报错里的 curl 原始输出不能丢"""
+        """stderr 走临时文件时，报错里的 curl 原始输出不能丢"""
         if not shutil.which("curl"):
             pytest.skip("没装 curl")
         missing = tmp_path / "missing" / "x.flac"
@@ -302,7 +300,7 @@ class TestAgainstRealCurl:
         download._wait_curl(proc, str(dst), got.append)
         assert proc.returncode == 0
         assert dst.read_bytes() == b"x" * 40000
-        # 轮询必须真的吐过增量，否则进度条会一直是 0
+        # 轮询必须真的吐过增量，否则进度条停在 0
         assert sum(got) == 40000
 
     def test_missing_source_reports_exit_code(self, tmp_path):
@@ -323,9 +321,7 @@ class TestAgainstRealCurl:
 
     def test_错误页被魔数校验挡下(self, tmp_path):
         """200 带回 HTML 错误页时必须拒绝，否则会被当音频收下
-
-        --fail 只看状态码，对这种 200 响应不起作用，
-        内建路径靠 looks_like_audio 挡住，curl 这条路原先没有。
+        --fail 只看状态码，对 200 响应不起作用，内容校验要自己挡
         """
         if not shutil.which("curl"):
             pytest.skip("没装 curl")
@@ -358,10 +354,7 @@ class TestAgainstRealCurl:
         assert dst.read_bytes() == payload
 
     def test_复用内建路径的同一个判定(self, monkeypatch, tmp_path):
-        """两条路径必须共用 looks_like_audio，不能各判各的
-
-        这里盯的是「调用了同一个函数」，不是重新实现一遍判定规则。
-        """
+        """两条路径必须共用 looks_like_audio，这里只盯有没有调用，不重新实现判定"""
         if not shutil.which("curl"):
             pytest.skip("没装 curl")
         src = tmp_path / "a.bin"

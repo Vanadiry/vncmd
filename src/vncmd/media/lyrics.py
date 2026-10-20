@@ -5,32 +5,22 @@ from vncmd.net.cache import put_raw_lyrics
 
 _TIMESTAMP_RE = re.compile(r"^\[(\d{2}):(\d{2})[:.](\d{2,3})\](.*)")
 _META_RE = re.compile(r"^\[(ti|ar|al|offset|length|re|ve):")
-# 扫 credit 时不占行号配额的那些行。比 _META_RE 宽 —— 后者漏了 by:，
-# 而 by: 正是 LRC 头四行里最常见的一个
+# 元数据行不占扫描配额，比 _META_RE 多认 by:
 _META_TAG_RE = re.compile(r"^\[[a-zA-Z]+:")
-# 纯音乐。整行去掉时间戳之后正好是这一句才算，早先用「含即删」，
-# 正文里出现这六个字也会被删 —— 连 credit 行都会被吃掉：
-# `作曲：他说纯音乐，请欣赏` 整行没了而作曲人也没进 tag
+# 纯音乐占位符，整行匹配，避免误删正文
 _PURE_MUSIC_RE = re.compile(r"^纯音乐[，,]请欣赏$")
-# 值为「无」的行没有内容可写，写进 tag 是脏数据。
-# 繁体「無」同理 —— 只认简体的话，繁体歌词会把「無」原样写进 lyricist
+# 值为无的行不写标签，简繁都认
 _NO_VALUES = frozenset({"无", "無"})
-# 歌词翻译与歌词无关而 mp3 与 flac 都没有对应字段，只能丢。带冒号才认，
-# 否则正文里出现「歌词翻译」三个字的普通歌词会被误删
+# 歌词翻译行没有对应标签字段，带冒号才认
 _TRANSLATION_RE = re.compile(
     r"^\[\d{2}:\d{2}[:.]\d{2,3}\]\s*(?:歌词翻译|歌詞翻譯)\s*[:：]"
 )
-# 冒号要同时认半角与全角：中文歌词里「作词：XX」比「作词:XX」常见得多，
-# 只认半角会让这些行被当成普通歌词，裁不掉也搬不走
+# 冒号同时认半角与全角
 _CREDIT_LINE_RE = re.compile(
     r"^\[\d{2}:\d{2}[:.]\d{2,3}\]\s*(?P<role>[^:：\[\]]{1,20}?)\s*[:：]\s*(?P<value>.+)$"
 )
 
-# 内部名 → (mp3 写法, flac 键, 歌词里会怎么写)。
-# 简体与繁体共用同一个 tag 键，所以只列一次键名
-# 母带不进表，mp3 与 flac 都没有标准字段，不硬塞
-# 乐器不进表，上游写的是具体乐器名而不是「乐器」这个角色
-# 演唱不进表，库里三行的值与文件已有的 artist 全部不一致
+# 内部角色对应 MP3 帧、FLAC 键与歌词写法
 CREDIT_ROLES = {
     "作曲": ("TCOM", "composer", ("作曲",)),
     "作词": ("TEXT", "lyricist", ("作词", "作詞")),
@@ -41,20 +31,14 @@ CREDIT_ROLES = {
     "指挥": ("TPE3", "conductor", ("指挥", "指揮")),
 }
 
-# 歌词里的写法 → 内部名。匹配时是拿歌词那一行的角色名去查，所以要倒排。
-# 繁体必须一起认，否则繁体歌词的 credit 行会被当成歌词。
-# 「作曲」的繁体与简体同形，「作词」的繁体是「作詞」，两者不撞车
+# 歌词写法到内部角色，繁体一并认
 ROLE_ALIASES = {
     written: role
     for role, (_mp3, _flac, writings) in CREDIT_ROLES.items()
     for written in writings
 }
 
-# 连写角色名 → (要记的角色, 保留后剩下的角色名)。
-# 剩下的为 None 表示整行删掉。
-# 库里只有这七种，逐个写死。库里的六种含表内角色的连写里，
-# 「配唱制作人」与「人声录音」不在这张表里 —— 前者的「制作人」匹配不上整名，
-# 后者整体是「录人声的那个录音师」而不是「人声」加「录音」两件事
+# 连写角色映射，左为内部角色，右为保留的剩余角色名
 CREDIT_COMBOS = {
     "作/編曲": (("作曲", "编曲"), None),
     "作/编曲": (("作曲", "编曲"), None),
@@ -67,17 +51,14 @@ CREDIT_COMBOS = {
 
 
 def clean(text: str) -> str:
-    """Remove [by:...] tag lines, keep everything else (including empty lines)."""
+    """去掉 [by:] 标签行，保留空行"""
     return "\n".join(
         line for line in text.splitlines() if not re.match(r"^\[by:", line)
     )
 
 
 def parse(text: str) -> list[tuple[float, str, str]]:
-    """
-    Parse cleaned LRC text into list of (time_float, text_content, original_line).
-    Lines without timestamps are skipped.
-    """
+    """解析 LRC 为时间、内容与原行，无时间戳行跳过"""
     result = []
     for line in text.splitlines():
         m = _TIMESTAMP_RE.match(line)
@@ -90,11 +71,7 @@ def parse(text: str) -> list[tuple[float, str, str]]:
 
 
 def _is_pure_music_placeholder(line: str) -> bool:
-    """去掉时间戳之后整行正好是那句占位符
-
-    与 credit 行判定的口径一致 —— 都要求这一行就是它自己，
-    不靠「含」来判断，免得正文里提到这六个字时被当成占位删掉
-    """
+    """去掉时间戳后整行正好为纯音乐占位符"""
     m = _TIMESTAMP_RE.match(line)
     content = m.group(4) if m else line
     return bool(_PURE_MUSIC_RE.match(content.strip()))
@@ -103,22 +80,10 @@ def _is_pure_music_placeholder(line: str) -> bool:
 def process_credits(
     text: str, scan_lines: int = 10, collect: bool = False, trim: bool = False
 ) -> tuple[dict[str, str], str]:
-    """
-    扫歌词头部，把角色行搬进 credits，并按开关决定删不删那些行。
+    """扫描歌词头部，把角色行搬进 credits，并按开关裁剪
 
-    *collect* 为真时把值收进 credits，为假时一个角色都不收。
-    *trim* 为真时删掉三类占位与所有已处理的角色行，为假时一行不动。
-
-    值原样保留不拆 —— 上游用到的分隔符在播放器里本来就拆得开，
-    拆成多值反而只剩第一个。
-
-    同一角色在头部出现多行时后一个覆盖前一个。库里这样写的五个文件全是
-    同一个人写了两遍，其中「カワイヒデヒロ(fox capture plan)」那行更详细，
-    所以覆盖不丢东西。
-
-    *scan_lines* 只数非元数据行。[ti:] [ar:] [al:] [by:] 这些不占配额 ——
-    clean() 在这一步之后才跑，扫的时候它们还在，而标准 LRC 头就有四行，
-    默认的 10 行会被白吃掉四行。
+    collect 为真时收集，trim 为真时删除占位与已处理角色行
+    scan_lines 只数非元数据行
     """
     credits: dict[str, str] = {}
     kept: list[str] = []
@@ -131,14 +96,13 @@ def process_credits(
         role = m.group("role") if m else None
         value = m.group("value") if m else None
 
-        # 前两类是独立占位，与角色行无关，所以放在角色判定之前
+        # 占位行与角色行无关，先处理
         if head and (_is_pure_music_placeholder(line) or _TRANSLATION_RE.match(line)):
             if trim:
                 continue
         elif head and role in CREDIT_COMBOS:
             roles, leftover = CREDIT_COMBOS[role]
-            # 角色名改写与删行都只在角色真被搬走时才做。
-            # 没搬走就改掉「混音/」或者整行删掉，删掉的部分没进任何地方，是白丢
+            # 角色名改写与删行只在搬走时做
             if collect:
                 if value.strip() not in _NO_VALUES:
                     for r in roles:
@@ -148,13 +112,8 @@ def process_credits(
                         continue
                     line = line[: m.start("role")] + leftover + line[m.end("role") :]
         elif head and collect and role in ROLE_ALIASES:
-            # 与连写同理：没搬走就裁掉，这一行就是白丢。
-            # 只开 auto_trim 不开 parse_credits 时角色行要留着 ——
-            # 改动前那一格走的是空 prefixes，同样不裁角色行
-            #
-            # 值为「无」不写进 tag，行照删。判定放在角色匹配之后，
-            # 早先用裸正则 search，前 N 行里任何以「：无」收尾的行都会被删，
-            # 连歌词都被吃掉
+            # 没搬走就裁会白丢；只开 auto_trim 时保留角色行
+            # 值为无时不写标签，行照删
             if value.strip() not in _NO_VALUES:
                 credits[ROLE_ALIASES[role]] = value
             if trim:
@@ -166,19 +125,14 @@ def process_credits(
 
 
 def interleave(lrc_text: str, tlyric_text: str, threshold: float = 0.3) -> str:
-    """
-    Interleave lrc with tlyric: for each lrc line, find a tlyric line within
-    threshold seconds. Output lrc on top, tlyric below, both with lrc's timestamp.
-    Empty lines pass through unchanged.
-    Unmatched lrc lines are kept as-is. Unmatched tlyric lines are appended.
-    """
+    """按时间戳交错原文与译文，未匹配的译文追加在末尾"""
     lrc_lines = parse(lrc_text)
     tlyric_lines = parse(tlyric_text)
 
     tlyric_by_time = list(enumerate(tlyric_lines))
     used_tlyric = set()
 
-    # Collect meta headers to preserve
+    # 保留 LRC 头部元数据
     meta_headers = []
     for line in lrc_text.splitlines():
         if _META_RE.match(line):
@@ -222,21 +176,14 @@ def interleave(lrc_text: str, tlyric_text: str, threshold: float = 0.3) -> str:
 
 
 def process(lrc_raw: str, tlyric_raw: str, mode: str, song_id: int) -> dict[str, str]:
-    """
-    Process lyrics according to mode. Caches raw cleaned lyrics.
+    """按模式处理歌词，返回后缀到文本的映射
 
-    Returns dict of {suffix: text} for output_files():
-      line: {"lrc": interleaved_text}
-      block: {"lrc": lrc_clean + "\n" + tlyric_clean}
-      split: {"lrc": lrc_clean} 加上有译文时的 {"2.lrc": tlyric_clean}
-      drop: {"lrc": lrc_clean}
-
-    embed_mode 的 drop 被调用方 downloader 短路掉了，走不到这里。
+    line 交错，block 拼接，split 分文件，drop 只留原文
     """
     lrc_clean = clean(lrc_raw)
     tlyric_clean = clean(tlyric_raw)
 
-    # Cache raw cleaned lyrics
+    # 缓存清洗后的歌词
     put_raw_lyrics(song_id, lrc_clean, tlyric_clean)
 
     if mode == "line":
@@ -244,33 +191,21 @@ def process(lrc_raw: str, tlyric_raw: str, mode: str, song_id: int) -> dict[str,
     if mode == "block":
         return {"lrc": lrc_clean + "\n" + tlyric_clean}
     if mode == "drop":
-        # 只要原文。产出的内容与 split 遇到没译文时一样，
-        # 但语义不同：split 是「译文暂时没有」，drop 是「明确不要译文」
+        # 只要原文
         return {"lrc": lrc_clean}
-    # split 每个流各出一个文件。译文没有内容时不出那个 ——
-    # 照样写会得到一个 0 字节的 .2.lrc，播放器会把它当成一首独立的翻译歌词。
-    # 判空要 strip：clean() 刻意留着空行，删掉 [by:] 之后可能只剩换行与空格
-    #
-    # lrc 那侧不这么判。调用方 downloader 已经用 want_lyrics and lyric_text
-    # 挡住了空原文，而 clean() 只删 [by:] 行 —— 实测库里 307 个 lrc
-    # 经过 clean 之后没有一个变空
-    #
-    # 键的插入顺序不能换，output_files 靠它决定先写哪个
+    # split 无译文时只出原文，避免 0 字节的 .2.lrc
+    # 键顺序决定 output_files 的写入顺序
     if not tlyric_clean.strip():
         return {"lrc": lrc_clean}
     return {"lrc": lrc_clean, "2.lrc": tlyric_clean}
 
 
 def output_files(lyrics_result: dict[str, str], base_path: str) -> list[str]:
-    """
-    Write lyrics files from process() result dict.
-    base_path: full path without extension (e.g. /downloads/Title - Artist)
-    Returns list of written file paths.
-    """
+    """写出歌词文件，返回路径列表"""
     written = []
     for suffix, text in lyrics_result.items():
         path = f"{base_path}.{suffix}"
-        # Resolve duplicate filenames
+        # 同名文件加序号
         counter = 0
         while Path(path).exists():
             counter += 1

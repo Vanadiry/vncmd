@@ -1,10 +1,4 @@
-"""命令行参数的默认值
-
-这些数字同时出现在三处：vncmd.py 的 parser、api.py 的函数签名、doc/*.md。
-少改一处就出现「文档说 10、代码给 30」或者反过来，
-而这种不一致不会有任何报错，只在用的时候才发现不对。
-所以在这里钉住，并让另外两处跟着断言。
-"""
+"""命令行默认值与文档、函数签名保持一致"""
 
 import argparse
 import unittest.mock
@@ -23,10 +17,8 @@ def _parse(argv):
 
 class TestSearchLimit:
     def test_不给参数时是None(self):
-        """None 表示「用户没说」，面板默认的 10 由 cmd_search 决定。
-
-        写成 10 就分不清用户是显式给了 10 还是没给，而 --json 要的是全量。
-        """
+        """None 表示“用户没说”，默认 10 由 cmd_search 决定
+        写成 10 就分不清用户是否显式给了，而 --json 要全量"""
         assert _parse(["search", "x"]).count is None
 
     def test_短选项照旧(self):
@@ -40,14 +32,13 @@ class TestSearchLimit:
 
 
 class TestMutuallyExclusive:
-    """查看数据与下载是两种动作，同给要报错而不是静默丢弃一个"""
+    """查看数据与下载为两种动作，同给要报错，不能静默丢弃一个"""
 
     def _parse(self, argv):
         return build_parser().parse_args(argv)
 
     def test_song的dlink与d互斥(self):
-        """早先这里是 `args.dlink and not args.download`，
-        两者同给时 --dlink 被静默丢弃，用户以为两个开关叠加了"""
+        """两者同给时 --dlink 会被静默丢弃，用户以为两个开关叠加了"""
         with pytest.raises(SystemExit) as exc:
             self._parse(["song", "1", "--dlink", "-d"])
         assert exc.value.code == 2
@@ -90,7 +81,7 @@ class TestMutuallyExclusive:
         ],
     )
     def test_tracker的顶层动作与两个修饰互斥(self, argv):
-        """命令里是 if / elif / else，同给时前面的分支静默吃掉后面的"""
+        """命令里为 if / elif / else，同给时前面的分支静默吃掉后面的"""
         with pytest.raises(SystemExit) as exc:
             self._parse(["tracker", "like", *argv])
         assert exc.value.code == 2
@@ -105,7 +96,7 @@ class TestMutuallyExclusive:
 
 
 class TestDiffNeedsDownload:
-    """--diff 只是 -d 的修饰，不是独立动作"""
+    """--diff 为 -d 的修饰，不能单独使用"""
 
     def test_单独给diff报错(self):
         from vncmd.tracker import cmd_tracker
@@ -141,8 +132,7 @@ class TestDiffNeedsDownload:
         assert "-d" in out, "只说「需要配合」却不说配合什么，等于没说"
 
     def test_检查在询问创建tracker之前(self, monkeypatch):
-        """放到存在性判断之后的话，用户会先被问「是否创建 tracker」，
-        才发现自己的参数写错了"""
+        """参数检查要在询问创建 tracker 之前，否则用户先被问一句才发现写错"""
         from vncmd import tracker
 
         asked = []
@@ -169,7 +159,7 @@ class TestDiffNeedsDownload:
         assert not asked, "参数写错时不该先去问要不要创建 tracker"
 
     def test_配了d就不报(self, monkeypatch):
-        """配了 -d 时要走下载分支，不该被参数检查拦下"""
+        """配了 -d 时走下载分支，不能被参数检查拦下"""
         from vncmd import tracker
 
         called = []
@@ -201,13 +191,8 @@ class TestDefaultsStayInSync:
         return (ROOT / "doc" / name).read_text(encoding="utf-8")
 
     def test_cmd_search传给接口的条数永远合法(self):
-        """parser 的默认值改成 None 之后，「10」只活在 cmd_search 里了
-
-        早先这里断言的是 api.search 签名的默认值与 parser 一致。
-        那个前提是两边共用一个 10，现在没有了 —— api 的 10 是给直接调它的人
-        的兜底，生产代码里 cmd_search 每次都显式传值。
-        真正要防的是传出去的值越界，那正是服务端会回 code 400 的地方。
-        """
+        """parser 默认为 None，“10”只在 cmd_search 里出现
+        须防传给接口的值越界，服务端会回 code 400"""
         import vncmd.commands as commands
         from vncmd.net.api import SEARCH_LIMIT_MAX
 
@@ -224,13 +209,7 @@ class TestDefaultsStayInSync:
                 assert 1 <= sent <= SEARCH_LIMIT_MAX, (json_flag, limit, sent)
 
     def test_文档写的与help一致(self):
-        """两边写的那个数都指面板，不是 parser 的 limit。
-
-        早先断言的是文档里那句「返回数量，默认 10」的字面，
-        那个短语被挪进表格后就找不到了，而数字一个字没变。
-        所以改成读 --count 那一行的「默认」列：要防的是数字漂移，
-        不是文档的措辞与排版。
-        """
+        """两边写的数都指面板，读 --count 那一行的“默认”列，须防数字漂移"""
         import re
 
         row = next(
@@ -249,11 +228,7 @@ class TestDefaultsStayInSync:
         assert int(hit.group()) == 10
 
     def test_help文本与面板默认值一致(self, capsys):
-        """help 里写死一个数字，改了面板默认值忘了改它就会对不上
-
-        断言的对象不再是 parser 的 limit（它是 None，表示「用户没说」），
-        而是面板那条分支实际取的数 —— help 描述的是面板。
-        """
+        """help 写死数字，断言面板分支实际取的数，避免改默认值时对不上"""
         import re
 
         with pytest.raises(SystemExit):

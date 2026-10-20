@@ -1,4 +1,4 @@
-"""check_md5 与 AudioSource 的行为"""
+"""check_md5 与 AudioSource"""
 
 import hashlib
 
@@ -25,10 +25,7 @@ def test_md5_and_size_match(sample):
 
 
 def test_size_wrong_but_md5_right_passes(sample):
-    """md5 对得上就放行，哪怕 size 字段本身不准
-
-    宁可放过一次可疑的文件，也不能因为一个旁证字段错乱就拒掉完好的下载
-    """
+    """md5 对得上就放行，不能因为旁证字段 size 不准拒掉完好的下载"""
     path, md5, size = sample
     ok, msg = check_md5(path, md5, size + 1)
     assert ok, msg
@@ -47,7 +44,7 @@ def test_size_wrong_and_md5_wrong_reports_both(sample):
 
 
 def test_size_wrong_without_md5_still_fails(sample):
-    """没有 md5 可依时，size 是仅剩的依据，不符就得判失败"""
+    """没有 md5 可依时 size 为仅剩依据，不符就判失败"""
     path, _md5, size = sample
     ok, msg = check_md5(path, "", size + 1)
     assert not ok
@@ -149,7 +146,7 @@ def test_large_file_hashed_in_blocks(tmp_path):
 
 
 def test_audio_source_defaults_are_usable():
-    """缺失字段要退化成 0 与空串，而不是 None 引发下游报错"""
+    """缺失字段要退化为 0 与空串，None 会让下游报错"""
     src = AudioSource("http://example.com/a.flac")
     assert src.url == "http://example.com/a.flac"
     assert src.size == 0

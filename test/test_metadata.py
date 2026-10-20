@@ -9,9 +9,8 @@ from PIL import Image as PILImage
 
 from vncmd.media.metadata import embed
 
-# MPEG1 Layer3 128kbps 44100Hz 一帧：帧头 4 字节加 413 字节数据。
-# mutagen 要连续两帧才认得出帧边界，一帧会抛 HeaderNotFoundError，
-# 而改动前的 eyed3 一帧就能读
+# MPEG1 Layer3 128kbps 44100Hz 一帧为帧头 4 字节加 413 字节数据
+# mutagen 要连续两帧才认得出帧边界，一帧会抛 HeaderNotFoundError
 _FRAME = b"\xff\xfb\x90\x00" + b"\x00" * 413
 
 
@@ -67,7 +66,7 @@ class TestMp3Embed:
         assert any("Test" in (fr.text or "") for fr in tags.getall("USLT"))
 
     def test_非mp3要报错(self, temp_dir):
-        """改动前是 eyed3.load 返回 None 再抛，改成 mutagen 直接抛别的异常"""
+        """非 mp3 文件要抛 ValueError，不能静默返回"""
         path = str(Path(temp_dir) / "broken.mp3")
         with open(path, "wb") as f:
             f.write(b"not an audio file")
@@ -79,15 +78,8 @@ class TestMp3Embed:
             raise AssertionError("该报错却没报")
 
     def test_日期只写TDRL(self, temp_dir):
-        """只写 TDRL，不写 TDRC。
-
-        publish_time 是发行时间，而 ID3v2.4 §4.2.5 里 TDRC 是录制时间、
-        TDRL 才是发行时间 —— 填错语义比不填更糟。顺带解决 ffprobe 把两帧
-        都映射成 date 那个键、导致它出现两次。
-
-        日期帧是时间戳类，读回来时 mutagen 会把 T 归一空格，
-        所以直接查文件里的字节，那才是落盘的样子
-        """
+        """publish_time 为发行时间，ID3v2.4 里 TDRC 为录制时间、TDRL 为发行时间
+        日期帧读回来会被 mutagen 归一空格，所以直接查文件字节"""
         path = self._make(temp_dir)
         embed(
             path,
@@ -189,8 +181,7 @@ class TestMp3Credits:
         assert _text(tags, "TEXT") == "monii/Neuro-sama/Evil Neuro"
 
     def test_重跑时后一遍的值盖掉前一遍(self, temp_dir):
-        """downloader 的 _embed_with_retry 失败会重跑 embed，--force 重下也会再跑一遍。
-        跑两遍之后文件里只能有后一遍的值，不能是两次的叠加"""
+        """_embed_with_retry 与 --force 重下都会重跑 embed，文件里只能留后一遍的值"""
         path = str(Path(temp_dir) / "r.mp3")
         with open(path, "wb") as f:
             f.write(_FRAME * 4)
@@ -201,11 +192,10 @@ class TestMp3Credits:
         assert len(tags.getall("TCOM")) == 1
         assert len(tags.getall("TIPL")) == 1
         assert len(tags.getall("TIT2")) == 1
-        # 断言整个值列表而不是第一个值，否则「一个帧里塞两个值」照样能过
+        # 断言整个值列表，只看第一个值的话“一帧塞两个值”照样能过
         assert tags.getall("TCOM")[0].text == ["第二遍"]
         assert dict(_people(tags)) == {"arranger": "第二遍编曲"}
-        # embed 只写交给它的字段，没给的不会去清。
-        # 实际不会累积：--force 重下是重新下载，上游文件不带任何 tag
+        # embed 只写交给它的字段，--force 重下为重新下载，上游文件不带 tag
         assert _text(tags, "TEXT") == "monii/Neuro-sama/Evil Neuro"
 
 
@@ -256,9 +246,7 @@ class TestFlacEmbed:
         assert "FLACtest" in flac.get("lyrics", [""])[0]
 
     def test_重跑不叠加封面(self, temp_dir):
-        """add_picture 是追加语义。不清的话 embed 几次就叠几层 ——
-        实测同一个文件连 embed 八次，文件从 23.7 KB 涨到 54.8 KB。
-        _embed_with_retry 会重跑 embed，--force 重下也会再跑一遍，两条路都会命中"""
+        """add_picture 为追加语义，不清就会叠层，重跑 embed 与 --force 重下都会命中"""
         path = self._make(temp_dir)
         embed(
             path,
@@ -332,7 +320,7 @@ class TestFlacEmbed:
         assert flac["engineer"] == ["D-Jin"]
 
     def test_值是字符串不是列表(self, temp_dir):
-        """Vorbis 的多值是复数个条目，多值在播放器上只显示第一个，所以只写一个"""
+        """Vorbis 多值即多个条目，播放器只显示第一个，所以只写一个"""
         path = self._make(temp_dir)
         embed(
             path,

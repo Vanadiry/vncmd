@@ -66,11 +66,7 @@ def _lookup(chunk: str) -> str | None:
 
 
 def colorize(artist: str) -> list[tuple[str, str | None]]:
-    """把艺术家串按分隔符切开，逐段查代表色
-
-    返回片段与色值组成的列表，合起来覆盖原串的全部字符。
-    色值为 None 的片段表示照原样显示，调用方自己决定用什么样式。
-    """
+    """把艺术家串按分隔符切开，逐段查代表色"""
     segments: list[list[str | None]] = []
     pos = 0
     for m in _SEP.finditer(artist):

@@ -1,8 +1,4 @@
-"""`--count` 与 `--offset` 的分页
-
-规则只有一条：有列表的三个命令，不带 --json 时面板取前 10 条，
-带 --json 时给全量；显式给了 limit 或 offset 就按给的切。
-"""
+"""--count 与 --offset 的分页规则"""
 
 import argparse
 import unittest.mock
@@ -43,7 +39,7 @@ def playlist(n, track_count=None):
 
 @pytest.fixture
 def rendered(monkeypatch):
-    """渲染 output 的面板，返回纯文本。rich 的宽度按 160 固定，省得折行影响断言"""
+    """渲染 output 的面板并返回纯文本，rich 宽度固定为 160，避免折行影响断言"""
 
     def _render(fn):
         console = Console(width=160)
@@ -56,11 +52,7 @@ def rendered(monkeypatch):
 
 
 def indexes(text):
-    """取表格 # 列的那些数
-
-    不按「│ 101   │」那样写死列宽：序号列的宽度跟着数字位数变，
-    写死了改一次宽度就全红，而要量的只是那几行报了什么号。
-    """
+    """取表格 # 列的那些数，不写死列宽，序号列宽随位数变化"""
     out = []
     for line in text.splitlines():
         if not line.startswith("│"):
@@ -77,7 +69,7 @@ class Test序号是绝对的:
         assert indexes(text) == [1, 2, 3]
 
     def test_给了offset时接着数(self, rendered):
-        """面板只显示 3 首时，相对序号每页都从 1 开始，用户分不清看到的是第几首"""
+        """面板只显示 3 首时，相对序号每页都从 1 开始，用户分不清看到第几首"""
         text = rendered(
             lambda: output_mod.display_playlist(playlist(300), max_tracks=3, offset=100)
         )
@@ -118,7 +110,7 @@ class Test标题的区间:
         assert "101-110/298" in text
 
     def test_末尾不足照常显示(self, rendered):
-        """293 + 5 于 298 首是 294-298，不足 5 首不是异常"""
+        """293 加 5 在 298 首里为 294-298，不足 5 首不算异常"""
         text = rendered(
             lambda: output_mod.display_playlist(playlist(298), max_tracks=5, offset=293)
         )
@@ -134,10 +126,7 @@ class Test标题的区间:
         assert "超出范围（共 298 首）" in text
 
     def test_分母是可切片的数量而不是接口声明的总数(self, rendered):
-        """那个 100 首的歌单只有 20 首能切片。
-
-        拿 track_count 当分母等于承诺 100 而实际只有 20，翻到第 21 首是空白。
-        """
+        """拿 track_count 当分母等于承诺 100 首而实际只有 20 首，翻到第 21 首为空白"""
         text = rendered(
             lambda: output_mod.display_playlist(
                 playlist(20, track_count=100), max_tracks=10
@@ -164,13 +153,7 @@ class Test标题的区间:
         assert "曲目数" not in text
 
     def test_那行未显示的提示整行没了(self, monkeypatch, capsys):
-        """它按 track_count 算，标题按 len(tracks) 算，两个数会打架。
-
-        这里不能用上面那个 rendered fixture：早先用了，测试是空的 ——
-        那行走 info() 进 stderr，而 fixture 只把 output.console 换成可捕获的
-        Console，于是无论那行在不在，断言都成立。加回来验证过：
-        加回去时这个测试照样绿，才发现问题。
-        """
+        """那行走 info() 进 stderr，rendered 夹具只换 output.console，用它断言会恒真"""
         monkeypatch.setattr(output_mod, "console", Console(width=160, stderr=True))
         output_mod.display_playlist(playlist(20, track_count=100), max_tracks=10)
         out, err = capsys.readouterr()
@@ -196,7 +179,7 @@ class Test切片:
         assert [t["id"] for t in got] == want
 
     def test_limit为0时取到末尾而不是空(self):
-        """0 是 falsy，当成「没给」比当成「要 0 条」合理"""
+        """0 为 falsy，当成没给比当成要 0 条合理"""
         assert len(commands._slice(tracks(5), 1, 0)) == 4
 
 
@@ -246,10 +229,8 @@ class Test下载也吃切片:
         assert fake.call_args.kwargs["offset"] == 100
 
     def test_切片只动本次下的不动断点(self):
-        """断点记全量、只截断本次要下的部分，这个既有行为不变。
-
-        改成任务级是另一步（见 TODO）。现在动它会让全量下过之后再 -n 1
-        把其余曲目判成已移除并删掉。
+        """断点记全量、只截断本次要下的部分
+        改成任务级会让全量下过之后的 -n 1 删掉其余曲目
         """
         from vncmd.session import _select_batch
 

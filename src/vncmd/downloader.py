@@ -82,8 +82,7 @@ from vncmd.session import _setup_session, _summarize
 
 _move_lock = Lock()
 
-# 标签嵌入的重试次数，与批量下载的重试次数互相独立：
-# 这里重试的是一次纯粹的标签写入，比重新下载一首便宜得多
+# 标签嵌入的重试次数，重试一次写入比重新下载便宜
 _EMBED_ATTEMPTS = 3
 
 # Ctrl+C 后让 worker 停止取新曲目，已经在下的这首跑完为止
@@ -93,8 +92,7 @@ _cancelled = Event()
 def _move_unique(temp_path: str, base: str, ext: str, directory: str) -> str:
     """把临时文件移到最终文件名
 
-    查可用名与落盘必须原子，否则同名曲目的并发线程会挑中同一个路径，
-    后落盘的那个直接把先落盘的覆盖掉
+    查名与落盘必须原子，避免并发线程选中同一路径
     """
     with _move_lock:
         target = resolve_path(base, ext, directory)
@@ -103,12 +101,7 @@ def _move_unique(temp_path: str, base: str, ext: str, directory: str) -> str:
 
 
 def _embed_with_retry(fn, *args) -> str:
-    """嵌入元数据，失败后重试若干次，返回最后一次的错误说明或空串
-
-    标签对音乐库很关键，值得再试几次：并发下的磁盘争用是偶发的，
-    重试就能成；而文件本身损坏属于确定性失败，重试无果但
-    代价只是几十毫秒。
-    """
+    """嵌入元数据，失败后重试，返回最后一次错误或空串"""
     last = ""
     for attempt in range(1, _EMBED_ATTEMPTS + 1):
         try:
@@ -125,17 +118,9 @@ _downgrade_notified = False
 
 
 def _notify_downgrade(want_level: str, got_level: str) -> None:
-    """请求的音质与实际拿到的不一致时说一声
+    """请求音质与实际拿到的不同时提示
 
-    服务端不会因为权限不足报错，只是悄悄降级，不提示的话用户
-    只能等看到文件名后缀才发现。
-
-    话分两种，因为「没登录」与「权限不够」要做的不是同一件事：
-    前者去登录，后者去续费或单曲购买。原来一律说「Cookie 权限不支持」，
-    没 Cookie 的人看到那句只会奇怪我明明没有 Cookie。
-    判据是本地有没有 Cookie 文件，不看接口给的字段 ——
-    实测过 fee 与 payed：未登录与登录但无权限这两种情况那两个字段完全一样，
-    分不出来
+    未登录与权限不足分开提示，判据为本地是否有 Cookie
     """
     global _downgrade_notified
     if not want_level or not got_level or got_level == want_level:
@@ -152,11 +137,7 @@ def _notify_downgrade(want_level: str, got_level: str) -> None:
 
 
 def _discard_temp(paths: list[str]) -> None:
-    """丢弃残留的临时文件
-
-    下载中断或内容校验不过时，半截文件或错误页会留在 _temp 里。
-    这些文件既占地方又没用了，下一轮同名的歌还会撞上。
-    """
+    """删除残留临时文件，避免占位与同名冲突"""
     for p in paths:
         if not p:
             continue
@@ -165,15 +146,9 @@ def _discard_temp(paths: list[str]) -> None:
 
 
 def _progress_desc(text: str) -> str:
-    """把进度条描述裁到固定显示宽度并转义 markup
+    """按显示宽度裁剪进度条描述并转义 markup
 
-    宽度按 cell_len 算而非 len，中日文与 emoji 都是多格字符，
-    按字符数补齐会让进度条起始列随标题内容左右漂移。
-    截断交给 Text.truncate，它按显示格切，不会切在半个宽字符中间。
-
-    返回值直接交给 progress.update，那边按 markup 解析，
-    歌名含 [Live] 这类标注时未转义会被当成样式标签，[/b] 这种不配对的直接抛异常。
-    转义放在补齐之后，补齐量按转义前的显示宽度算，反斜杠不占渲染宽度。
+    宽度用 cell_len 计算，避免中日文与 emoji 让起始列漂移
     """
     limit = max(console.width - 60, 30)
     desc = Text(text, no_wrap=True, overflow="ellipsis")
@@ -183,11 +158,7 @@ def _progress_desc(text: str) -> str:
 
 
 def _process_cover(cover_data, cover_url):
-    """把封面分成嵌音频用的与存文件用的两份
-
-    封面坏了不该连累音频，所以失败时返回三个 None —— 音频照下，
-    只是这次不带封面，并出声告知
-    """
+    """把封面分成嵌入用与保存用两份，失败时返回三个 None"""
     if not cover_data:
         return None, None, None
     try:
@@ -214,16 +185,9 @@ def _download_and_verify(
     use_curl: bool | None = None,
     run_check: bool | None = None,
 ) -> str | None:
-    """下载到 path 并逐道校验
+    """下载到 path 并逐道校验，返回失败原因或 None
 
-    返回 None 表示落盘且校验通过；返回字符串是失败原因，调用方照原样报给用户。
-
-    每一道失败都要先删掉半截文件 —— 它留在 _temp 里会占着同名位置，
-    下一首同 id 的歌重下时会撞上
-
-    md5 与 size 是纯读文件，比全量解码快得多，所以放在解码前面。
-    解码不再按 has_ffmpeg 整块门控 —— 装了 flac 没装 ffmpeg 的机器
-    仍然能验 flac 文件，逐段跳过的判断在 check_audio 内部
+    每道失败先删半截文件，md5 与 size 在解码前检查
     """
     err = fetch_audio(
         song_url,
@@ -279,12 +243,9 @@ def download_song(
     song_level: str = "",
     want_br: int = 0,
 ) -> tuple[bool, str, str | None]:
-    """
-    Download a song with metadata, lyrics, and cover.
+    """下载一首歌，写入音频、歌词与封面
 
-    Respects config: filename_artist, content, embed_mode, save_mode,
-    embed_compress, save_compress.
-    Returns (success: bool, message: str, file_path: str | None)
+    返回成功标记、消息与音频路径
     """
     if download_dir is None:
         download_dir = get_download_dir()
@@ -302,15 +263,15 @@ def download_song(
 
     filename_base, full_name = build_filename(song_title, song_artist)
 
-    # --- Fetch lyrics ---
+    # 取歌词
     lyric_text, tlyric_text = "", ""
     if (want_lyrics or want_song) and lyrics_api_url and source:
         lyric_text, tlyric_text = fetch_lyrics(lyrics_api_url, source)
 
-    # --- Parse credits / auto trim ---
+    # 解析制作信息并按需裁剪
     auto_trim = get_auto_trim()
     scan_lines = get_credit_scan_lines()
-    # 没音频可写的时候不抽 —— 抽出来的 credits 没人接收，而行又被裁掉等于白删
+    # 不写音频时不抽制作信息，避免裁掉后无人接收
     collect = get_parse_credits() and want_song
     credits: dict[str, str] = {}
 
@@ -318,19 +279,16 @@ def download_song(
         credits, lyric_text = process_credits(
             lyric_text, scan_lines, collect, auto_trim
         )
-        # 翻译歌词里没有 credit 行，只裁不抽，与 extract_credits 原来的行为一致
+        # 翻译歌词没有制作信息，只裁不抽
         if auto_trim:
             _, tlyric_text = process_credits(tlyric_text, scan_lines, False, True)
 
-    # 裁完什么都不剩就不写 lrc 也不嵌空歌词。
-    # 判的是「有没有内容」而不是「有没有带时间戳的行」——
-    # parse() 要求时间戳是 [mm:ss.xx]，而上游给纯文本歌词、单数字分钟、
-    # 没有小数的秒都是有的，那些判成「没内容」就是静默丢数据
+    # 裁完无内容就不写 lrc，按 strip 后的内容判断，避免丢掉无时间戳歌词
     if not lyric_text.strip():
         lyric_text = ""
         tlyric_text = ""
 
-    # --- Fetch and process cover ---
+    # 取封面
     cover_data = None
     if want_cover or want_song:
         cover_data = fetch_cover(cover_url)
@@ -343,7 +301,7 @@ def download_song(
     temp_lyric_paths = []
     temp_cover_path = None
 
-    # --- Download audio to temp ---
+    # 下载音频到临时目录
     if want_song:
         music_type = get_type_from_url(song_url)
         temp_music_path = str(temp_dir / f"{song_id}.{music_type}")
@@ -361,7 +319,7 @@ def download_song(
         if verify_err is not None:
             return False, verify_err, None
 
-        # Process lyrics for embedding
+        # 处理嵌入用歌词
         embed_mode = get_embed_lyrics_mode()
         if embed_mode == "drop" or not tlyric_text:
             embed_lyric = lyric_text
@@ -385,23 +343,20 @@ def download_song(
             credits or None,
         )
         if embed_err:
-            # 音频本身过了校验，标签嵌不上不该把整首判为下载失败，
-            # 否则用户看到失败会重试，白白重下一遍。但重试过仍要出声告知，
-            # 静默降级会让人以为标签已经嵌好
+            # 音频已通过校验，标签失败不判整首失败，但要提示
             warning(
                 f"「{song_title} - {song_artist}」元数据嵌入失败"
                 f"（已重试 {_EMBED_ATTEMPTS} 次），本次不带标签：{embed_err}"
             )
 
-    # --- Save lyrics to temp ---
-    # 裁空之后 lyric_text 是空串，这一项就挡住了，不必再单独判「是不是只有 credits」
+    # 保存歌词，lyric_text 为空时已在上方挡住
     if want_lyrics and lyric_text:
         save_mode = get_save_lyrics_mode()
         base_path = str(temp_dir / str(song_id))
         result = process_lyrics(lyric_text, tlyric_text, save_mode, song_id)
         temp_lyric_paths = output_lyrics_files(result, base_path)
 
-    # --- Save cover to temp ---
+    # 保存封面
     if want_cover and save_cover_data:
         if get_save_cover_compress():
             cover_ext_val = "jpg"
@@ -412,7 +367,7 @@ def download_song(
         with open(temp_cover_path, "wb") as f:
             f.write(save_cover_data)
 
-    # --- Move from temp to final ---
+    # 从临时目录移到最终目录
     music_path = None
     lyric_paths = []
     cover_path = None
@@ -434,12 +389,9 @@ def download_song(
         note_tmp.write_text(full_name, encoding="utf-8")
         note_path = _move_unique(str(note_tmp), filename_base, "txt", download_dir)
 
-    # --- Result ---
-    # 目录由调用方在开头统一打印一次，这里只报文件名，
-    # 完整路径折行会把路径断在中间，复制不出来
+    # 组装结果，目录由调用方打印，这里只报文件名
     parts = []
-    # 标签用中文而不是格式缩写，MP3 与 FLAC 就不再有宽窄差别，
-    # 音频、歌词、封面同为四格，只有完整名字要补齐
+    # 标签用中文，MP3 与 FLAC 的宽度一致
     if music_path:
         parts.append(("音频" if music_type else "", Path(music_path).name))
     for p in lyric_paths:
@@ -452,8 +404,7 @@ def download_song(
     if not parts:
         return False, "未下载任何内容，请检查 download_content 配置", None
 
-    # 完整名字是四个汉字占八格，按显示宽度补齐箭头才能落在同一列。
-    # 类型为空时整行没有标签，那种行不参与补齐也不留箭头
+    # 按显示宽度补齐箭头，类型为空的行不留标签
     width = max(cell_len(label) for label, _ in parts)
     lines = [
         f'{label}{" " * (width - cell_len(label))} → "{name}"' if label else f'"{name}"'
@@ -467,14 +418,9 @@ _LINK_ATTEMPTS = 3
 
 
 def _fetch_source_with_retry(sid: int, quality: int, on_retry=None):
-    """取下载链接，三次都取不到就返回 None
+    """取下载链接，三次失败返回 None
 
-    单独抽出来是为了能测重试次数与次数之间的间隔 ——
-    它夹在 worker 里的时候，要触发它就得把整个批次跑起来。
-    on_retry 只在还有下一次尝试时调用，不含最后一次
-
-    取不到返回 None 而不是抛 —— 取不到链接是网络与账号权限的常态，
-    不是程序错误，调用方要按「这一首失败」处理而不是中断整批
+    on_retry 只在还有下一次尝试时调用；取不到链接按单首失败处理
     """
     for attempt in range(1, _LINK_ATTEMPTS + 1):
         source = get_audio_source(sid, quality=quality)
@@ -487,11 +433,7 @@ def _fetch_source_with_retry(sid: int, quality: int, on_retry=None):
 
 @dataclass
 class _Workers:
-    """一批下载的并发执行环境
-
-    把进度条、槽位、任务队列与重置动作收成一个整体，
-    下载主体里就不用各自拿着 progress、slots、queue 三个散值
-    """
+    """一批下载的并发环境，收拢进度条、槽位与队列"""
 
     progress: Progress
     slots: list[int]
@@ -499,30 +441,18 @@ class _Workers:
     count: int
 
     def show(self, task_id: int) -> None:
-        """占上槽位开始显示
-
-        rich 未提供切换任务可见性的接口，只能直接写属性。
-        渲染侧只在取表格时读它，写入是单次属性赋值，最坏情况少渲染一帧
-        """
+        """占上槽位并显示任务"""
         self.progress.tasks[task_id].visible = True
 
     def describe(self, task_id: int, text: str) -> None:
         self.progress.update(task_id, description=_progress_desc(text))
 
     def restart(self, task_id: int) -> None:
-        """同一首重来时清掉上一轮的总长
-
-        不藏槽位 —— 重试这一路还要继续显示，而且这正是最需要反馈的时候。
-        藏了就再也显不出来，因为 describe 只写描述、不碰 visible
-        """
+        """同一首重来时清掉总长，保留槽位显示"""
         self.progress.reset(task_id, total=None)
 
     def release(self, task_id: int) -> None:
-        """这首歌处理完了，把槽位腾出来给下一首
-
-        隐藏要等下一轮 show 才恢复，所以只在这一首彻底结束时调用 ——
-        中途调用会让用户在重试期间看不到那一路
-        """
+        """这一首结束，释放槽位给下一首"""
         self.progress.update(task_id, description="")
         self.progress.reset(task_id, total=None)
         self.progress.tasks[task_id].visible = False
@@ -531,8 +461,7 @@ class _Workers:
 def _prepare_workers(tracks: list[dict], concurrency: int) -> _Workers:
     """建进度条、按并发数开槽位、把曲目装进队列
 
-    槽位数与提交的 worker 数取同一个值 —— 多提交的 worker 取到任务后
-    索引越界，那首曲目会随线程一起消失，不计入成功也不计入失败
+    槽位数与 worker 数一致，避免索引越界
     """
     progress = Progress(
         TextColumn("  [progress.description]{task.description}"),
@@ -565,24 +494,11 @@ def download_song_batch(
     run_check: bool | None = None,
     use_curl: bool | None = None,
 ) -> tuple[int, int, str]:
-    """Download a batch of songs with progress display and summary.
+    """批量下载，显示进度并汇总结果
 
-    Each track dict must at least have 'id'.  If 'artist' is missing,
-    ``get_song_details()`` is called to resolve full metadata from the API.
-
-    When ``dl_type`` and ``dl_id`` are provided, resume/checkpoint is enabled:
-    progress is persisted to ``cache/download/<type>_<id>.json`` and
-    already-downloaded tracks are skipped on re-run.
-
-    ``limit`` 与 ``offset`` 只截断本次下载的曲目，断点仍记录全部曲目，
-    否则全量下过之后再限数量会把其余曲目判成已移除并删掉。
-    断点按专辑或歌单记、不按这一次的切片记，那是既有行为：
-    要改成任务级另算一步
-
-    Returns ``(success_count, fail_count, session_dir)``.
+    dl_type 与 dl_id 同时给出时启用断点；limit 与 offset 只截断本次下载
     """
-    # 校验工具缺哪几样、因此少做哪几步，只在任务最开始说一次。
-    # 放在这里而不是每首歌里，否则一个批次能刷出几百条一样的提示
+    # 校验工具缺失只在任务开始时提示一次
     if (get_check_enabled() if run_check is None else run_check) and not all(
         check_tools().values()
     ):
@@ -609,7 +525,7 @@ def download_song_batch(
         return success_count, fail_count, session_dir
 
     workers = _prepare_workers(tracks, concurrency)
-    # 成功数、失败数与失败 id 是几个 worker 共享的，写入必须串行
+    # 成功数、失败数与失败 id 为多个 worker 共享，写入必须串行
     counter_lock = Lock()
 
     def _download_one(slot_id):
@@ -664,7 +580,7 @@ def download_song_batch(
                     source = _fetch_source_with_retry(
                         sid,
                         quality,
-                        # 默认参数把循环变量绑死，不让闭包去抓它
+                        # 默认参数绑定循环变量，避免闭包捕获
                         lambda n, t=task_id, ti=title, ar=artist: workers.describe(
                             t, f"{ti} - {ar}（获取链接重试 {n}/{_LINK_ATTEMPTS}）"
                         ),
@@ -680,8 +596,7 @@ def download_song_batch(
 
                     lyrics_api = get_lyrics_url(sid)
                     for attempt in range(1, 4):
-                        # URL 里带签名时间戳，expi 只有 20 分钟，
-                        # 每次重试都重取，续传才不会拿着过期的链接去续
+                        # URL 签名 20 分钟过期，每次重试都重取
                         fresh = get_audio_source(sid, quality=quality)
                         if fresh:
                             source = fresh
@@ -728,7 +643,7 @@ def download_song_batch(
 
                 time.sleep(0.3)
             except Exception as e:
-                # 未预期的异常不能让 worker 死掉，它一死队列里剩下的曲目就没人接了
+                # 未预期异常不能让 worker 退出，否则队列剩余曲目无人处理
                 workers.release(task_id)
                 with counter_lock:
                     error(f"「{title} - {artist}」{type(e).__name__}: {e}")
@@ -740,7 +655,7 @@ def download_song_batch(
     with workers.progress:
         try:
             futures = [executor.submit(_download_one, i) for i in range(workers.count)]
-            # 不读 Future 的异常会被线程池吞掉，worker 死掉时队列里剩下的曲目就没人接了
+            # Future 异常必须读取，否则线程池会吞掉
             for future in as_completed(futures):
                 exc = future.exception()
                 if exc is not None:
@@ -757,8 +672,7 @@ def download_song_batch(
         left = total - success_count - fail_count
         info(f"已中断，完成 {success_count + fail_count} 首，剩余 {left} 首未下载")
         info("再次下载会从断点继续")
-        # 解释器退出时会 join 掉所有 worker，正在下的歌可能还要几十秒，
-        # 这里直接结束进程，不再等待
+        # 解释器退出会 join worker，正在下载的歌可能拖几十秒，直接结束进程
         sys.stdout.flush()
         sys.stderr.flush()
         os._exit(130)

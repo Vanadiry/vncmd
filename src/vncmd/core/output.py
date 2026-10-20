@@ -11,19 +11,12 @@ from vncmd.core.vocals import colorize
 
 console = Console()
 
-# 诊断走 stderr，stdout 只留给命令的结果。
-# 重定向到文件时诊断混在里面等于噪声，而进度条与「正在检查…」这类提示
-# 对管道里的消费者本来就没有意义。顺带 `vncmd search xxx > r.txt` 之后
-# 不用再 `grep '│'` 去剔边框
+# 诊断走 stderr，stdout 只留给命令结果
 err_console = Console(stderr=True)
 
 
 def _artist_text(artist: str, base_style: str) -> Text:
-    """把艺术家串拼成 Text，命中代表色的片段换成自己的颜色
-
-    表里不只 Vocaloid，PIAPRO 系（星乃一歌、宵崎奏、日野森雫等）也在内，
-    所以配置项叫 artist_color 而不叫 virtual_singer_color。
-    """
+    """把艺术家串拼成 Text，命中代表色的片段换色"""
     text = Text()
     if is_artist_color():
         for chunk, color in colorize(artist):
@@ -33,8 +26,7 @@ def _artist_text(artist: str, base_style: str) -> Text:
     return text
 
 
-# 权限三态：下不了、能下、看不出来
-# 用符号而不是文字，一格宽度摆得下，标题能多拿三格
+# 权限三态用符号，省一列宽度
 _PERM_MARKS = {
     True: ("✗", "red"),
     False: ("✓", "green"),
@@ -51,11 +43,7 @@ def _build_track_table(
 ) -> Table:
     """按列配置拼出曲目表，渲染交给调用方
 
-    拆出来是为了让测试量到真的那份配置。早先测试里抄了一份列定义，
-    于是真表格改了样式或换行方式，测试照样全绿。
-
-    offset 是这批之前被跳过的首数，序号列报绝对序号：
-    分了页之后相对序号每页都从 1 开始，用户分不清看到的是第 1 首还是第 101 首。
+    offset 为这批之前跳过的首数，序号列报绝对序号
     """
     show_perm = (
         blocked is not None
@@ -70,24 +58,15 @@ def _build_track_table(
         header_style="bold cyan",
         expand=True,
     )
-    # ratio 不是宽度上限，是空间不够时三列的退让顺序。
-    # 4:3:2 意味着专辑最少，但缺了它，遇到超长字段时 rich 按宽度比例收缩，
-    # 最长的那列会通吃，标题能被压到三个汉字宽
-    # 这里刻意不设 max_width：终端本来就是终极约束，再设一遍是二次约束。
-    # 实测 4 组数据 × 45 个宽度，去掉 max_width 输出完全相同，它一直是死配置。
-    # 序号、ID、时长不设 ratio，宽度就按内容自然算，不会被摊宽
+    # ratio 为空间不足时的退让顺序，4:3:2 避免超长字段通吃
+    # 不设 max_width，终端宽度已为约束
     table.add_column("#", style="dim")
     table.add_column("ID", style="dim")
-    # 三列都要显式给 overflow="fold"：rich 的列表头默认 ellipsis，
-    # 遇到比整列还长的词就切一刀加省略号。
-    # 「鏡音リン&天馬司&鳳えむ&草薙寧々&神代類」这种 40 格的长串在 40 格的列里
-    # 会被切成「鏡音リン&天馬司&鳳えむ&草薙寧々&神代 …」，接口明明返回了完整的
+    # 三列都设 overflow=fold，避免长串被省略号截断
     table.add_column("标题", style="bright_white", ratio=4, overflow="fold")
     table.add_column("艺术家", style="bright_white", ratio=3, overflow="fold")
     if show_album:
-        # 标题、艺术家、专辑三列都自由换行，谁长谁折，各折各的。
-        # overflow 必须显式给 fold：rich 的列表头默认是 ellipsis，
-        # 日文与中文这种没有空格的名字会被一刀切成「エイプ …」
+        # 专辑列同样设 fold，避免无空格的中日文名字被截断
         table.add_column("专辑", style="bright_white", ratio=2, overflow="fold")
     if show_perm:
         table.add_column("权限", justify="center")
@@ -100,7 +79,7 @@ def _build_track_table(
             escape(t["title"]),
             _artist_text(t["artist"], "bright_white"),
         ]
-        # 专辑视图下每行的专辑名都是同一个，列表里再列一遍没有信息量
+        # 专辑视图下每行专辑名相同，再列一遍没有信息量
         if show_album:
             row.append(escape(t["album"]))
         if show_perm:
@@ -120,16 +99,7 @@ def _display_track_table(
 ) -> None:
     """显示曲目表
 
-    blocked 是与 tracks 等长的逐行判定：True 为下不了，False 为能下，
-    None 为看不出来。整列都是 False 时不显示，搜索表已经挤到标题和艺术家
-    都在截断，能不占地方就不占。
-
-    长度不等长时整列不显示：短了会 IndexError，长了会整列错位，
-    而错位的权限标记比没有这一列更糟。
-
-    这里刻意不再报「还有 N 首未显示」：标题里的区间已经说了同一件事，
-    两行都报就成了同一屏两个口径 —— 一行按可切片的首数算，一行按接口声明的
-    总数算，在有下架曲目的歌单上这两个数不一样，用户会以为哪个是错的。
+    blocked 与 tracks 等长，True 为不能下载，False 为能，None 为未知
     """
     console.print(
         _build_track_table(
@@ -139,13 +109,9 @@ def _display_track_table(
 
 
 def _range_suffix(offset: int, shown: int, total: int) -> str:
-    """标题右侧的分页区间，像翻页条
-
-    分母是传入的 total，由调用方给可切片的首数，不给接口声明的总数：
-    那个数里含已下架的，拿它当分母等于承诺一批翻不出来的曲目。
-    """
+    """标题右侧的分页区间，total 为可切片数量"""
     if shown <= 0:
-        # offset 越过了末尾。这与「末尾不足 limit 首」不同，后者是正常显示
+        # offset 越过末尾，与末尾不足 limit 首不同
         return f"超出范围（共 {total} 首）"
     return f"{offset + 1}-{offset + shown}/{total}"
 
@@ -157,7 +123,7 @@ def display_search_results(
     blocked: list[bool | None] | None = None,
     offset: int = 0,
 ) -> None:
-    """Display search results as a table."""
+    """以表格显示搜索结果"""
     suffix = _range_suffix(offset, len(songs), total)
     _display_track_table(
         songs,
@@ -168,11 +134,7 @@ def display_search_results(
 
 
 def _trim_midnight(publish_time: str) -> str:
-    """时间部分是零点时只留日期
-
-    抽样六成里九成半的发行时间都是零点，那段后缀是纯噪声。
-    只在这里处理，原始字符串不动，它还要被写进音频标签。
-    """
+    """时间部分为 00:00:00 时只留日期"""
     return publish_time[:10] if publish_time.endswith("00:00:00") else publish_time
 
 
@@ -184,7 +146,7 @@ FEE_NEED = {
 
 
 def _fmt_size(n: int) -> str:
-    """先给人看的单位，原始值跟在后面备查"""
+    """文件大小，附原始字节数"""
     if not n:
         return ""
     mb = n / 1024 / 1024
@@ -198,7 +160,7 @@ def _fmt_kbps(bps: int) -> str:
 
 
 def _fmt_validity(expi: int) -> str:
-    """有效期超过一分钟的换算成分钟，秒数看着不如分钟直观"""
+    """有效期超过一分钟时换算成分钟"""
     if not expi:
         return ""
     if expi < 60:
@@ -211,17 +173,13 @@ def _fmt_validity(expi: int) -> str:
 def _download_lines(
     song_id: int, name: str, info: dict
 ) -> tuple[list[tuple[str, str]], str]:
-    """把响应组装成面板的键值行与标题
-
-    取不到 URL 时照样组装，那是最需要看的时候：费用类型与是否购买
-    都在响应里，不必再发一次请求去问为什么。
-    """
+    """把响应组装成面板键值行与标题"""
     from vncmd.net.api import LEVEL_LABEL
 
     url = info.get("url") or ""
     fee = info.get("fee")
 
-    # 标题放在面板里当第一行，面板外不留别的内容，选哪一块都清楚
+    # 标题放在面板里当第一行
     lines = [("标题", name)]
     if url:
         lines += [
@@ -238,14 +196,14 @@ def _download_lines(
         ("MD5", info.get("md5") or ""),
     ]
 
-    # 能下就只说能下，说不了才讲为什么，下得了的人不关心有没有买过
+    # 能下只说能下，不能下才讲原因
     if url:
         lines.append(("权限", "允许访问"))
     else:
         reason = FEE_NEED.get(fee, "当前账号没有相应权限")
         lines.append(("权限", f"不允许访问（{reason}）"))
 
-    # 取不到链接时多数字段是空的，留着只是空行
+    # 空字段不印
     lines = [(k, v) for k, v in lines if v]
 
     title = f"下载信息 - {song_id}"
@@ -256,10 +214,9 @@ def _download_lines(
 
 
 def display_download_detail(song_id: int, name: str, info: dict) -> None:
-    """Display everything the download endpoint knows about one song.
+    """显示单曲下载详情
 
-    链接整条印在面板外面，不截断也不加边框：面板里那行折了字之后既选不中
-    也点不开，而整条裸着印出来，双击就能选中，粘贴到浏览器直接能下。
+    链接整条印在面板外，便于选中复制
     """
     url = info.get("url") or ""
     if url:
@@ -282,10 +239,8 @@ def display_download_detail(song_id: int, name: str, info: dict) -> None:
 
 
 def display_song_detail(song: dict) -> None:
-    """Display a single song's full metadata."""
-    # 专辑名后面带出专辑 ID，方便直接拿去查专辑详情。
-    # 没有专辑条目的曲目接口给的是 id 为 0，那不是真的专辑，别印出去。
-    # 旧缓存里存过 None，or 兜住，免得 Text.append 收到 None 直接抛
+    """显示单曲完整元数据"""
+    # 无专辑时 id 为 0，不印；旧缓存可能存过 None
     album = song.get("album") or ""
     album_id = song.get("album_id") or 0
     lines = [
@@ -311,7 +266,7 @@ def display_song_detail(song: dict) -> None:
         if i < len(lines) - 1:
             text.append("\n")
 
-    # ID 挪到表头，面板里再列一遍是重复
+    # ID 已在表头，面板里不再重复
     panel = Panel(
         text,
         title=f"[bold]曲目详情 - {song['id']}[/]",
@@ -322,10 +277,9 @@ def display_song_detail(song: dict) -> None:
 
 
 def display_playlist(playlist: dict, max_tracks: int = 100, offset: int = 0) -> None:
-    """Display playlist info and its tracks as a table."""
+    """显示歌单信息与曲目表"""
     tracks = playlist["tracks"]
-    # 分母是可切片的数量，不是 track_count。后者是接口声明的总数，
-    # 含已下架的曲目，而那些拿不到条目、永远翻不出来
+    # 分母为可切片数量，不含已下架曲目
     total = len(tracks)
     shown = tracks[offset : offset + max_tracks]
 
@@ -370,7 +324,7 @@ def display_album(album: dict, max_tracks: int = 100, offset: int = 0) -> None:
 
 
 def display_lyrics(lyrics_text: str) -> None:
-    """Display lyrics in a panel."""
+    """显示歌词面板"""
     if not lyrics_text:
         console.print("[dim]无歌词[/]")
         return

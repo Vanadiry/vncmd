@@ -1,8 +1,4 @@
-"""`search --count` 的取值范围
-
-服务端的单次上限是 100，超了直接回 {'code': 400}，那句话对用户毫无意义。
-所以在 argparse 这一层就拦掉，给中文提示。
-"""
+"""search --count 的取值范围"""
 
 import pytest
 
@@ -15,11 +11,7 @@ def parse(limit):
 
 
 def _error_line(capsys, limit):
-    """只取 argparse 报错的那一行。
-
-    取「✗」开头那行。早先用例落在 argparse 的英文前缀上，那种依赖
-    一改文案就散；而整段断言也不行 —— 报错里可能另有一行提到 --offset。
-    """
+    """只取 argparse 报错里以 ✗ 开头的那一行，整段断言会混进 --offset 的提示"""
     with pytest.raises(SystemExit):
         parse(limit)
     for line in capsys.readouterr().err.splitlines():
@@ -34,13 +26,12 @@ class Test合法值:
         assert parse(n).count == n
 
     def test_上限就是实测的那个数(self):
-        """实测 100 能过而 101 回 code 400，这个数是量出来的不是猜的"""
+        """100 能过而 101 回 code 400，这个数由接口确定"""
         assert SEARCH_LIMIT_MAX == 100
 
     def test_不给时是None而不是10(self):
-        """None 表示「用户没说」，面板默认 10 由 cmd_search 决定。
-
-        写成 10 就分不清用户是显式给了 10 还是没给，而 --json 要的是全量。
+        """None 表示用户没说，默认 10 由 cmd_search 决定
+        写成 10 会让 --json 分不清是否显式指定
         """
         assert build_parser().parse_args(["search", "初音"]).count is None
 
@@ -48,7 +39,7 @@ class Test合法值:
 class Test越界:
     @pytest.mark.parametrize("n", [0, -1, 101, 200, 10000])
     def test_越界报错(self, n, capsys):
-        """越界只有一个方向，不再分成上下限两套文案"""
+        """越界只有一个方向，不分成上下限两套文案"""
         with pytest.raises(SystemExit) as exc:
             parse(n)
         assert exc.value.code != 0
@@ -57,7 +48,7 @@ class Test越界:
         assert str(n) in err, "要把用户给的值原样还给他"
 
     def test_超限提到还有别的办法(self, capsys):
-        """只有超上限时 offset 才有用，「要 0 条」提它就是错的"""
+        """只有超上限时 offset 才有用，“要 0 条”提它就错"""
         assert "--offset" in _error_line(capsys, 101)
 
     def test_下限不提offset(self, capsys):
@@ -72,7 +63,7 @@ class Test越界:
 
 class Test报错文案:
     def test_不刷一百个数字(self, capsys):
-        """用 choices=range(1,101) 会把 1 到 100 全列进报错，那是噪音"""
+        """用 choices=range(1,101) 会把 1 到 100 全列进报错，只会制造噪音"""
         with pytest.raises(SystemExit):
             parse(101)
         err = capsys.readouterr().err

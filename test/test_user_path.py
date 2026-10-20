@@ -35,7 +35,7 @@ def test_波浪号展开成用户主目录(home, monkeypatch):
 
 
 def test_绝对路径不与配置目录拼接(home, monkeypatch):
-    # 原来靠 pathlib 遇到绝对右操作数会丢弃左边才碰巧正确，现在写明
+    # 绝对路径直接使用，不依赖 pathlib 丢弃左操作数的行为
     monkeypatch.setattr(config_mod, "_cfg", cfg(download="/var/tmp/c"))
     assert config_mod.get_download_dir() == "/var/tmp/c"
 
@@ -59,12 +59,6 @@ def test_不存在的用户名不抛异常(home, monkeypatch):
 
 
 def test_缓存固定在配置目录下(home, monkeypatch):
-    """配置项拆掉之后，缓存位置只由 VNCMD_HOME 决定。
-
-    故意把 _cfg 设成空的 —— 配置里连 [cache] 段都没有，
-    照样能拿到路径，说明它已经不读配置了。
-    原来那个键也得走 _user_path，那条路的三个坑（相对路径、波浪号展开、
-    绝对路径）现在只剩 download.dir 需要
-    """
+    """缓存位置只由 VNCMD_HOME 决定，不读配置；_cfg 为空时照样拿得到路径"""
     monkeypatch.setattr(config_mod, "_cfg", {})
     assert config_mod.get_cache_dir() == str(home / "cache")

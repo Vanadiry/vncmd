@@ -1,8 +1,4 @@
-"""--dlink 的下载信息面板
-
-取代了原先的 --url。那个只多输出一个链接，而且折行之后没法复制，
-查询串又是两百多字符的鉴权 token，把面板撑成四行没人读。
-"""
+"""--dlink 的下载信息面板"""
 
 import pytest
 from rich.cells import cell_len
@@ -13,7 +9,7 @@ NAME = "PPPP (feat. Hatsune Miku, Kasane Teto)"
 SONG_ID = 2742965504
 
 READY = {
-    # 真实链接去掉查询串有 173 字符，一行放不下，正是要截断的那类
+    # 真实链接去掉查询串有 173 字符，一行放不下，属于要截断的那类
     "url": "http://m704.music.126.net/20261016194005/8182db3769589c367b35dd236251e000d"
     "/jdymusic/obj/wo3DlMOGwrbDjj7DisKw/62331298615/1287/5fb4/4c0b"
     "/0e2403ed33777cce040157439a4a0da5.flac?vuutv=igLi0OniWM8O4FynXUkgJHgQH06&authSecret=abc",
@@ -38,7 +34,7 @@ SONG = {
     "album": "PPPP",
     "cover": "https://p1.music.126.net/x.jpg",
     "publish_time": "2025-09-17 00:00:00",
-    # api 层给的是排好的字符串，不是毫秒数
+    # api 层给排好的字符串，不按毫秒数处理
     "duration": "2:34",
 }
 
@@ -49,7 +45,7 @@ def show(capsys, info, name=NAME, song_id=SONG_ID):
 
 
 def row_of(out: str, label: str) -> str:
-    """取面板里某个键值对的整行，断言值时用得着"""
+    """取面板里某个键值对的整行"""
     rows = [stripped for ln in out.splitlines() if (stripped := ln.strip(" │"))]
     rows = [ln for ln in rows if ln.startswith(label)]
     assert len(rows) == 1, f"没有恰好一行 {label}：{rows}"
@@ -88,21 +84,18 @@ class TestAvailable:
         assert "34.1 MB (35772329 字节)" in show(capsys, READY)
 
     def test_音质用中文(self, capsys):
-        """level 是英文字段名，直接嵌进提示里中英文硬拼"""
+        """level 为英文字段名，直接嵌进提示里会中英文硬拼"""
         out = show(capsys, READY)
         assert "无损音质" in out
         assert "lossless" not in out
 
     def test_允许访问不附原因(self, capsys):
-        """下得了的人不关心有没有买过，那行写了也是噪声
-
-        查整行而不是查某几个词：只查「单曲购买」的话，塞个 fee=1 就绕过去了。
-        """
+        """下得了的人不关心购买状态，查整行才不会被 fee=1 绕过"""
         row = row_of(show(capsys, READY), "权限")
         assert row == "权限    允许访问"
 
     def test_有效期移到标题(self, capsys):
-        """1200 秒换算成 20 分钟写在标题，面板里不再单列一行"""
+        """1200 秒换算为 20 分钟写在标题，面板里不单列一行"""
         out = show(capsys, READY)
         assert f"下载信息 - {SONG_ID} - 20 分钟内有效" in out
         assert "有效期" not in out
@@ -157,7 +150,7 @@ class TestDenied:
         assert "采样率" not in out
 
     def test_失败时不报购买状态(self, capsys):
-        """下不了的时候说「要买」比说「没买」有用，前者才可操作"""
+        """下不了的时候说“要买”比说“没买”有用，前者才可操作"""
         assert "未购买" not in show(capsys, DENIED)
 
     def test_失败时也给有效期(self, capsys):
@@ -165,7 +158,7 @@ class TestDenied:
         assert "20 分钟内有效" in show(capsys, {**DENIED, "expi": 1200})
 
     def test_免费曲目的失败不乱归因(self, capsys):
-        """fee=8 本该能下，下不了多半是别的原因，不能说成要买"""
+        """fee=8 本该能下，下不了多半另有原因，不能说成要买"""
         out = show(capsys, {"fee": 8, "payed": 0})
         assert "需要会员权限" not in out
         assert "不允许访问" in out
@@ -191,7 +184,7 @@ class TestFormatters:
         assert _fmt_size(500) == "500 字节"
 
     def test_零字节返回空(self):
-        """空值会被过滤掉，不能留下「0 字节」这种误导性的显示"""
+        """空值会被过滤掉，不能留下“0 字节”这种误导性的显示"""
         from vncmd.core.output import _fmt_size
 
         assert _fmt_size(0) == ""
@@ -243,16 +236,13 @@ class TestParser:
         assert self._parse(["song", "123"]).dlink is False
 
     def test_旧选项已移除(self):
-        """--url 折行后没法复制，换成面板"""
+        """--url 折行后没法复制，改由面板输出链接"""
         with pytest.raises(SystemExit):
             self._parse(["song", "123", "--url"])
 
 
 class TestSongCommand:
-    """真跑一遍 cmd_song，看它在 --dlink 下吐出什么
-
-    只测 display 函数不够：详情卡打不打、艺术家给不给，都在命令里决定。
-    """
+    """只测 display 函数不够，详情卡与艺术家都由 cmd_song 决定"""
 
     def _run(self, monkeypatch, capsys, dlink):
         from vncmd import commands
@@ -278,7 +268,7 @@ class TestSongCommand:
         assert "重音テト" not in out
 
     def test_不加dlink时详情卡照旧(self, monkeypatch, capsys):
-        """--dlink 只是省掉详情卡，不是把它一并删了"""
+        """--dlink 只省掉详情卡，详情本身照常输出"""
         out = self._run(monkeypatch, capsys, dlink=False)
         assert "曲目详情" in out
         assert "发行时间" in out

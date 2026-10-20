@@ -1,9 +1,4 @@
-"""下载结果里各行的箭头要落在同一列
-
-标签是变宽的中英文混排：FLAC 四格、MP3 三格、LRC 三格、
-封面两个汉字四格、完整名字八格。按字符数补齐会把「封面」错当成两格，
-箭头就散了。
-"""
+"""下载结果各行箭头对齐"""
 
 import hashlib
 from io import BytesIO
@@ -38,7 +33,7 @@ def song(tmp_path, monkeypatch):
     state = {"content": "alc", "lyrics": (LYRIC, "")}
 
     def fake_fetch(url, path, label, progress=None, task_id=None, **kw):
-        # fetch_audio 的约定是「错误说明或 None」，写成功不能返回字节数
+        # fetch_audio 的约定为“错误说明或 None”，写成功不能返回字节数
         Path(path).write_bytes(AUDIO)
 
     monkeypatch.setattr(downloader, "fetch_audio", fake_fetch)
@@ -77,7 +72,7 @@ class TestArrowAlignment:
         assert len(set(cols)) == 1, f"箭头没对齐，各行在第 {cols} 列"
 
     def test_补齐按显示宽度而非字符数(self, song):
-        """「封面」两个汉字占四格，和 FLAC 一样宽，按字符数补就会错开一格"""
+        """“封面”两个汉字占四格，和 FLAC 一样宽，按字符数补就会错开一格"""
         _ok, msg = song()
         by_label = {line.split()[0]: line for line in msg.splitlines()}
         assert set(by_label) == {"音频", "歌词", "封面"}

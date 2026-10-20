@@ -1,12 +1,4 @@
-"""credit 行的识别、搬走与裁剪
-
-`process_credits` 一个函数管两件事：把认得出的角色搬进 credits，
-并按开关决定删不删那些行。两个开关的四种组合逐格断言，
-因为它们之间最容易出现「搬走了却没删」或者「没搬走却删了」这类不一致。
-
-行的样子全部取自 2026-10-17 的实测（用户真实曲库 528 首、307 个 lrc），
-不是凭空编的。
-"""
+"""credit 行的识别、搬走与裁剪"""
 
 import hashlib
 from pathlib import Path
@@ -22,7 +14,7 @@ def lrc(*lines):
     return "\n".join(lines) + "\n"
 
 
-# 实测里出现过的那几行，繁体与全角冒号都有
+# 库里出现过的几行，繁体与全角冒号都有
 REAL = [
     "[00:08.75]作曲：残月",
     "[00:01.30]编曲：emon(Tes.)",
@@ -80,7 +72,7 @@ class Test角色表:
         assert credits == {"作词": "赵武"}
 
     def test_冒号前后有空格也认(self):
-        """实测「作词 : 赵武」这种带空格的写法在库里有五处"""
+        """库里出现五处“作词 : 赵武”这种带空格的写法"""
         credits, _ = process_credits(lrc("[00:01.00] 作词 : 赵武"), 10, True, False)
         assert credits == {"作词": "赵武"}
 
@@ -115,7 +107,7 @@ class Test角色表:
         assert rest == "[00:07.000]歌词"
 
     def test_同角色两行取后一个(self):
-        """库里这样写的五个文件全是同一个人写了两遍，其中一行更详细"""
+        """库里这样写的五个文件全为同一个人写了两遍，其中一行更详细"""
         text = lrc(
             "[00:00.00]编曲：カワイヒデヒロ",
             "[00:01.00]编曲：カワイヒデヒロ(fox capture plan)",
@@ -126,7 +118,7 @@ class Test角色表:
 
 class Test值原样:
     def test_括号里的逗号不动(self):
-        """踩过：按逗号切会把这个团队名切成三片碎片"""
+        """按逗号切会把这个团队名切成三片碎片"""
         raw = "[00:00.000]作曲：Asteroid Music Team（monii, Johnny R, Ari）"
         credits, _ = process_credits(lrc(raw), 10, True, False)
         assert credits == {"作曲": "Asteroid Music Team（monii, Johnny R, Ari）"}
@@ -161,7 +153,7 @@ class Test连写表:
         assert rest == "[00:00.000]母带：Johnny R\n[00:05.000]歌词"
 
     def test_没搬走就不改角色名(self):
-        """只开 trim 没开 collect 时，删掉「混音/」而它没进任何地方就是白丢"""
+        """只开 trim 没开 collect 时，删掉“混音/”却没写进任何地方等于白丢"""
         credits, rest = process_credits(
             lrc("[00:00.000]混音/母带：Johnny R"), 10, False, True
         )
@@ -174,13 +166,13 @@ class Test连写表:
 
     @pytest.mark.parametrize("line,role", COMBO_OUT)
     def test_规格外的一律不动(self, line, role):
-        """`人声录音` 整体是「录人声的那个录音师」，不是「人声」加「录音」"""
+        """人声录音 整体为“录人声的录音师”，不能拆成“人声”加“录音”"""
         credits, rest = process_credits(lrc(line), 10, True, True)
         assert credits == {}
         assert role in rest
 
     def test_表里没有的单字作不认(self):
-        """「作」不是角色名，它只是「作词」与「作曲」的省略写法"""
+        """“作”为“作词”与“作曲”的省略写法，不算角色名"""
         credits, rest = process_credits(lrc("[00:00.00]作：X"), 10, True, True)
         assert credits == {}
         assert "作：X" in rest
@@ -216,19 +208,19 @@ class Test删除类:
 
     @pytest.mark.parametrize("line", ["[00:00.000]作词 : 无", "[00:00.00]作词：无"])
     def test_值为无不写进tag(self, line):
-        """没有内容可写，写进去是脏数据"""
+        """没有内容可写，写进去为脏数据"""
         credits, _ = process_credits(lrc(line), 10, True, False)
         assert credits == {}
 
     @pytest.mark.parametrize("line", ["[00:00.000]作詞：無", "[00:00.00]作词：無"])
     def test_繁体無也算无(self, line):
-        """只认简体的话，繁体歌词会把「無」原样写进 lyricist"""
+        """只认简体的话，繁体歌词会把“無”原样写进 lyricist"""
         credits, rest = process_credits(lrc(line), 10, True, True)
         assert credits == {}
         assert "無" not in rest
 
     def test_不搬走时值为无的行也留着(self, line="[00:00.000]作词：无"):
-        """值为无是角色行的属性，没搬走就不该裁 —— 与其他角色行同一口径"""
+        """值为无为角色行的属性，没搬走就不该裁，与其他角色行同一口径"""
         _credits, rest = process_credits(lrc(line), 10, False, True)
         assert "作词：无" in rest
 
@@ -242,16 +234,14 @@ class Test删除类:
         ],
     )
     def test_歌词里的冒号加无不被当占位(self, line):
-        """早先用裸正则 search，前 N 行里任何以冒号加「无」收尾的行都会被删，
-        连歌词都被吃掉。判定该只对认得出的角色行生效"""
+        """裸正则 search 会把前 N 行里任何以冒号加“无”收尾的行删掉
+        判定只应对认得出的角色行生效"""
         credits, rest = process_credits(lrc(line, "[00:05.000]歌词"), 10, True, True)
         assert credits == {}
         assert line in rest
 
     def test_正文提到纯音乐不再连作曲人一起吃掉(self):
-        """早先用「含即删」，正文里提到这六个字也会被删。
-        那一行是 credit 行，于是整行没了而作曲人也没进 tag ——
-        两头落空。判定改成整行相等之后，作曲人能正常搬走"""
+        """判定要用整行相等，按“含即删”会把正文连同作曲人一起删掉"""
         credits, rest = process_credits(
             lrc("[00:00.000]作曲：他说纯音乐，请欣赏", "[00:05.000]歌词"),
             10,
@@ -259,7 +249,7 @@ class Test删除类:
             True,
         )
         assert credits == {"作曲": "他说纯音乐，请欣赏"}
-        # 行照删 —— 作曲人已经搬进 tag 了，留着就是重复
+        # 作曲人已搬进 tag，整行留着就重复
         assert "他说纯音乐，请欣赏" not in rest
         assert "[00:05.000]歌词" in rest
 
@@ -270,7 +260,7 @@ class Test删除类:
         assert "纯音乐" in rest
 
     def test_值里含无不算无(self):
-        """无名氏是真名，不能当占位删掉"""
+        """无名氏为真名，不能当占位删掉"""
         credits, _ = process_credits(lrc("[00:00.000]作词：无名氏"), 10, True, False)
         assert credits == {"作词": "无名氏"}
 
@@ -316,15 +306,14 @@ class Test行号限制:
         assert "歌词翻译：越界" in rest
 
     def test_纯音乐也受限(self):
-        """实测这行只在整首没歌词的歌里出现，混着有歌词的歌里没见过"""
+        """这行只在整首没歌词的歌里出现，有歌词的歌里未见过"""
         text = "\n".join(f"[00:{i:02d}.000]歌词{i}" for i in range(10))
         text += "\n[00:10.000]纯音乐，请欣赏\n"
         _, rest = process_credits(text, 10, False, True)
         assert "纯音乐" in rest
 
     def test_元数据行不占配额(self):
-        """clean() 在这一步之后才跑，扫的时候 [ti:] 那几行还在。
-        标准 LRC 头四行会白吃掉默认 10 行里的四行"""
+        """clean() 在此之后才跑，扫的时候 [ti:] 那几行还在，不能占掉 10 行配额"""
         text = "[ti:歌名]\n[ar:歌手]\n[al:专辑]\n[by:工具]\n"
         text += "[00:00.00]歌词\n[00:01.00]作词：X\n"
         credits, _ = process_credits(text, 5, True, False)
@@ -337,7 +326,7 @@ class Test行号限制:
         assert credits == {}, "歌词已经用掉五行配额，第 6 行该越界"
 
     def test_时间戳行不会被当成元数据(self):
-        """[00:01.00] 里的 00 是数字不是字母，不能被 _META_TAG_RE 吃掉配额"""
+        """[00:01.00] 里的 00 为数字，不能被 _META_TAG_RE 当成元数据吃掉配额"""
         text = "\n".join(f"[00:{i:02d}.000]歌词{i}" for i in range(5))
         text += "\n[00:05.000]作词：越界\n"
         credits, _ = process_credits(text, 5, True, False)
@@ -391,14 +380,14 @@ class Test四格矩阵:
         assert rest == "[00:00.00]\n[00:02.00]"
 
     def test_歌词里带冒号不该被搬走(self):
-        """实测库里有一批歌词本身就带冒号（全员、在了一起之类）"""
+        """歌词本身带冒号的不少，不能因为像角色行就搬走"""
         text = lrc("[00:00.00]全员：在一起!", "[00:05.00]歌词")
         credits, rest = process_credits(text, 10, True, True)
         assert credits == {}
         assert "全员：在一起!" in rest
 
     def test_署名类的英文不搬(self):
-        """Written by 分不清词曲，硬分是编"""
+        """Written by 分不清词曲，不能硬归到编曲"""
         credits, rest = process_credits(lrc("[00:00.00]Written by: X"), 10, True, True)
         assert credits == {}
         assert "Written by: X" in rest
@@ -439,7 +428,7 @@ class TestDownloader接线:
         def fake_fetch(url, path, label, progress=None, task_id=None, **kw):
             Path(path).write_bytes(AUDIO)
 
-        # _embed_with_retry 调的是 fn(*args)，所以第一个参数是音乐路径不是函数
+        # _embed_with_retry 调用 fn(*args)，第一个参数为音乐路径
         def fake_embed(_music_path, *args):
             state["credits"] = args[-1]
             state["embed_lyric"] = args[3]
@@ -486,8 +475,7 @@ class TestDownloader接线:
         return go
 
     def test_裁完只剩空行时不写lrc(self, run):
-        """裁光之后 "\n".join([]) 是空串，但上游多给几个空行时是 "\\n" 这种非空串，
-        只判字符串空不空会写出一个只有空行的 lrc 文件"""
+        """裁光后上游多给几个空行时字符串非空，只判空会写出只有空行的 lrc"""
         texts, _ = run("alc", ("[00:00.000]纯音乐，请欣赏\n\n\n", ""))
         assert texts == [], f"该不写却写了：{texts}"
 
@@ -508,13 +496,8 @@ class TestDownloader接线:
         ids=["纯文本", "单数字分钟", "一位小数", "无小数", "只有元数据行"],
     )
     def test_解析不出时间戳的歌词照样要写(self, run, lyric):
-        """parse() 要求时间戳是 [mm:ss.xx]，上游给别的形态是有的。
-        拿 parse 的结果判「有没有内容」会把它们整份丢掉 ——
-        只在 save_mode 为 1 与 2 时验：0 是交错，那一档的 interleave
-        本来就只保留带时间戳的行，写出空文件是既有行为，与这次改动无关。
-        mode 为 2 时会多产出一个空的 2.lrc（既有问题），所以断言「原文在不在」
-        而不是「第一个文件是不是原文」
-        """
+        """parse() 只认 [mm:ss.xx]，拿它的结果判“有没有内容”会整份丢掉
+        mode 为 2 时会多出一个空的 2.lrc，所以断言原文在不在"""
         texts, _ = run("alc", (lyric, ""), mode="2")
         assert lyric.rstrip("\n") in texts, f"歌词被丢了：{lyric!r}，写出的是 {texts}"
 
@@ -530,8 +513,7 @@ class TestDownloader接线:
         assert "纯音乐" not in texts[0]
 
     def test_仅歌词时角色行不裁(self, run):
-        """content 只含 l 时不会下音频，抽出来的 credits 没人接收，
-        而行被裁掉就是白删。改动前丢的是作曲一行，改动后会丢七个角色"""
+        """content 只含 l 时不下音频，credits 无人接收，裁掉角色行等于白删"""
         texts, credits = run("l")
         assert credits is None, "没有音频可写，不该去抽"
         assert len(texts) == 1
@@ -547,12 +529,8 @@ class TestDownloader接线:
     _两路 = (CREDIT_LYRIC, "[00:15.920]THIS IS THE TRANSLATION")
 
     def test_embed为drop时只嵌原文(self, run):
-        """drop 是不要译文。短路写错会掉进 process 的兜底分支，
-        那个分支是 split，于是原文加译文一起嵌进去。
-
-        这一条是被反向验证逼出来的：夹具里那个 embed_mode 写的是早已
-        不存在的值，短路永远不触发，改名之后那条判断一度谁都没测到
-        """
+        """drop 为不要译文，短路写错会掉进 process 的兜底分支 split
+        夹具里 embed_mode 若写成不存在的值，短路永不触发"""
         run("alc", lyrics=self._两路, embed_mode="drop")
         嵌的 = run.state["embed_lyric"]
         assert "YOU BURNED MY SOUL AGAIN" in 嵌的
@@ -567,8 +545,7 @@ class TestDownloader接线:
 
     @pytest.mark.parametrize("mode", ["drop", "line", "block"])
     def test_没有译文时三档都只嵌原文(self, run, mode):
-        """没译文就别折腾。drop 的短路本来也挡住了，
-        而 line 与 block 是 process 里 interleave 与拼接的结果，天然只剩原文"""
+        """drop 的短路会挡住，line 与 block 经 interleave 与拼接后天然只剩原文"""
         run("alc", lyrics=(CREDIT_LYRIC, ""), embed_mode=mode)
         嵌的 = run.state["embed_lyric"]
         assert "YOU BURNED MY SOUL AGAIN" in 嵌的

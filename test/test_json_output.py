@@ -1,9 +1,4 @@
-"""`--json` 的结构化输出
-
-四条命令各加一个分支，序列化手上的归一化 dict 后退出。
-它服务的是不写 Python 的那批人 —— 会写的人今天就能 `import vncmd.net.api`，
-而脚本要的是能直接喂给 `jq` 与 `read` 的东西。
-"""
+"""--json 的结构化输出"""
 
 import argparse
 import json
@@ -15,7 +10,7 @@ from vncmd.cli import build_parser
 
 SONG = {
     "id": 2742965504,
-    # 歌名里带方括号是常事，rich 会当样式标记解析，裸 print 才不遭殃
+    # 歌名里常带方括号，rich 会当样式标记解析，裸 print 不会
     "title": "PPPP [Live]",
     "artist": "TAK, 初音ミク",
     "album": "PPPP",
@@ -69,7 +64,7 @@ def ns(**kw):
 
 
 def parsed(capsys):
-    """读回 stdout 并解析，顺带确认它是合法 JSON"""
+    """读回 stdout 并解析，确认其为合法 JSON"""
     out, err = capsys.readouterr()
     return json.loads(out), out, err
 
@@ -142,11 +137,7 @@ class TestJSON给全量而面板截断:
         assert len(data["album"]["tracks"]) == 12, "JSON 要给全量，不能自己截"
 
     def test_album显式给了limit就按给的切(self, monkeypatch, capsys):
-        """显式给了 limit 与 offset 就按给的切，与面板同一套规则。
-
-        早先这里断言 JSON 无视 limit，那是 --count 只有一个含义时的行为。
-        用户为脚本写死一个 limit 却拿不到那么多条，比截断更难排查。
-        """
+        """显式给了 limit 与 offset 就按给的切，与面板同一套规则"""
         many = {**ALBUM, "tracks": [dict(TRACKS[0], id=i) for i in range(12)]}
         monkeypatch.setattr(commands, "get_album_details", lambda _i: many)
         commands.cmd_album(ns(json=True, count=3, offset=0))
@@ -161,7 +152,7 @@ class TestJSON给全量而面板截断:
         assert [t["id"] for t in data["album"]["tracks"]] == [10, 11]
 
     def test_面板模式仍然截断(self, monkeypatch, capsys):
-        """对照：不是把截断整体去掉了，只是没给 limit 时 JSON 不截"""
+        """对照：截断仍在，只是没给 limit 时 JSON 不截"""
         many = {**ALBUM, "tracks": [dict(TRACKS[0], id=i) for i in range(12)]}
         monkeypatch.setattr(commands, "get_album_details", lambda _i: many)
         commands.cmd_album(ns(json=False, count=2, offset=0))
@@ -171,7 +162,7 @@ class TestJSON给全量而面板截断:
 
 class Test输出形状:
     def test_中文不转义(self, monkeypatch, capsys):
-        """ensure_ascii=False，中文要原样可读而不是 \\uXXXX"""
+        """ensure_ascii=False，中文原样可读，不转成 \\uXXXX"""
         monkeypatch.setattr(commands, "get_song_details", lambda _i: SONG)
         commands.cmd_song(ns(json=True))
         out = capsys.readouterr().out
@@ -195,7 +186,7 @@ class Test输出形状:
 
 class Test空结果:
     def test_搜不到也是合法JSON(self, monkeypatch, capsys):
-        """空 stdout 加退出码 0，脚本分不清「没搜到」与「跑挂了」"""
+        """空 stdout 加退出码 0，脚本分不清“没搜到”与“跑挂了”"""
         monkeypatch.setattr(
             commands, "search", lambda q, limit=10, offset=0: {"total": 0, "songs": []}
         )
@@ -221,7 +212,7 @@ class Test失败:
 
 class Test权限判定不进JSON:
     def test_search不带blocked(self, monkeypatch, capsys):
-        """权限跟着账号变，同一条命令对不同用户给不同结果，
+        """权限跟着账号变，同一条命令对不同用户给不同结果
         进了稳定输出就没法缓存也没法 diff"""
         monkeypatch.setattr(
             commands,
@@ -238,21 +229,16 @@ class Test权限判定不进JSON:
 
 
 class Test与下载互斥:
-    """--json 与 --download 互斥，但与 --dlink 可以一起给
+    """--json 与 --download 互斥，但可与 --dlink 同给
+    互斥组为等价关系，表达不出这种非传递的排除，所以检查手写在 main 里"""
 
-    这条检查手写在 main 里而不是 argparse 的互斥组：需要的是
-    「--download 与 --dlink 互斥、与 --json 也互斥，而 --dlink 与 --json 不互斥」。
-    互斥组是等价关系，--download 只能进一个组，表达不出这种非传递的排除。
-    """
-
-    # --dlink 只有 song 有，album 与 playlist 加它会在 argparse 就报「无法识别」
+    # --dlink 只有 song 有，album 与 playlist 加它会在 argparse 就报“无法识别”
     @pytest.mark.parametrize(
         ("cmd", "dl", "该提的"),
         [
             ("song", [], ["--json", "--download"]),
-            # --dlink 与 -d 同给时，argparse 的互斥组会先拦住 ——
-            # 那条报错说的是 dlink 与 download，不提 --json。
-            # 早先它靠「用法行里恰好印了 --json」通过，是假绿
+            # --dlink 与 -d 同给时 argparse 先拦住，报错只提 dlink 与 download
+            # 只查用法行里印没印 --json 会假绿
             ("song", ["--dlink"], ["--dlink", "--download"]),
             ("album", [], ["--json", "--download"]),
             ("playlist", [], ["--json", "--download"]),
@@ -274,8 +260,7 @@ class Test与下载互斥:
             assert 词 in err, err
 
     def test_json不在任何互斥组里(self):
-        """钉住上面那条理由，防止有人「顺手」把它塞进组里，
-        结果 --json --dlink 又开始报错"""
+        """防止有人把 --json 塞进互斥组，那会让 --json --dlink 报错"""
         sub = next(
             a
             for a in build_parser()._actions
@@ -290,7 +275,7 @@ class Test与下载互斥:
                 )
 
     def test_dlink与download仍然互斥(self):
-        """既有的那条不能因为拆组而丢掉"""
+        """拆组后 --dlink 与 --download 仍须互斥"""
         with pytest.raises(SystemExit) as exc:
             build_parser().parse_args(["song", "1", "--dlink", "-d"])
         assert exc.value.code != 0
@@ -298,7 +283,7 @@ class Test与下载互斥:
 
 class Test与dlink同给:
     def test_两个键都给(self, monkeypatch, capsys):
-        """元数据与下载信息一次拿全，后面 --link 要的就是这个组合"""
+        """元数据与下载信息一次拿全，--link 需要这个组合"""
         download = {
             "url": "http://x/y.flac",
             "br": 999000,

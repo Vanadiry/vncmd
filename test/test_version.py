@@ -1,9 +1,4 @@
-"""`--version` 的行为
-
-它唯一的功能价值是「在任何环境下都能问出自己在跑哪个版本」——
-CI 会跑 `vncmd --version` 并比对输出，所以它必须在 acquire_lock、
-validate_config 与账号播报之前退出，一个字节的诊断都不能混进去。
-"""
+"""--version 的行为"""
 
 import sys
 from importlib.metadata import PackageNotFoundError
@@ -89,7 +84,7 @@ class Test早于一切副作用:
 
 class Test包读不到时:
     def test_兜unknown而不是抛栈(self, monkeypatch):
-        """装成非包的形式直接跑源码时会抛 PackageNotFoundError，
+        """装成非包的形式直接跑源码时会抛 PackageNotFoundError
         打印 unknown 比抛一整段栈好"""
 
         def boom(_name):

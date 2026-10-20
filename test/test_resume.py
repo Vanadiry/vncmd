@@ -1,9 +1,4 @@
-"""断流后按 Range 续传
-
-CDN 实测支持 Accept-Ranges: bytes，续传比从零重下省流量。
-关键在三条边界：服务端不认 Range 时会回 200 而不是 206；
-curl 对这种情况退出码 33 且不会自己从头来；续传段的魔数不该再验。
-"""
+"""断流后的 Range 续传"""
 
 import threading
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
@@ -35,7 +30,7 @@ class _Server:
         outer = self
 
         class H(BaseHTTPRequestHandler):
-            # 必须用 1.0：1.1 会保持连接，requests 的 session 一直不放手，
+            # 必须用 1.0：1.1 会保持连接，requests 的 session 一直不放手
             # handler 就阻塞在等下一个请求上，shutdown() 永远等不到
             protocol_version = "HTTP/1.0"
 
@@ -48,7 +43,7 @@ class _Server:
                 body = PAYLOAD[start:]
                 if outer.cut_once and outer.served == 0:
                     outer.served = 1
-                    # 声称发全量却只给一半再挂断，这才是真实的断流；
+                    # 声称发全量却只给一半再挂断，这才算真实的断流
                     # 若 Content-Length 按实际给的量写，客户端会以为传输正常完成
                     self.send_response(200)
                     self.send_header("Content-Length", str(len(PAYLOAD)))

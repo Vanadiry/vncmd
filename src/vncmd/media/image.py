@@ -12,7 +12,7 @@ _HEAD_BYTES = max(len(sig) for sig, _, _ in _MIME_MAP)
 
 
 def detect_format(data: bytes) -> tuple[str, str] | None:
-    """Detect image format from magic bytes. Returns (ext, mime) or None."""
+    """按魔数判断图片格式，返回扩展名与 MIME"""
     head = data[:_HEAD_BYTES]
     for sig, ext, mime in _MIME_MAP:
         if head.startswith(sig):
@@ -28,14 +28,9 @@ def _mime_from_url(url: str | None) -> str:
 def process_cover(
     cover_data: bytes, cover_url: str | None, compress: bool
 ) -> tuple[bytes, str]:
-    """
-    Process cover image.
+    """处理封面，返回数据与 MIME
 
-    compress false: return as-is.
-    compress true: resize to max 500x500, convert to JPEG, compress smaller than
-                   original without being too blurry.
-
-    Returns (data: bytes, mime_type: str)
+    compress 为真时缩放到 500 并压成 JPEG
     """
     if not compress:
         fmt = detect_format(cover_data)
@@ -43,18 +38,18 @@ def process_cover(
             return cover_data, fmt[1]
         return cover_data, _mime_from_url(cover_url)
 
-    # compress true: resize + compress
+    # 缩放并压缩
     img = Image.open(io.BytesIO(cover_data))
     original_size = len(cover_data)
     w, h = img.size
 
-    # Resize if any dimension exceeds 500
+    # 超过 500 像素时等比缩放
     if w > 500 or h > 500:
         scale = 500 / max(w, h)
         w, h = int(w * scale), int(h * scale)
         img = img.resize((w, h), Image.LANCZOS)
 
-    # Convert to RGB (required for JPEG)
+    # JPEG 需要 RGB
     if img.mode in ("RGBA", "P", "LA"):
         # P 与 LA 都要先转 RGBA，否则 alpha 通道被丢掉
         if img.mode != "RGBA":
@@ -74,7 +69,7 @@ def process_cover(
             best = data
             break
 
-    # 四档都压不小过原图就保留原图
+    # 四档都压不小就保留原图
     if best is None:
         fmt = detect_format(cover_data)
         return cover_data, fmt[1] if fmt else _mime_from_url(cover_url)

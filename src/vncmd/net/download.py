@@ -31,12 +31,10 @@ _dl_session = None
 # 魔数校验只需前几个字节，MP4 的 ftyp 标记落在偏移 4
 _HEAD_BYTES = 16
 
-# 断流后按 Range 续传的重试次数。CDN 实测支持 Accept-Ranges: bytes，
-# 续传比从零重下省流量，慢连接上尤其明显。
+# 断流后按 Range 续传的重试次数
 _RESUME_ATTEMPTS = 3
 
-# curl 里可以靠 -C - 接着下的退出码：18 传输中断、28 低速超时、56 接收失败。
-# 33 不在其中：那是「服务端不支持 Range」，要先把残file 丢掉才谈得上重试。
+# curl 可续传的退出码，33 为不支持 Range
 _CURL_RESUMABLE = {18, 28, 56}
 
 
@@ -44,8 +42,7 @@ def _get_dl_session():
     global _dl_session
     if _dl_session is None:
         _dl_session = requests.Session()
-        # 与 API session 保持一致，之前这里发的是 python-requests 的默认 UA，
-        # 调 API 伪装浏览器、下载音频自曝为脚本，两边行为分裂
+        # 与 API session 共用 UA，避免下载请求暴露为脚本
         _dl_session.headers.update(HEADERS)
         retry = Retry(
             total=3,
@@ -60,12 +57,9 @@ def _get_dl_session():
 
 
 def _curl_argv(url: str, path: str, resume: bool = True) -> list[str]:
-    """拼 curl 的调用参数
+    """拼 curl 参数
 
-    ``-o`` 放在用户参数之后，保证目标文件一定是我们的，
-    用户误写了 ``-o`` 也只是覆盖不掉，不会把文件写到别处。
-    ``--fail`` 必须带，否则 HTTP 错误页会被当正文写进文件并返回 0。
-    ``-C -`` 让 curl 按目标文件已有的大小自动续传。
+    -o 放在用户参数后，--fail 挡错误页，-C - 自动续传
     """
     argv = ["curl", "-sSL", "--fail", "--speed-limit", "1024", "--speed-time", "30"]
     if resume:
@@ -82,11 +76,9 @@ def _file_size(path: str) -> int:
 
 
 def _wait_curl(proc, path: str, on_bytes, start: int = 0) -> None:
-    """等 curl 退出，顺带把目标文件的长大量喂给进度条
+    """等 curl 退出，按文件增长更新进度
 
-    curl 没有可供解析的进度输出，直接盯文件大小最省事，
-    也让两条下载路径共用同一套进度接口。``start`` 是续传前的已有长度，
-    只有新增的部分才算进度，否则续传时进度条会从已有大小再跳一遍。
+    start 为续传前长度，只统计新增部分
     """
     last = start
     while proc.poll() is None:
@@ -108,10 +100,7 @@ def _fetch_audio_curl(
     progress=None,
     task_id=None,
 ) -> str | None:
-    """用系统 curl 下载，返回错误说明或 None
-
-    与 ``fetch_audio`` 同签名好让上层无感切换。
-    """
+    """用系统 curl 下载，返回错误说明或 None"""
     for attempt in range(1, _RESUME_ATTEMPTS + 1):
         have = _file_size(path)
         # 服务端声明的大小已知且已经下齐，不必再发请求
@@ -123,24 +112,22 @@ def _fetch_audio_curl(
             break
         detail = stderr.decode("utf-8", "replace").strip()
         last_attempt = attempt >= _RESUME_ATTEMPTS
-        # 33 是「服务端不支持 Range」。实测 curl 不会自己从头来，
-        # 残file 会原封不动卡在原地，所以要丢掉重来
+        # 33 为不支持 Range，丢掉残文件重来
         if code == 33 and not last_attempt:
             with suppress(OSError):
                 os.unlink(path)
             continue
-        # 传输类中断留给下一轮：残file 还在，curl 的 -C - 会接着往下拉
+        # 传输中断留给下一轮续传
         if code in _CURL_RESUMABLE and not last_attempt:
             continue
-        # 22 是 --fail 命中 HTTP 错误，单独说明比裸报退出码有用
+        # 22 为 --fail 命中 HTTP 错误，单独说明比裸报退出码有用
         head = "curl 传输失败" if code == 22 else f"curl 退出码 {code}"
         return f"{head}：{detail}" if detail else head
 
     if _file_size(path) == 0:
         return "curl 未写出文件"
 
-    # --fail 只看状态码，服务器以 200 带回错误页时照样写出文件，
-    # 这里补上魔数校验，与内建路径保持一致
+    # 补魔数校验，挡下以 200 返回的错误页
     try:
         with open(path, "rb") as f:
             blob = f.read(_HEAD_BYTES)
@@ -153,9 +140,7 @@ def _fetch_audio_curl(
 
 def _run_curl(url, path, have, total, label, progress, task_id):
     """跑一次 curl，返回 (退出码, stderr)"""
-    # stderr 落临时文件而不是管道。管道缓冲区约 64 KB，curl 写满后会阻塞在
-    # write 上，而 _wait_curl 只轮询 returncode，不读管道，两边就此死锁：
-    # 下载永久卡住且进度条停在原地。落文件则没有这个上限。
+    # stderr 落临时文件，避免管道写满导致死锁
     with tempfile.TemporaryFile() as errf:
         try:
             proc = subprocess.Popen(
@@ -208,13 +193,9 @@ def fetch_audio(
     total: int = 0,
     use_curl: bool | None = None,
 ) -> str | None:
-    """Stream download audio with progress bar. Returns error message or None.
+    """流式下载音频，返回错误说明或 None
 
-    If *progress* and *task_id* are provided, they are used to update a shared
-    Rich Progress instance.  Otherwise a per-file progress bar is created.
-
-    ``use_curl`` 为 None 时读配置。``total`` 由服务端声明的大小填入，
-    curl 这条路拿不到响应头，进度总量只能靠它。
+    use_curl 为 None 时读配置，total 为服务端声明大小
     """
     if use_curl is None:
         use_curl = get_downloader() == "curl"
@@ -233,9 +214,7 @@ def fetch_audio(
             task_id=task_id,
         )
 
-    # 读超时给到 30 秒，原先的 10 秒对 25 MB 单连接过于激进，
-    # 传输中只要卡一下就整个掐断。curl 那边用
-    # --speed-limit 1024 --speed-time 30 表达同样的语义
+    # 读超时 30 秒，避免传输卡顿被掐断
     return _fetch_audio_builtin(
         url, path, label, progress=progress, task_id=task_id, expect_total=total
     )
@@ -257,11 +236,7 @@ def _fetch_audio_builtin(
     task_id=None,
     expect_total: int = 0,
 ) -> str | None:
-    """流式下载，断流后按 Range 续传
-
-    续传前先看目标文件已有多少，从那个偏移继续；服务端不认 Range 时会
-    回 200 而不是 206，这时只能丢掉已有内容从头写。
-    """
+    """流式下载，断流后按 Range 续传"""
     last = ""
     for attempt in range(1, _RESUME_ATTEMPTS + 1):
         offset = _file_size(path)
@@ -288,7 +263,7 @@ def _fetch_audio_builtin(
             )
             chunks = resp.iter_content(chunk_size=8192)
             head = next(chunks, b"")
-            # 续传段不是文件开头，魔数只对全新内容有意义
+            # 续传段并非文件开头，魔数只对全新内容有意义
             if fresh and not looks_like_audio(head):
                 ctype = resp.headers.get("content-type", "未知类型")
                 return f"服务器返回的不是音频：{ctype}"
@@ -342,7 +317,7 @@ def fetch_cover(cover_url: str) -> bytes | None:
 
 
 def fetch_lyrics(lyrics_api_url: str, source: str) -> tuple[str, str]:
-    """Fetch lyrics from API. Returns (lrc_text, tlyric_text)."""
+    """从接口取歌词，返回原文与译文"""
     try:
         resp = _get_dl_session().get(lyrics_api_url, timeout=15)
         if resp.text and source == "netease":

@@ -1,13 +1,4 @@
-"""命令行用法错误的中文文案
-
-argparse 自己的消息是英文的，而且几类错误长相差异很大：缺参数报
-「the following arguments are required: id」，写错命令报「invalid choice」，
-自定义 type 的报错又被包成「argument X: ...」。
-
-这里统一成中文，并指向这一层该看哪份帮助。测试盯的是这句形状，
-不是每个字 —— 但「缺少参数」「不认识的参数」「没有 X 这个命令」
-这三个开头要稳定，用户靠它分辨自己错在哪一类。
-"""
+"""命令行用法错误的中文文案"""
 
 import argparse
 
@@ -18,7 +9,7 @@ from vncmd.cli import build_parser
 
 
 def _报错(argv):
-    """跑一次解析，返回捕获到的 stderr 与退出码"""
+    """跑一次解析，返回退出码"""
     with pytest.raises(SystemExit) as e:
         build_parser().parse_args(argv)
     return e.value.code
@@ -44,9 +35,8 @@ class Test缺参数:
         assert 帮助 in 出错, 出错
 
     def test_cache必须给一个开关(self, capsys):
-        """原来不给开关默认按 --stats 走，误操作看起来像成功
-
-        参数检查排在碰缓存目录之前 —— 参数错了不该先去读盘
+        """必须给一个开关，不给时误操作看起来像成功
+        参数检查排在碰缓存目录之前，参数错了不该先去读盘
         """
         with pytest.raises(SystemExit) as e:
             commands.cmd_cache(argparse.Namespace(stats=False, clear=False))
@@ -57,10 +47,8 @@ class Test缺参数:
         assert "vncmd tool cache -h" in 出错, 出错
 
     def test_cookie用同一句形状(self, capsys):
-        """cookie 的 value 与 --check 都是可选的，两个都没给才报错
-
-        这一条不走 argparse，是 cmd_cookie 自己判的 —— 但话要说得一样，
-        用户不用记两种说法
+        """value 与 --check 都为空才报错，这一条由 cmd_cookie 自己判
+        话要与 argparse 那边的缺少参数一致
         """
         with pytest.raises(SystemExit) as e:
             commands.cmd_cookie(argparse.Namespace(check=False, value=None))
@@ -73,10 +61,8 @@ class Test缺参数:
 
 class Test写错命令:
     def test只说没有这个命令(self, capsys):
-        """cache 已经挪进 tool，直接敲会撞这里
-
-        不列候选命令 —— 一句话说清错在哪，余下的交给 -h。
-        列出来会让这一行变得很长，而用户真正的下一步是看帮助
+        """cache 已挪进 tool，直接敲会撞这里
+        不列候选命令，列出来会让这一行很长，用户下一步看 -h 即可
         """
         assert _报错(["cache"]) == 2
         出错 = capsys.readouterr().err
@@ -93,7 +79,7 @@ class Test写错命令:
 
 class Test其他用法错误:
     def test不认识的参数(self, capsys):
-        """--check 已经从下载命令上去掉了"""
+        """--check 已从下载命令移除"""
         assert _报错(["song", "1", "--check"]) == 2
         出错 = capsys.readouterr().err
         assert "不认识的参数" in 出错, 出错
@@ -121,5 +107,5 @@ class Test其他用法错误:
         [["song"], ["cache"], ["song", "1", "--check"], ["song", "abc"]],
     )
     def test退出码都是二(self, argv):
-        """用法错误统一退 2，脚本分「用法错」与「跑失败」只需记两个值"""
+        """用法错误统一退 2，脚本分“用法错”与“跑失败”只需记两个值"""
         assert _报错(argv) == 2

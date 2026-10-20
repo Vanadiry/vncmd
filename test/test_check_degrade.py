@@ -1,8 +1,4 @@
-"""校验工具缺失时的降级
-
-三样工具各管一段，缺哪个只跳过那一段。以前整块门控开在调用方，
-结果是装了 flac 没装 ffmpeg 的机器连 flac 那一步也一起不做。
-"""
+"""校验工具缺失时的降级"""
 
 import subprocess
 from functools import lru_cache
@@ -37,7 +33,7 @@ class Test工具探测:
         }
 
     def test_has_ffmpeg不再含ffprobe(self, tools):
-        """以前 has_ffmpeg 是两个都要，那正是整块门控的由来"""
+        """has_ffmpeg 只判 ffmpeg，ffprobe 单独判"""
         tools("ffmpeg")
         assert checker.has_ffmpeg() is True
         assert checker.has_ffprobe() is False
@@ -53,9 +49,9 @@ class Test工具探测:
         assert checker.missing_check_tools() == ["ffprobe", "ffmpeg", "flac"]
 
     def test_加一样工具只需改一张表(self, tools, monkeypatch):
-        """探测、提示文案、缓存清理全从 CHECK_TOOLS 派生。
-        以前 check_tools() 与 clear_check_tools_cache() 各抄一份，
-        只改其中一份时 missing_check_tools 会在运行中 KeyError"""
+        """探测、提示文案、缓存清理全从 CHECK_TOOLS 派生
+        两处各抄一份时，只改其中一份会让 missing_check_tools 出现 KeyError
+        """
         calls = []
 
         @lru_cache(maxsize=1)
@@ -76,8 +72,9 @@ class Test工具探测:
         assert len(calls) == 2, "缓存清理漏了新加的那样工具"
 
     def test_每样工具都有探测函数与缺了会少做哪一步(self, tools):
-        """漏了探测函数会在 check_tools 里 AttributeError，
-        漏了说明会让提示变成「本次不会做。」这种空话"""
+        """漏了探测函数会在 check_tools 里 AttributeError
+        漏了说明会让提示只剩一句空话
+        """
         for name, (probe, role) in checker.CHECK_TOOLS.items():
             assert callable(probe), name
             assert role.strip(), f"{name} 没有写它缺席时少做哪一步"
@@ -113,7 +110,7 @@ class Test逐段降级:
         assert checker.check_audio(str(tmp_path / "a.flac")) == (True, "")
 
     def test_只装flac时flac仍被校验(self, tools, tmp_path):
-        """这是整块门控挡住的那个场景：装了 flac 没装 ffmpeg 也要能验"""
+        """只装 flac 时 flac 那步仍要跑"""
         tools("flac")
         seen = []
 
@@ -129,9 +126,9 @@ class Test逐段降级:
         assert seen == ["flac"]
 
     def test_只装ffprobe时ffprobe不算有工具(self, tools):
-        """ffprobe 只给时长，要和 ffmpeg 的解码结果交叉比对才有意义。
-        单独装它的话 check_audio 拿不到 actual，比对那步跳过，
-        每首歌白 fork 一个 ffprobe 还一律放行"""
+        """ffprobe 只给时长，要配合 ffmpeg 的解码结果交叉比对
+        单独装它时比对跳过，每首白 fork 一次还一律放行
+        """
         tools("ffprobe")
         assert checker.any_check_tool() is False
 
@@ -175,7 +172,7 @@ class Test逐段降级:
         assert ok
 
     def test_ffmpeg起不来判失败(self, tools, tmp_path):
-        """起不来不能当成通过，也不能当成「工具缺失」而跳过"""
+        """起不来不能当成通过，也不能当成“工具缺失”而跳过"""
         tools("ffmpeg", "ffprobe")
 
         def boom(cmd, **kw):
@@ -218,19 +215,12 @@ class Test超时:
 
 
 class Test三样都没有时放行:
-    """check_audio 开头那道判断，与 any_check_tool 问的是同一个问题
-
-    原来那两处不一致：any_check_tool 排除 ffprobe，而 check_audio 里写的是
-    any(tools.values())，把 ffprobe 也算进去。差异只在「只装 ffprobe」这一种，
-    而两个调用点都先过 any_check_tool，所以那时候进不到这里 —— 不可达不代表对，
-    哪天有人加个调用点就露馅了
+    """check_audio 开头那道判断要与 any_check_tool 给出同一个答案
+    两处写法不一致时差异只出现在“只装 ffprobe”，加一个调用点就会暴露
     """
 
     def test_只有ffprobe时不跑校验(self, tools, monkeypatch, tmp_path):
-        """只装 ffprobe 时 fork 它去读时长，然后拿不到 actual 而一律放行
-
-        白跑一遍还给出假的通过 —— 那比不做校验更坏
-        """
+        """只装 ffprobe 时会白跑一次并给出假通过，比不做校验更坏"""
         跑过 = []
         monkeypatch.setattr(checker, "ffprobe_info", lambda p: 跑过.append(p))
         monkeypatch.setattr(
@@ -258,13 +248,8 @@ class Test三样都没有时放行:
     def test_与any_check_tool问的是同一个问题(
         self, tools, 装了, 该跑, monkeypatch, tmp_path
     ):
-        """两个函数对同一组工具要给同一个答案
-
-        四种情形里原本只有「只装 ffprobe」不一致，其余都相同 ——
-        那种不一致最难靠手动试出来，因为它藏在唯一一个冷门分支里
-
-        验 check_audio 时看它 fork 没 fork ffprobe：没有能做校验的工具时
-        它得立刻返回，而真正去解码不是这条要验的东西
+        """两个函数对同一组工具要给同一个答案，不一致只在“只装 ffprobe”出现
+        这里看 check_audio 有没有 fork ffprobe，解码本身不在验证范围
         """
         tools(*装了)
         assert checker.any_check_tool() is 该跑
@@ -274,12 +259,7 @@ class Test三样都没有时放行:
         f = tmp_path / "a.flac"
         f.write_bytes(b"x")
         checker.check_audio(str(f))
-        # ffmpeg 与 flac 都没有时它得立刻返回，一个 ffprobe 都不 fork ——
-        # fork 了也只能读个时长，然后拿不到 actual 而一律放行，
-        # 白跑一遍还给出假的通过，比不做校验更坏。
-        #
-        # 判据是「有没有 ffprobe 可 fork」，而该不该走到那一步取决于
-        # ffmpeg 与 flac 在不在 —— 那正是这次改掉的那处混用
+        # 没有可用校验工具时要立刻返回，fork ffprobe 也只能读时长而一律放行
         该fork = 该跑 and "ffprobe" in 装了
         assert bool(跑过) is 该fork, (
             f"ffmpeg/flac={该跑}、ffprobe={'ffprobe' in 装了}，"

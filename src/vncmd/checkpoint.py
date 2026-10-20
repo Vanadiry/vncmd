@@ -55,12 +55,9 @@ def mark_downloaded(dl_type: str, dl_id: str, song_id: int) -> None:
 def sync_checkpoint_tracks(
     dl_type: str, dl_id: str, current_tracks: dict[str, str]
 ) -> tuple[list[str], bool]:
-    """Sync checkpoint tracks with current API list.
+    """同步断点与当前曲目列表
 
-    ``current_tracks`` is a dict of ``{id: title}``.
-    Returns ``(pending_ids, has_changes)``.
-    For album/playlist: notifies about added/removed tracks with titles.
-    For tracker: silently updates.
+    返回待下 id 与是否有变更；album/playlist 提示增删，tracker 静默
     """
     cp = load_checkpoint(dl_type, dl_id)
     if cp is None:
@@ -71,12 +68,12 @@ def sync_checkpoint_tracks(
     new_ids = current_ids - cp_ids
     removed_ids = cp_ids - current_ids
 
-    # Update checkpoint: add new tracks, remove gone tracks
+    # 补新曲目，删已移除曲目
     for tid in new_ids:
         cp["tracks"][tid] = False
     has_changes = bool(new_ids or removed_ids)
 
-    # Notify for album/playlist
+    # album 与 playlist 提示增删
     if dl_type in ("album", "playlist") and has_changes:
         for tid in sorted(new_ids):
             # current_tracks 的键恒为 str，int(tid) 那一路永远取不到值

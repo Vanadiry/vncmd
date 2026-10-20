@@ -1,8 +1,4 @@
-"""`--diff` 补上 changed，以及 `--json --diff`
-
-`--diff` 原来只下载 `added`，`removed` 写进 `removed.txt`，
-**`changed` 被整个丢掉了** —— 改了标题的曲目既没下载也没记录。
-"""
+"""--diff 的 changed 与 JSON 输出"""
 
 import argparse
 import json
@@ -73,7 +69,7 @@ class Test单独给diff要报错:
         assert exc.value.code == 2
 
     def test_提示要说清配什么(self, ready, capsys):
-        """只说「需要配合」却不说配合什么，等于没说"""
+        """只说“需要配合”却不说配合什么，等于没说"""
         with pytest.raises(SystemExit):
             tracker.cmd_tracker(ns(diff=True))
         err = capsys.readouterr().err
@@ -108,17 +104,14 @@ class Test单独给diff要报错:
 
 class Testchanged不再被丢:
     def test_正文含removed与changed(self):
-        """改标题的曲目原来既没下载也没记录，整个消失了"""
+        """改标题的曲目也要写进正文，不能整个消失"""
         note = tracker._diff_note(DIFF)
         assert "被删了" in note
         assert "旧名 -> 新名" in note
 
     def test_撤掉changed那段就会红(self):
-        """锚定在 _diff_note 自己的源码上，不是调用它的结果
-
-        早先那几条断言在改代码的过程中一度是绿的：正则贪婪匹配到了
-        函数外面 resolve_conflicts 里的另一处 if changed:，撤错了地方。
-        直接读源码片段才不会认错人。
+        """锚定在 _diff_note 自己的源码上
+        正则会匹配到函数外 resolve_conflicts 里的 if changed
         """
         import inspect
 
@@ -128,7 +121,7 @@ class Testchanged不再被丢:
         assert 'changed = diff.get("changed", [])' in src
 
     def test_added不写进这个文件(self):
-        """added 是下载下去的，文件记的是「变了但不用下载的」"""
+        """added 的曲目已下载，文件只记变了但不用下载的"""
         note = tracker._diff_note(DIFF)
         assert "新来的" not in note
         assert "3" not in note
@@ -217,7 +210,7 @@ class Test下载diff落盘:
         assert "--fetch" in capsys.readouterr().err
 
     def test_只有changed时不再说未找到diff(self, ready, monkeypatch, tmp_path, capsys):
-        """原来只看 added 与 removed，changed 非空时会被当成「没有 diff」"""
+        """只看 added 与 removed 时，changed 非空会被当成没有 diff"""
         monkeypatch.setattr(
             tracker, "load_diff", lambda n: {"changed": DIFF["changed"]}
         )
@@ -236,7 +229,7 @@ class TestJsonDiff:
         assert len(got["changed"]) == 1
 
     def test_与下载读的是同一份(self, ready, capsys):
-        """一致性是理由：--json 是换成机器可读，不是换一批数据"""
+        """--json 只是换成机器可读，不换数据"""
         tracker.cmd_tracker(ns(diff=True, json=True))
         data, _out, _err = parsed(capsys)
         assert data["tracker"]["diff"]["updated_at"] == DIFF["updated_at"]
@@ -249,7 +242,7 @@ class TestJsonDiff:
         assert "diff" in parsed(capsys)[0]["tracker"]
 
     def test_带updated_at(self, ready, capsys):
-        """判断这批差异是什么时候算出来的，唯一依据就是它"""
+        """判断这批差异何时算出来，唯一依据为它"""
         tracker.cmd_tracker(ns(diff=True, json=True))
         data, _out, _err = parsed(capsys)
         assert data["tracker"]["diff"]["updated_at"] == "2026-10-01T00:00:00Z"
@@ -263,7 +256,7 @@ class TestJsonDiff:
         assert "songs" not in data["tracker"], "给 diff 时不该混入当前状态"
 
     def test_没有diff文件也给合法json(self, ready, monkeypatch, capsys):
-        """空 diff 加退出码 0，脚本分不清「没变化」与「跑挂了」"""
+        """空 diff 加退出码 0，脚本分不清“没变化”与“跑挂了”"""
         monkeypatch.setattr(tracker, "load_diff", lambda n: {})
         tracker.cmd_tracker(ns(diff=True, json=True))
         data, _out, _err = parsed(capsys)
@@ -304,10 +297,8 @@ def _out_of(argv):
 
 
 class Test下载时取配置里的音质与目录:
-    """-q 与 -o 收了之后，tracker 的下载必须从配置取这两样
-
-    原来它读 args.quality 与 args.output，参数删掉之后若还去读就是
-    AttributeError；若写死一个值，用户的配置就永远不生效
+    """tracker 的下载从配置取音质与目录
+    读 args.quality 会 AttributeError，写死则配置永远不生效
     """
 
     def test_音质来自配置(self, monkeypatch):

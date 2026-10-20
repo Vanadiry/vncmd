@@ -4,8 +4,7 @@ from pathlib import Path
 from vncmd.core.config import get_filename_artist
 from vncmd.core.output import warning
 
-# Linux 的 ext4 单个文件名上限为 255 字节，macOS 的 APFS 为 255 字符，
-# 按字节收敛最保险；Windows 的完整路径上限 260 字符还要扣掉目录与扩展名
+# 文件名上限按字节收敛，兼容 ext4 与 APFS
 _MAX_FILENAME_BYTES = 180
 
 _MAX_PATH_CHARS = 250
@@ -24,9 +23,7 @@ def check_filename(name: str) -> str:
     return cleaned.strip()
 
 
-# 网易云实际只返回 mp3 与 flac，白名单里的 m4a、wav、ogg 走不到，
-# 留着只会让它们静默跳过元数据嵌入。遇到没见过的格式要出声，
-# 上游改了编码格式时能立刻看到，而不是产出一个错扩展名的文件
+# 只支持 mp3 与 flac 的元数据嵌入
 _METADATA_TYPES = ("mp3", "flac")
 
 
@@ -47,7 +44,7 @@ def looks_like_audio(head: bytes) -> bool:
         return False
     if head.startswith((b"ID3", b"RIFF", b"OggS", b"fLaC")):
         return True
-    # MP4 容器前 4 字节是 box 长度，ftyp 标记在偏移 4
+    # MP4 容器前 4 字节为 box 长度，ftyp 标记在偏移 4
     if head[4:8] == b"ftyp":
         return True
     # 没有 ID3 标签的 MP3 以帧同步开头
@@ -62,21 +59,18 @@ def cover_ext(cover_url: str | None) -> str:
 
 
 def build_filename(title: str, artist: str) -> tuple[str, str | None]:
-    """返回 (收敛后的文件名, 截断前的完整名字)
-
-    完整名字仅在发生截断时返回，调用方据此写一份同名 txt
-    """
+    """返回收敛后的文件名与截断前完整名字"""
     fmt = get_filename_artist()
     safe_title = check_filename(title)
     safe_artist = check_filename(artist)
-    # 艺术家为空时一律只留标题，拼接会多出一个待分隔的连字符
+    # 艺术家为空时只留标题
     if fmt == "front" and safe_artist:
         name = f"{safe_artist} - {safe_title}"
     elif fmt == "back" and safe_artist:
         name = f"{safe_title} - {safe_artist}"
     else:
         name = safe_title
-    # 在拼接结果上截断而不是分别截断标题与歌手，分开截断会把歌手整段挤掉
+    # 在拼接结果上截断，避免歌手被整段挤掉
     fitted = _truncate_bytes(name, _MAX_FILENAME_BYTES)
     return fitted, None if fitted == name else name
 

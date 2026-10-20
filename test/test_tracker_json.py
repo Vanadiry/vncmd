@@ -1,9 +1,4 @@
-"""tracker 的纯读视图
-
-四个动作（--fetch、--fetch-auto、-d、-d --diff）的结果都是文件而不是数据，
-所以 `--json` 只配纯读视图。`--count` / `--offset` 同样只切 JSON ——
-纯读面板暂时没有曲目表，给了不报错也不生效，曲目表做完就自动接上。
-"""
+"""tracker 纯读视图与 JSON 切片"""
 
 import argparse
 import json
@@ -60,7 +55,7 @@ def parsed(capsys):
 class Test动作与json互斥:
     @pytest.mark.parametrize("action", [{"fetch": True}, {"download": True}])
     def test_动作配json报错(self, ready, capsys, action):
-        """动作的结果是文件，给一份没人读的 JSON 不如说清它只管纯读视图"""
+        """动作的结果为文件，给一份没人读的 JSON 不如说清它只管纯读视图"""
         with pytest.raises(SystemExit) as exc:
             tracker.cmd_tracker(ns(json=True, **action))
         assert exc.value.code == 2
@@ -85,7 +80,7 @@ class Test动作与json互斥:
 
 class TestJSON形状:
     def test_用信封(self, ready, capsys):
-        """裸的 {"updated_at", "songs"} 会让人以为这文件是某个命令的输出"""
+        """裸的 {"updated_at", "songs"} 会让人以为这文件为某个命令的输出"""
         tracker.cmd_tracker(ns(json=True))
         data, _out, _err = parsed(capsys)
         assert list(data) == ["tracker"]
@@ -134,7 +129,7 @@ class Test切片:
         assert self._ids(capsys, offset=1, count=2) == [2, 3]
 
     def test_超出范围给空数组(self, ready, capsys):
-        """空的 songs 是合法结果，比空 stdout 加退出码 0 更好分"""
+        """空的 songs 为合法结果，比空 stdout 加退出码 0 更好分"""
         assert self._ids(capsys, offset=99) == []
 
 
@@ -146,8 +141,7 @@ class Test面板显示更新时间:
         assert "2026-10-01T00:00:00Z" in out
 
     def test_没有更新时间也给那一行(self, ready, monkeypatch, capsys):
-        """更新于固定占一行，不随有没有值增删 ——
-        面板高度随数据变，看起来像是出错了"""
+        """更新于固定占一行，不随有没有值增删，避免面板高度变化像出错"""
         monkeypatch.setattr(
             tracker, "load_songs_db_full", lambda name: db(updated_at="")
         )

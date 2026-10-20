@@ -1,10 +1,4 @@
-"""download_song_batch 里会话准备、并发环境、收尾打印三块
-
-这三块以前埋在函数中间，抽出来之后能直接测 ——
-会话与收尾全是文件操作与格式化，并发环境只建槽位与队列，
-都不联网也不碰音频。之前它们跟着整个批次一起没被测到，
-而 download_song_batch 的覆盖率长期只有 50%
-"""
+"""下载会话准备、并发环境与收尾打印"""
 
 from pathlib import Path
 from queue import Empty
@@ -31,9 +25,8 @@ class Test无断点时新建目录:
         session_dir, _, _ = session._setup_session(
             _tracks(1), str(tmp_path), None, None, None, 0
         )
-        # 形如 2026-10-18_15-43-09
+        # 形如 2026-10-18_15-43-09，下划线在第 11 位
         stamp = Path(session_dir).name
-        # 形如 2026-10-18_21-25-38：日期十位是下划线，不是第 13 位
         assert len(stamp) == 19
         assert stamp[10] == "_"
         assert stamp[4] == stamp[7] == "-"
@@ -195,7 +188,7 @@ class Test收尾打印:
         assert "5 成功" in out and "2 失败" in out
 
     def test_零首也要说出来(self, capsys):
-        """用户分不清「没成功」与「没打印」"""
+        """用户分不清“没成功”与“没打印”"""
         out = self._跑(capsys, 0, 0)
         assert "0 成功" in out and "0 失败" in out
 
@@ -208,10 +201,8 @@ class Test收尾打印:
         assert "失败 ID：101, 103" in out
 
     def _原始输出(self, monkeypatch, ok, fail, ids=()):
-        """收 rich 打印前的原始字符串
-
-        直接读 capsys 拿不到标记 —— rich 打印时就把 [dim] 渲染掉了。
-        开头那个空行是零参数调用，所以用 extend 而不是 append
+        """收 rich 打印前的原始字符串，capsys 拿不到标记
+        开头那个空行来自零参数调用，所以用 extend 而不用 append
         """
         收到的 = []
         monkeypatch.setattr(
@@ -230,7 +221,7 @@ class Test收尾打印:
         assert "[red]2 失败[/]" in 全部
 
     def test_零的那档走dim(self, monkeypatch):
-        """0 暗示「本来就没有」，不必醒目 —— 两个方向都要dim"""
+        """0 暗示“本来就没有”，不必醒目，两个方向都要 dim"""
         全部 = self._原始输出(monkeypatch, 0, 0)
         assert "[dim]0 成功[/]" in 全部
         assert "[dim]0 失败[/]" in 全部
@@ -240,9 +231,7 @@ class Test收尾打印:
 
 class Test并发环境准备:
     """槽位数与提交的 worker 数必须相等
-
-    多提交一个 worker，它取到任务后取槽位就越界 —— 那一首会随线程一起
-    消失，既不计入成功也不计入失败，用户看不到任何提示
+    多提交一个 worker 会让那一首随线程消失，成功失败都不计入
     """
 
     def _tracks(self, n):
@@ -259,7 +248,7 @@ class Test并发环境准备:
         assert len(workers.slots) == workers.count
 
     def test_槽位数永远等于worker数(self):
-        """这一条就是那个静默丢歌的约束"""
+        """这条用例盯住静默丢歌的约束"""
         for 曲目数 in (1, 2, 3, 7, 16):
             for 并发 in (1, 2, 4, 8, 16):
                 workers = downloader._prepare_workers(self._tracks(曲目数), 并发)
@@ -301,10 +290,8 @@ class Test并发环境准备:
         assert str(workers.progress.tasks[task_id].description).strip() == ""
 
     def test_restart只清总长不藏槽位(self):
-        """重试同一首时槽位必须留着可见
-
-        藏了就没法再显出来 —— describe 只写描述、不会把 visible 设回 True，
-        所以那一路的进度会一直看不见，而这正是最需要反馈的时候
+        """重试同一首时槽位必须留着可见，藏了就没法再显出来
+        describe 只写描述，不会把 visible 设回 True
         """
         workers = downloader._prepare_workers(self._tracks(1), 1)
         task_id = workers.slots[0]
@@ -312,11 +299,11 @@ class Test并发环境准备:
         workers.progress.update(task_id, total=100, completed=40)
         workers.restart(task_id)
         assert workers.progress.tasks[task_id].visible is True
-        # total 保持原值、completed 归零 —— 下一轮下载会按新的总长重设
+        # total 保持原值、completed 归零，下一轮下载会按新的总长重设
         assert workers.progress.tasks[task_id].completed == 0
 
     def test_restart之后还能继续写描述(self):
-        """重现真实那条路径：重试 -> 写提示 -> 下载推进进度"""
+        """重试、写提示、下载推进进度这条路径"""
         workers = downloader._prepare_workers(self._tracks(1), 1)
         task_id = workers.slots[0]
         workers.show(task_id)
@@ -327,10 +314,7 @@ class Test并发环境准备:
         assert "重试 1/3" in str(workers.progress.tasks[task_id].description)
 
     def test_describe带_markup转义(self):
-        """歌名里有方括号时会被 rich 当成样式标记解析，所以要转义
-
-        断言要带上反斜杠 —— 只查 live 的话，转义与否都在，查不出东西
-        """
+        """歌名里的方括号会被 rich 当成样式标记，描述里要带反斜杠转义"""
         workers = downloader._prepare_workers(self._tracks(1), 1)
         task_id = workers.slots[0]
         workers.describe(task_id, "歌[live] - 人")
@@ -344,13 +328,11 @@ class Test并发环境准备:
 
 class Test取链接重试:
     """三次都取不到就返回 None，不抛
-
-    取不到链接是网络与账号权限的常态，不是程序错误，
-    调用方要按「这一首失败」处理而不是中断整批
+    取不到链接属常态，调用方要按这一首失败处理，不中断整批
     """
 
     def _打桩(self, monkeypatch, 每次返回):
-        """每次返回列表的取值函数，返回几轮就取几轮，取完复用最后一个"""
+        """按列表轮流返回，取完后复用最后一个"""
         记录 = []
 
         def 取(_sid, quality=None):
@@ -382,13 +364,13 @@ class Test取链接重试:
         assert len(记录) == downloader._LINK_ATTEMPTS
 
     def test_不会无限重试(self, monkeypatch):
-        """永远取不到也只能试三次 —— 上游返回空 url 时不会卡死批次"""
+        """永远取不到也只能试三次，上游返回空 url 时不会卡死批次"""
         记录 = self._打桩(monkeypatch, [None])
         downloader._fetch_source_with_retry(1, 999)
         assert len(记录) == downloader._LINK_ATTEMPTS
 
     def test_on_retry只在还有下一次时调用(self, monkeypatch):
-        """最后一次失败之后不再提示重试，那样会显示「重试 3/3」却不再重试"""
+        """最后一次失败之后不再提示重试，那样会显示“重试 3/3”却不再重试"""
         次数 = []
         self._打桩(monkeypatch, [None, None, None])
         downloader._fetch_source_with_retry(1, 999, 次数.append)
@@ -406,7 +388,7 @@ class Test取链接重试:
         assert downloader._fetch_source_with_retry(1, 999) is None
 
     def test_音质原样传下去(self, monkeypatch):
-        """quality 是码率，不能在重试之间丢掉或写死"""
+        """quality 为码率，重试之间不能丢掉或写死"""
         看到的 = []
         音源 = self._假音源()
 
@@ -420,27 +402,17 @@ class Test取链接重试:
 
 
 class Test槽位方法的调用点:
-    """钉住 worker 循环里哪一行该调哪个方法
-
-    这段循环在 _download_one 闭包里，要跑它得拉起真线程池、mock 十来个参数，
-    测的就不是真东西了。所以这里直接读源码，钉住约定本身。
-
-    起因是踩过的坑：重试同一首时用了「释放槽位」那个方法，
-    槽位一藏就再也显不出来 —— describe 只写描述、不会把 visible 设回 True。
-    那一路进度就此静默，而那正是最需要反馈的时候。两种方法的单测都拦不住
+    """直接读源码钉住 worker 循环里的方法调用，循环在 _download_one 闭包里
+    重试同一首用了 release 会让那一路进度一直不可见
     """
 
     def _源码(self):
-        # 按相对路径找，跟 test_stream_split.py 一个路子 ——
-        # 写死绝对路径换个机器就跑不了了
+        # 按相对路径找，写死绝对路径换个机器就跑不了
         return Path("src/vncmd/downloader.py").read_text(encoding="utf-8")
 
     def _重试那一段(self):
-        """截出「重试同一首」那段
-
-        从最后一次 download_song 调用，到重试循环里的 restart 及其之后的 describe。
-        上界不能拿 release 当锚 —— 解析失败那处 release 排在重试循环之前，
-        拿它当上界会截掉整段重试逻辑
+        """从最后一次 download_song 调用截到 if attempt < 3
+        上界不能取 release，解析失败那处 release 排在重试循环之前，会截掉整段重试
         """
         源码 = self._源码()
         起 = 源码.rindex("ok, msg, _ = download_song(")
@@ -455,10 +427,8 @@ class Test槽位方法的调用点:
         )
 
     def test_每首处理完要释放槽位(self):
-        """全文件 release 与 restart 的调用点数必须对得上方法数
-
-        少调 release 槽位不会回收，多调 release 重试会静默 ——
-        两个方向都要有人盯着，所以连数量一起钉住
+        """全文件 release 与 restart 的调用点数要对得上方法数
+        少调 release 槽位不回收，多调 release 会让重试静默
         """
         源码 = self._源码()
         assert 源码.count("workers.release(task_id)") == 4
