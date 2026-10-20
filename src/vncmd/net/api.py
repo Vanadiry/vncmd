@@ -243,6 +243,34 @@ def get_song_details_many(song_ids: list[int]) -> dict[int, dict]:
     return result
 
 
+def get_publish_times(song_ids: list[int]) -> dict[int, str]:
+    """批量补发行日，只给歌单里没有日期的曲目用
+
+    v0 的 song/detail 一次能查 100 个，歌曲日与专辑日都在返回里。
+    v1 批量没有日期，所以不复用 get_song_details_many；也不写缓存，
+    避免 v0 缺 cd 污染 get_song_details 的单曲缓存。
+    """
+    result: dict[int, str] = {}
+    for start in range(0, len(song_ids), _DETAIL_BATCH_SIZE):
+        chunk = song_ids[start : start + _DETAIL_BATCH_SIZE]
+        ids = quote(json.dumps(chunk, separators=(",", ":")))
+        with suppress(Exception):
+            resp = (
+                _get_session()
+                .get(f"{_BASE_URL}/api/song/detail/?ids={ids}", timeout=20)
+                .json()
+            )
+            for song in resp.get("songs") or []:
+                sid = song.get("id")
+                if not sid:
+                    continue
+                album = song.get("album") or {}
+                result[sid] = _fmt_publish_time(
+                    song.get("publishTime") or album.get("publishTime")
+                )
+    return result
+
+
 def get_playlist_details(playlist_id: int) -> dict:
     # n 取多少都至少是 2000，限量由调用方在拿到完整列表后处理
     url = f"{_BASE_URL}/api/v6/playlist/detail/?id={playlist_id}&n=2000"
@@ -281,9 +309,13 @@ def get_playlist_details(playlist_id: int) -> dict:
 
     # Map tracks to standard format
     tracks = []
+    missing_dates = []
     for t in full_tracks:
         ar = t.get("ar") or []
         al = t.get("al") or {}
+        publish_time = _fmt_publish_time(t.get("publishTime") or al.get("publishTime"))
+        if not publish_time:
+            missing_dates.append(t["id"])
         tracks.append(
             {
                 "id": t["id"],
@@ -291,10 +323,17 @@ def get_playlist_details(playlist_id: int) -> dict:
                 "artist": _clean(", ".join(a["name"] for a in ar)),
                 "album": _clean(al.get("name", "")),
                 "cover": al.get("picUrl", ""),
-                "publish_time": _fmt_publish_time(al.get("publishTime")),
+                "publish_time": publish_time,
                 "duration": _fmt_duration(t.get("dt")),
             }
         )
+
+    # 歌单的 al 常常没有 publishTime，空日期只能再查一次 v0 批量
+    if missing_dates:
+        fallback = get_publish_times(missing_dates)
+        for track in tracks:
+            if not track["publish_time"]:
+                track["publish_time"] = fallback.get(track["id"], "")
 
     creator = pl.get("creator", {})
     return {
