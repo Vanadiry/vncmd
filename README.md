@@ -13,7 +13,7 @@
 
 - 搜索单曲（同时支持预览歌词）
 - 下载单曲/歌单/专辑（元数据嵌入、Cookie 高音质/VIP）
-- 以交错/合并/原始模式处理双语歌词
+- 以交错/合并/拆分/原始模式处理双语歌词
 - 追踪歌单等多来源，自动同步和批量下载
 - 支持仅下载歌词/封面
 - 并发下载，断点续传，自动重试，完整性校验
@@ -28,6 +28,7 @@ vncmd --init
 ```
 
 初次使用，请至少阅读[详细指南](doc/guide.md)。
+从 0.x 升级请阅读[迁移说明](MIGRATION.md)。
 
 配置和缓存默认放在 `~/.vSoft/vncmd/`，可通过环境变量 `VNCMD_HOME` 自定义。  
 下载目录默认 `~/Downloads/vncmd-dl/`，在配置文件中可修改。
@@ -44,7 +45,7 @@ vncmd search "Beyond"
 vncmd song 409926           # 预览单曲
 vncmd song 409926 -d        # 下载单曲
 vncmd playlist 17647459371  # 预览歌单
-vncmd playlist 17647459371 -d -n 5  # 下载歌单前5首
+vncmd playlist 17647459371 -d -c 5  # 下载歌单前 5 首
 vncmd album 405493 -d       # 下载专辑
 
 # 设置 Cookie

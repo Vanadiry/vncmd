@@ -15,15 +15,15 @@
 | `song <ID>` | 预览单曲 |
 | `playlist <ID>` | 预览歌单 |
 | `album <ID>` | 预览专辑 |
-| `tracker <名称>` | 新建/查看 Tracker |
+| `song <ID> -d` | 下载单曲 |
+| `playlist <ID> -d` | 下载歌单 |
+| `album <ID> -d` | 下载专辑 |
+| `tracker <名称>` | 新建或查看 Tracker |
 | `cookie "..."` | 写入 Cookie |
-| `cookie --check` | 不写文件，只检查当前 Cookie 状态 |
+| `cookie --check` | 检查 Cookie 状态 |
 | `tool check "文件或目录"` | 校验音频完整性 |
 
-对于 `song/playlist/album` 的参数：
-
-- `-d`：加入 `-d` 即为下载。
-- `-n`：使用 `-n <数字>` 限制下载或查询数量。不加时查询默认 10，下载默认全量。
+对于 `song/playlist/album`，传入 `-d` 参数，可以下载对应内容。  
 
 详细参数见 [music](music.md)。
 

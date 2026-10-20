@@ -136,7 +136,7 @@ vncmd --config download.audio.quality=320 --config download.dir=/tmp song 274296
 
 启用后，会删除歌词中的以下内容：
 
-- 含“纯音乐，请欣赏”的行
+- 整行为“纯音乐，请欣赏”的行
 - 值为“无”的 credit 行，例如 `作词 : 无`
 - 角色名为“歌词翻译”或“歌詞翻譯”的行
 
@@ -148,7 +148,7 @@ vncmd --config download.audio.quality=320 --config download.dir=/tmp song 274296
 
 扫描 credit 数据的行数。默认 `10`。在启用 `auto_trim` 或 `parse_credits` 时生效。
 
-检测 `parse_credits` 或 `auto_trim` 中记录的要删除的行，只扫描歌词前 N 行。  
+检测 `parse_credits` 或 `auto_trim` 中记录的要删除的行，只扫描前 N 行非元数据歌词。  
 这能避免将正文中出现的角色关键词误判为 credit。
 
 ## [download.cover]
