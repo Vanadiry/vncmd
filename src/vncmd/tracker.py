@@ -154,7 +154,7 @@ def save_songs_db(name: str, songs: list[dict]) -> None:
 def save_diff(name: str, comparison: dict) -> None:
     diff = {
         "updated_at": datetime.now(UTC).strftime("%Y-%m-%dT%H:%M:%SZ"),
-        "added": [{"id": s["id"], "title": s["title"]} for s in comparison["added"]],
+        "added": [s["id"] for s in comparison["added"]],
         "removed": [
             {"id": s["id"], "title": s["title"]} for s in comparison["removed"]
         ],
@@ -598,8 +598,12 @@ def download_diff(name: str, quality: int, output_dir: str) -> None:
         return
 
     if added:
+        # -fF 是升级前提，added 的 id 都在 songs.json 里；
+        # 不跑 -fF 导致的缺失不处理，直接按 id 取
+        songs_by_id = {s["id"]: s for s in load_songs_db(name)}
+        added_songs = [songs_by_id[sid] for sid in added]
         _, _, session_dir = download_song_batch(
-            added,
+            added_songs,
             quality,
             output_dir,
             dl_type="tracker",

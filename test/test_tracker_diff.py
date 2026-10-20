@@ -31,10 +31,22 @@ def ns(**kw):
 
 DIFF = {
     "updated_at": "2026-10-01T00:00:00Z",
-    "added": [{"id": 3, "title": "新来的"}],
+    "added": [3],
     "removed": [{"id": 1, "title": "被删了"}],
     "changed": [{"id": 2, "title_old": "旧名", "title_new": "新名"}],
 }
+
+
+SONGS = [
+    {"id": 1, "title": "被删了", "artist": "A", "publish_time": ""},
+    {"id": 2, "title": "旧名", "artist": "A", "publish_time": ""},
+    {
+        "id": 3,
+        "title": "新来的",
+        "artist": "A",
+        "publish_time": "2021-01-01 08:00:00",
+    },
+]
 
 
 @pytest.fixture
@@ -42,6 +54,10 @@ def ready(monkeypatch, tmp_path):
     (tmp_path / "like").mkdir()
     monkeypatch.setattr(tracker, "_tracker_path", lambda name: tmp_path / name)
     monkeypatch.setattr(tracker, "load_diff", lambda name: dict(DIFF))
+    (tmp_path / "like" / "songs.json").write_text(
+        json.dumps({"updated_at": "", "songs": SONGS}, ensure_ascii=False),
+        encoding="utf-8",
+    )
     return tmp_path
 
 
@@ -113,7 +129,9 @@ class Testchanged不再被丢:
 
     def test_added不写进这个文件(self):
         """added 是下载下去的，文件记的是「变了但不用下载的」"""
-        assert "新来的" not in tracker._diff_note(DIFF)
+        note = tracker._diff_note(DIFF)
+        assert "新来的" not in note
+        assert "3" not in note
 
     def test_标题写明两类各多少(self):
         note = tracker._diff_note(DIFF)
@@ -129,6 +147,20 @@ class Testchanged不再被丢:
         assert tracker._diff_note({"removed": [], "changed": []}).strip() == ""
 
 
+class Test保存diff:
+    def test_added只存id(self, ready):
+        comparison = {
+            "added": [{"id": 3, "title": "新来的", "artist": "A"}],
+            "removed": [{"id": 1, "title": "被删了"}],
+            "changed": [({"id": 2, "title": "旧名"}, {"id": 2, "title": "新名"})],
+        }
+        tracker.save_diff("like", comparison)
+        data = json.loads((ready / "like" / "diff.json").read_text(encoding="utf-8"))
+        assert data["added"] == [3]
+        assert data["removed"] == [{"id": 1, "title": "被删了"}]
+        assert data["changed"] == [{"id": 2, "title_old": "旧名", "title_new": "新名"}]
+
+
 class Test下载diff落盘:
     def _fake_batch(self, monkeypatch, out):
         """假装真的下载过：得把会话目录建出来，代码才会往里写文件"""
@@ -139,6 +171,19 @@ class Test下载diff落盘:
             return 1, 0, str(session)
 
         monkeypatch.setattr(tracker, "download_song_batch", fake)
+
+    def test_added按id回songs_json取整条(self, ready, monkeypatch, tmp_path):
+        got = {}
+
+        def fake(songs, *_a, **_k):
+            got["songs"] = songs
+            session = tmp_path / "out" / "session"
+            session.mkdir(parents=True, exist_ok=True)
+            return 1, 0, str(session)
+
+        monkeypatch.setattr(tracker, "download_song_batch", fake)
+        tracker.download_diff("like", 320, str(tmp_path / "out"))
+        assert got["songs"] == [SONGS[2]]
 
     def test_写changed_txt而不是removed_txt(self, ready, monkeypatch, tmp_path):
         """跑一次 --diff 只该拿一个文件，分成两个要自己记得上次那个还在不在"""
@@ -186,7 +231,7 @@ class TestJsonDiff:
         data, _out, _err = parsed(capsys)
         got = data["tracker"]["diff"]
         assert set(got) >= {"added", "removed", "changed"}
-        assert len(got["added"]) == 1
+        assert got["added"] == [3]
         assert len(got["removed"]) == 1
         assert len(got["changed"]) == 1
 
