@@ -47,7 +47,7 @@ jobs:
       - name: Build (Windows)
         if: runner.os == 'Windows'
         run: |
-          uv run nuitka --standalone --onefile --output-dir=dist --output-filename=vncmd vncmd.py --msvc=latest --assume-yes-for-downloads
+          uv run nuitka --standalone --onefile --output-dir=dist --output-filename=vncmd vncmd.py --msvc=latest --include-package-data=tzdata --assume-yes-for-downloads
 
       - name: Package binary
         shell: bash
