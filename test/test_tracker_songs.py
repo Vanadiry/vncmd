@@ -179,11 +179,6 @@ class TestPublishTime入库:
         )
         assert fresh[1]["publish_time"] == "2021-01-01 08:00:00"
 
-    def test_老库没有publish_time键(self):
-        old = db(with_artist=False)["songs"][0]
-        assert "publish_time" not in old
-        assert old.get("publish_time", "") == ""
-
 
 class Test面板给设置路径:
     def test_路径用波浪号(self, ready, monkeypatch, capsys):

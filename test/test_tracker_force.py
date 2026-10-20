@@ -5,6 +5,7 @@
 """
 
 import argparse
+import json
 
 import pytest
 
@@ -31,7 +32,15 @@ SETTINGS = {"description": "d", "sources": [{"type": "playlist", "ids": [1]}]}
 
 
 def songs(n=5):
-    return [{"id": i, "title": f"T{i}", "artist": "A"} for i in range(1, n + 1)]
+    return [
+        {
+            "id": i,
+            "title": f"T{i}",
+            "artist": "A",
+            "publish_time": f"2021-01-0{i} 08:00:00",
+        }
+        for i in range(1, n + 1)
+    ]
 
 
 @pytest.fixture
@@ -142,6 +151,12 @@ class TestForce:
         monkeypatch.setattr(tracker, "save_songs_db", lambda n, s: None)
         tracker.cmd_tracker(ns(fetch=True, force=True))
         assert "5 首" in capsys.readouterr().err
+
+    def test_覆盖后songs_json带publish_time(self, ready):
+        """-fF 是升级前提，覆盖一次就把日期写进库"""
+        tracker.cmd_tracker(ns(fetch=True, force=True))
+        data = json.loads((ready / "like" / "songs.json").read_text(encoding="utf-8"))
+        assert data["songs"][0]["publish_time"] == "2021-01-01 08:00:00"
 
     def test_不弹交互(self, ready, monkeypatch):
         monkeypatch.setattr(
