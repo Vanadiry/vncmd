@@ -40,7 +40,7 @@ uv sync
 ## 测试
 
 ```bash
-pytest test/ [-v] [--cov] [-m "not network"]
+uv run pytest test/ [-v] [-m "not network"] [--cov=vncmd --cov-report=term-missing]
 ```
 
 ## 发版
@@ -48,6 +48,7 @@ pytest test/ [-v] [--cov] [-m "not network"]
 ```bash
 uv run tools/clean.py
 # 更新 pyproject.toml version
+uv lock
 uv build
 uv run twine upload dist/*
 ```
