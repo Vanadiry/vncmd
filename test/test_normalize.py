@@ -49,8 +49,8 @@ def test_缺键与值为null结果一致():
 
 
 def test_字段齐全时照常取出():
-    # 发行时间是 _normalize_song 内部转的，时区必须罩住整个调用而不是只罩断言
-    with as_tz("Asia/Shanghai"):
+    # 发行时间固定按上海算，进程时区设成 UTC 也要得到上海日期
+    with as_tz("UTC"):
         r = _norm(
             ar=[{"name": "人"}],
             al={"name": "专", "id": 9, "picUrl": "u", "publishTime": 1314864000000},

@@ -21,7 +21,7 @@ PLAYLIST_ID = 17647459371
 SONG_ID = 22699098
 ALBUM_ID = 123388631
 
-# 网易云给的是毫秒，这个值在 UTC 下是 2011-09-01 08:00:00，UTC+8 下是 16:00:00
+# 网易云给的是毫秒，这个值在 UTC 下是 2011-09-01 08:00:00，上海时间下是 16:00:00
 SAMPLE_MS = 1314864000000
 
 
@@ -31,10 +31,9 @@ if hasattr(time, "tzset"):
     def as_tz(name):
         """Temporarily pin the process timezone, restoring it afterwards
 
-        发行时间走的是 time.localtime，本地时区是有意为之的行为。
-        但断言若直接写死某个时刻的墙上时间，等于把作者本机的时区
-        当成了常量：写测试时是 UTC+8，换到 UTC 的 CI runner 上就成了
-        08:00:00。断言前钉住时区，既有确定值又真正验证了换算本身。
+        发行时间固定按 Asia/Shanghai 算，不再走本地时区。
+        这个夹具留在这里，是为了在测试里把进程时区设成 UTC，
+        验证结果不受本机时区影响；其他依赖本地时区的逻辑也能继续用。
 
         改了 TZ 必须调 tzset，否则 C 库不会重新读取。
         """

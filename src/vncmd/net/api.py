@@ -1,9 +1,11 @@
+import datetime
 import json
 import re
 import time
 from contextlib import suppress
 from threading import Lock
 from urllib.parse import quote
+from zoneinfo import ZoneInfo
 
 import requests
 from requests.adapters import HTTPAdapter
@@ -87,10 +89,11 @@ def _get_session() -> requests.Session:
 
 
 def _fmt_publish_time(ts: int | None) -> str:
-    if ts is None:
+    # 上游的 0 与缺失都表示没有发行日期，不能格式化成 1970
+    if not ts:
         return ""
-    t = time.localtime(ts / 1000)
-    return time.strftime("%Y-%m-%d %H:%M:%S", t)
+    t = datetime.datetime.fromtimestamp(ts / 1000, tz=ZoneInfo("Asia/Shanghai"))
+    return t.strftime("%Y-%m-%d %H:%M:%S")
 
 
 def _fmt_duration(ms: int | None) -> str:
