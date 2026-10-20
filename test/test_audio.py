@@ -1,3 +1,6 @@
+import pytest
+
+from vncmd.core import config as config_mod
 from vncmd.media.audio import (
     _MAX_FILENAME_BYTES,
     build_filename,
@@ -89,3 +92,42 @@ class TestResolvePath:
         open(p1, "w").close()
         p2 = resolve_path("__unique_test__", "tmp", temp_dir)
         assert p1 != p2
+
+
+@pytest.fixture
+def fmt(monkeypatch):
+    def _set(value):
+        monkeypatch.setattr(
+            config_mod, "_cfg", {"download": {"filename_artist": value}}
+        )
+
+    return _set
+
+
+class TestBuildFilenameConfig:
+    def test_艺术家为空不留尾随空格(self, fmt):
+        fmt("back")
+        assert build_filename("Song", "")[0] == "Song"
+
+    def test_标题含空格也没问题(self, fmt):
+        fmt("back")
+        assert build_filename("-let's go to the sea", "")[0] == "-let's go to the sea"
+
+    def test_艺术家为空且位置在前(self, fmt):
+        fmt("front")
+        assert build_filename("Song", "")[0] == "Song"
+
+    def test_两段齐全时保持原样(self, fmt):
+        fmt("back")
+        assert build_filename("正常歌", "Someone")[0] == "正常歌 - Someone"
+        fmt("front")
+        assert build_filename("正常歌", "Someone")[0] == "Someone - 正常歌"
+
+    def test_丢弃艺术家不受影响(self, fmt):
+        fmt("drop")
+        assert build_filename("Song", "Someone")[0] == "Song"
+
+    def test_文件名首尾无空白(self, fmt):
+        fmt("back")
+        name = build_filename("Song", "")[0]
+        assert name == name.strip()

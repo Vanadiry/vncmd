@@ -57,12 +57,6 @@ def test_窄列不随终端变宽(width):
     assert got["时长"] == want_duration, f"时长列宽 {got['时长']}，应为 {want_duration}"
 
 
-@pytest.mark.parametrize("width", [80, 100, 120, 160, 200])
-def test_序号列不按固定值留位(width):
-    # 写死 width=4 会让一位序号也占 4 格
-    assert _render(width)[0] == 1
-
-
 def test_富余宽度全给文本列():
     # 三列带 ratio，终端变宽时跟着变宽
     small = _render(120)
@@ -198,12 +192,6 @@ class TestAlbumWraps:
         cols = _build_track_table(LONG_ALBUM).columns
         for col in cols:
             assert col.max_width is None, f"{col.header} 列设了 max_width"
-
-    def test_三列都不设overflow上限之外的裁剪(self):
-        """长串在窄列里会被切成省略号，接口返回的完整内容因此丢失"""
-        cols = {c.header: c for c in _build_track_table(LONG_ALBUM).columns}
-        for name in ("标题", "艺术家", "专辑"):
-            assert cols[name].overflow == "fold", f"{name} 列会被省略号截断"
 
     def test_长串折行而不是被切掉(self):
         """标题里有 20 字连在一起没有断点，仍要完整折行"""

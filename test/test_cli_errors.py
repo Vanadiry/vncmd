@@ -6,6 +6,7 @@ import pytest
 
 from vncmd import commands
 from vncmd.cli import build_parser
+from vncmd.net import api
 
 
 def _报错(argv):
@@ -107,3 +108,33 @@ class Test其他用法错误:
     def test退出码都是二(self, argv):
         """用法错误统一退 2，脚本分“用法错”与“跑失败”只需记两个值"""
         assert _报错(argv) == 2
+
+
+class Test搜索失败:
+    def test_api层不自带前缀(self, monkeypatch):
+        class FakeResp:
+            def json(self):
+                return {"code": 400}
+
+        class FakeSession:
+            def get(self, *a, **k):
+                return FakeResp()
+
+        monkeypatch.setattr(api, "_get_session", lambda: FakeSession())
+        with pytest.raises(ValueError) as exc:
+            api.search("x", limit=10, offset=0)
+        msg = str(exc.value)
+        assert msg.startswith("{"), f"api 层带了前缀：{msg}"
+        assert "搜索失败" not in msg
+
+    def test命令层拼起来只有一遍(self, monkeypatch, capsys):
+        def boom(*a, **k):
+            raise ValueError("{'code': 400}")
+
+        monkeypatch.setattr(commands, "search", boom)
+        with pytest.raises(SystemExit):
+            commands.cmd_search(
+                argparse.Namespace(query="x", count=10, offset=0, json=True)
+            )
+        err = capsys.readouterr().err
+        assert err.count("搜索失败") == 1, f"叠词了：{err}"

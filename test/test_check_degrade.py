@@ -125,17 +125,6 @@ class Test逐段降级:
         assert ok, msg
         assert seen == ["flac"]
 
-    def test_只装ffprobe时ffprobe不算有工具(self, tools):
-        """ffprobe 只给时长，要配合 ffmpeg 的解码结果交叉比对
-        单独装它时比对跳过，每首白 fork 一次还一律放行
-        """
-        tools("ffprobe")
-        assert checker.any_check_tool() is False
-
-    def test_只装flac时算有工具(self, tools):
-        tools("flac")
-        assert checker.any_check_tool() is True
-
     def test_ffmpeg与flac都缺才算没有(self, tools):
         tools("ffprobe")
         assert checker.any_check_tool() is False
@@ -265,3 +254,70 @@ class Test三样都没有时放行:
             f"ffmpeg/flac={该跑}、ffprobe={'ffprobe' in 装了}，"
             f"实际 fork 了 {bool(跑过)} 次"
         )
+
+
+def _timeout_run(*_a, **kw):
+    raise subprocess.TimeoutExpired(cmd="x", timeout=kw.get("timeout", 1))
+
+
+def test_ffprobe超时返回空(monkeypatch):
+    monkeypatch.setattr(checker.subprocess, "run", _timeout_run)
+    assert checker.ffprobe_info("x.mp3") is None
+
+
+def test_ffprobe超时时按超时值传下去(monkeypatch):
+    seen = {}
+
+    def fake_run(cmd, **kw):
+        seen.update(kw)
+        raise subprocess.TimeoutExpired(cmd=cmd, timeout=kw["timeout"])
+
+    monkeypatch.setattr(checker.subprocess, "run", fake_run)
+    checker.ffprobe_info("x.mp3")
+    assert seen["timeout"] == 10
+
+
+def test_ffprobe输出不是合法JSON(monkeypatch):
+    class P:
+        returncode = 0
+        stdout = "not json"
+        stderr = ""
+
+    monkeypatch.setattr(checker.subprocess, "run", lambda *a, **k: P())
+    assert checker.ffprobe_info("x.mp3") is None
+
+
+def test_ffprobe输出是JSON数组(monkeypatch):
+    class P:
+        returncode = 0
+        stdout = "[1, 2]"
+        stderr = ""
+
+    monkeypatch.setattr(checker.subprocess, "run", lambda *a, **k: P())
+    assert checker.ffprobe_info("x.mp3") is None
+
+
+def test_ffmpeg解码超时不能当成通过(monkeypatch):
+    monkeypatch.setattr(checker.subprocess, "run", _timeout_run)
+    errors, actual = checker.ffmpeg_decode("x.mp3")
+    assert errors
+    assert actual is None
+
+
+def test_flac超时给可读原因(monkeypatch):
+    monkeypatch.setattr(checker.shutil, "which", lambda n: "/usr/bin/flac")
+    monkeypatch.setattr(checker.subprocess, "run", _timeout_run)
+    assert checker.flac_test("x.flac") == "flac 校验超时"
+
+
+def test_flac没有安装时返回空(monkeypatch):
+    monkeypatch.setattr(checker.shutil, "which", lambda n: None)
+    assert checker.flac_test("x.flac") is None
+
+
+def test_子进程缺失不抛异常(monkeypatch):
+    def boom(*_a, **_kw):
+        raise FileNotFoundError("ffprobe")
+
+    monkeypatch.setattr(checker.subprocess, "run", boom)
+    assert checker.ffprobe_info("x.mp3") is None

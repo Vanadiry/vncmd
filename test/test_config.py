@@ -1,7 +1,9 @@
+import stat
 from pathlib import Path
 
 import pytest
 
+from vncmd.core import config as config_mod
 from vncmd.core.config import (
     CONFIG_FILE,
     CONTENT_LETTERS,
@@ -790,3 +792,31 @@ class Testtranslate要配合lyric:
                 translate=True,
             )
         )
+
+
+class TestGetCookie:
+    def test_文件不存在返回空串(self, monkeypatch, tmp_path):
+        monkeypatch.setattr(config_mod, "COOKIE_FILE", tmp_path / "none")
+        assert get_cookie() == ""
+
+    def test_读不了不抛异常(self, monkeypatch, tmp_path):
+        cookie = tmp_path / "cookie"
+        cookie.write_text("a=b", encoding="utf-8")
+        cookie.chmod(0)
+        monkeypatch.setattr(config_mod, "COOKIE_FILE", cookie)
+        try:
+            assert get_cookie() == ""
+        finally:
+            cookie.chmod(stat.S_IRUSR | stat.S_IWUSR)
+
+    def test_编码错误不抛异常(self, monkeypatch, tmp_path):
+        cookie = tmp_path / "cookie"
+        cookie.write_bytes(b"\xff\xfe\x00bad")
+        monkeypatch.setattr(config_mod, "COOKIE_FILE", cookie)
+        assert get_cookie() == ""
+
+    def test_正常读取(self, monkeypatch, tmp_path):
+        cookie = tmp_path / "cookie"
+        cookie.write_text("  MUSIC_U=\u4f60\u597d  \n", encoding="utf-8")
+        monkeypatch.setattr(config_mod, "COOKIE_FILE", cookie)
+        assert get_cookie() == "MUSIC_U=\u4f60\u597d"

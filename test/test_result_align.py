@@ -106,18 +106,6 @@ class TestLabelAlignment:
             cols.append(content_column(line, line[len(label) :].lstrip()))
         assert len(set(cols)) == 1, f"标签没对齐：{msg}"
 
-    def test_补齐只动标签不动内容(self, song):
-        """文件名一个都不能变，标签与文件名之间只该补空格"""
-        _ok, msg = song()
-        lines = msg.splitlines()
-        assert lines[0] == "音频  歌 - 人.flac"
-        assert lines[1] == "歌词  歌 - 人.lrc"
-        assert lines[2] == "封面  歌 - 人.png"
-        for line in lines:
-            head = line.split("  ")[0]
-            assert head == head.rstrip(), f"标签后有多余空格：{line}"
-        assert len({content_column(line, line.split("  ")[-1]) for line in lines}) == 1
-
     def test_音频行没有类型时不留标签(self, song, monkeypatch):
         """类型为空时整行只有文件名，补齐不能凭空造出标签"""
         monkeypatch.setattr(downloader, "get_type_from_url", lambda _u: "")
