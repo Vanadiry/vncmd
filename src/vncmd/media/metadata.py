@@ -91,7 +91,7 @@ def _embed_mp3(
             # 只写 TDRL。publish_time 是发行时间，而 ID3v2.4 §4.2.5 里
             # TDRC 是录制时间、TDRL 才是发行时间 —— 填错语义比不填更糟。
             # 顺带解决 ffprobe 把两帧都映射成 date 那个键、导致它出现两次
-            _set_text(tags, "TDRL", TDRL, pt.strftime("%Y-%m-%dT%H:%M"))
+            _set_text(tags, "TDRL", TDRL, pt.strftime("%Y-%m-%d"))
 
     if track_no is not None:
         _set_text(tags, "TRCK", TRCK, str(track_no))

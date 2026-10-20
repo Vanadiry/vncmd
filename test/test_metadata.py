@@ -101,8 +101,11 @@ class TestMp3Embed:
             publish_time="2023-01-01 00:00:00",
         )
         raw = Path(path).read_bytes()
+        assert str(_text(MP3(path).tags, "TDRL")) == "2023-01-01"
         assert b"TDRL" in raw
-        assert b"\x032023-01-01T00:00" in raw
+        assert b"\x032023-01-01" in raw
+        assert b"2023-01-01T00:00" not in raw
+        assert b"2023-01-01 00:00" not in raw
         assert b"TDRC" not in raw, "TDRC 是录制时间，不该拿发行时间去填"
 
     def test_publish_time为空时不写日期(self, temp_dir):
@@ -246,6 +249,7 @@ class TestFlacEmbed:
         assert flac.get("title", [""])[0] == "TF"
         assert flac.get("artist", [""])[0] == "AF"
         assert flac.get("album", [""])[0] == "ALF"
+        assert flac.get("date", [""])[0] == "2024-06-15"
         assert flac.get("tracknumber", [""])[0] == "5"
         assert flac.get("discnumber", [""])[0] == "1"
         assert len(flac.pictures) > 0
