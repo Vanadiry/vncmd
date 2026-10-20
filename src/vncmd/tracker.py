@@ -7,6 +7,7 @@ import sys
 import tomllib
 from datetime import UTC, datetime
 from pathlib import Path
+from zoneinfo import ZoneInfo
 
 import questionary
 from rich.markup import escape
@@ -209,6 +210,17 @@ def _display_songs(songs: list[dict], offset: int) -> None:
     console.print(table)
 
 
+def _format_updated_at(value: str) -> str:
+    """把 UTC 时间戳转成上海时间显示"""
+    if not value:
+        return ""
+    try:
+        stamp = datetime.strptime(value, "%Y-%m-%dT%H:%M:%SZ").replace(tzinfo=UTC)
+    except ValueError:
+        return value
+    return stamp.astimezone(ZoneInfo("Asia/Shanghai")).strftime("%Y-%m-%d %H:%M:%S")
+
+
 def show_tracker(
     name: str, updated_at: str = "", max_tracks: int = 10, offset: int = 0
 ) -> None:
@@ -228,7 +240,7 @@ def show_tracker(
     header.append(f"{settings['description']}\n", style="yellow")
     # 更新于只能从这里看出，旧库与刚拉的曲目表相同
     header.append("更新于：", style="dim")
-    header.append(f"{updated_at}\n", style="green")
+    header.append(f"{_format_updated_at(updated_at)}\n", style="green")
     header.append("已缓存曲目：", style="dim")
     header.append(f"{total}\n", style="green")
     # 来源由用户维护，这里只给设置文件路径
