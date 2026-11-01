@@ -156,3 +156,20 @@ def test_embed的位置传参与真签名对得上(harness, monkeypatch):
     assert bound.arguments["song_album"] == "B"
     assert bound.arguments["music_type"] == "flac"
     assert bound.arguments["track_id"] == 1
+
+
+def test_关闭track_id时传入None(harness, monkeypatch):
+    """配置关闭后仍保留歌名等标签，只是不写 track_id"""
+    _calls, tmp = harness
+    seen = {}
+    monkeypatch.setattr(
+        downloader, "embed_metadata", lambda *a, **k: seen.update(a=a, k=k)
+    )
+    monkeypatch.setattr(downloader, "get_embed_track_id", lambda: False)
+
+    ok, _msg, _ = run(tmp)
+    assert ok
+    bound = inspect.signature(metadata.embed).bind(*seen["a"], **seen["k"])
+    bound.apply_defaults()
+    assert bound.arguments["track_id"] is None
+    assert bound.arguments["song_title"] == "T"

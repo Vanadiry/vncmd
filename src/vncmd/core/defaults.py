@@ -20,6 +20,8 @@ curl_arg = ""
 quality = "max"
 # 从歌词头解析“作曲人”并嵌入元数据
 parse_credits = false
+# 新下载音频是否写入 track_id 标签
+embed_track_id = true
 
 [download.lyric]
 # 嵌入译文时，与原文的合并模式：line=交错，block=拼接，drop=丢弃译文

@@ -15,8 +15,8 @@ from vncmd.core import schema
     re.search(r'CONFIG_TOML = """\\\n(.*?)\n"""', 模板, re.S).group(1)
 )
 
-# 表里十八项及其在配置里的路径
-# 前六项为枚举项，后十二项为类型与范围项，分开列便于两组分别取用
+# 表里十九项及其在配置里的路径
+# 前六项为枚举项，后十三项为类型与范围项，分开列便于两组分别取用
 枚举六项 = [
     "download.filename_artist",
     "download.content",
@@ -26,12 +26,13 @@ from vncmd.core import schema
     "download.downloader",
 ]
 
-其余十二项 = [
+其余十三项 = [
     "download.dir",
     "download.concurrency",
     "download.check",
     "download.curl_arg",
     "download.audio.parse_credits",
+    "download.audio.embed_track_id",
     "download.lyric.auto_trim",
     "download.lyric.credit_scan_lines",
     "download.cover.embed_compress",
@@ -41,7 +42,7 @@ from vncmd.core import schema
     "display.artist_color",
 ]
 
-全部 = 枚举六项 + 其余十二项
+全部 = 枚举六项 + 其余十三项
 
 
 def 改配置(路径: str, 值):
@@ -119,7 +120,7 @@ class Test表的形状:
         for s in schema.SCHEMA:
             assert s.default is not None, f"{s.path} 缺键不报错却没有默认值可回落"
 
-    def test_lookup查得到全部十八项(self):
+    def test_lookup查得到全部十九项(self):
         for 路径 in 全部:
             assert schema.get(路径) is not None, 路径
 
@@ -332,6 +333,7 @@ class Test表与getter不各说各话:
             "download.check",
             "download.curl_arg",
             "download.audio.parse_credits",
+            "download.audio.embed_track_id",
             "download.lyric.auto_trim",
             "download.lyric.credit_scan_lines",
             "download.cover.embed_compress",
@@ -350,7 +352,7 @@ class Test表与getter不各说各话:
 
 
 class Test类型与范围:
-    """其余十二项，每一条都对着一个坏处：静默降级、界面看不出来或崩出调用栈"""
+    """其余十三项，每一条都对着一个坏处：静默降级、界面看不出来或崩出调用栈"""
 
     def test_整数不接受布尔(self):
         """isinstance(True, int) 为真，concurrency = true 会静默降成单线程"""
@@ -397,7 +399,7 @@ class Test类型与范围:
         """enabled = 0 恰好为假值所以蒙得过去，路径从表里推才不会漏项"""
         布尔的 = [s.path for s in schema.SCHEMA if s.kind == "bool"]
         # 钉住数目，表里加布尔项时这条会提醒，报错里会列出名字
-        assert len(布尔的) == 7, f"表里的布尔项变了，现在是 {布尔的}"
+        assert len(布尔的) == 8, f"表里的布尔项变了，现在是 {布尔的}"
         for 路径 in 布尔的:
             错 = schema.validate(改配置(路径, 0))
             assert len(错) == 1, f"{路径} 竟然放过了整数"

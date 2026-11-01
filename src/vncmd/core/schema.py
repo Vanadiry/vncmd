@@ -131,6 +131,12 @@ SCHEMA = (
         wrong_value="不合法，应当为 true 或 false",
     ),
     Setting(
+        "download.audio.embed_track_id",
+        "bool",
+        default=True,
+        wrong_value="不合法，应当为 true 或 false",
+    ),
+    Setting(
         "download.lyric.auto_trim",
         "bool",
         default=False,

@@ -33,6 +33,7 @@ from vncmd.core.config import (
     get_download_dir,
     get_embed_cover_compress,
     get_embed_lyrics_mode,
+    get_embed_track_id,
     get_parse_credits,
     get_save_cover_compress,
     get_save_lyrics_mode,
@@ -399,7 +400,7 @@ def download_song(
             track_no,
             cd_no,
             credits or None,
-            song_id,
+            song_id if get_embed_track_id() else None,
         )
         if embed_err:
             # 音频已通过校验，标签失败不判整首失败，但要提示

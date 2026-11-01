@@ -237,6 +237,10 @@ def get_parse_credits() -> bool:
     return value_of(_get_cfg(), "download.audio.parse_credits")
 
 
+def get_embed_track_id() -> bool:
+    return value_of(_get_cfg(), "download.audio.embed_track_id")
+
+
 def get_auto_trim() -> bool:
     return value_of(_get_cfg(), "download.lyric.auto_trim")
 

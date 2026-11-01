@@ -108,6 +108,13 @@ vncmd --config download.audio.quality=320 --config download.dir=/tmp song 274296
 - `混音/母带`：记录混音，母带保留
 - `作/編曲`、`作编曲`、`作曲/编曲`等：记录作曲和编曲
 
+### embed_track_id
+
+新下载音频是否写入 track_id 标签。默认 `true`。
+
+启用后，会为音频元数据的自定义标签位置，写入 `track_id` 标签，内容为上游曲目 ID。  
+这是为之后的“升级音质”、“刷新元数据”等功能做准备。
+
 ## [download.lyric]
 
 ### embed_mode

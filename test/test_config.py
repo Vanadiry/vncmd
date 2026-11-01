@@ -17,6 +17,7 @@ from vncmd.core.config import (
     get_download_dir,
     get_embed_cover_compress,
     get_embed_lyrics_mode,
+    get_embed_track_id,
     get_filename_artist,
     get_quality,
     get_save_cover_compress,
@@ -85,6 +86,9 @@ class TestGetters:
 
     def test_embed_cover_compress(self):
         assert isinstance(get_embed_cover_compress(), bool)
+
+    def test_embed_track_id(self):
+        assert get_embed_track_id() is True
 
     def test_save_cover_compress(self):
         assert isinstance(get_save_cover_compress(), bool)
