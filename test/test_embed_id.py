@@ -7,7 +7,7 @@ import struct
 import pytest
 
 from vncmd import commands
-from vncmd.media.metadata import read_track_id, write_track_id
+from vncmd.media.metadata import embed, read_track_id, write_track_id
 
 # MPEG1 Layer3 128kbps 44100Hz 一帧为帧头 4 字节加 413 字节数据
 _MP3_FRAME = b"\xff\xfb\x90\x00" + b"\x00" * 413
@@ -28,6 +28,26 @@ def _make_flac(path):
         b"\x00" * 16,
     )
     path.write_bytes(b"fLaC\x80\x00\x00\x22" + si)
+
+
+def _tagged_flac(path, title, artist):
+    _make_flac(path)
+    embed(
+        str(path),
+        "flac",
+        cover_data=None,
+        cover_mime=None,
+        lyric_text=None,
+        song_title=title,
+        song_artist=artist,
+        song_album=None,
+        publish_time=None,
+    )
+
+
+def _songs_source(path, *songs):
+    path.write_text(json.dumps({"songs": list(songs)}), encoding="utf-8")
+    return path
 
 
 def ns(path, *, set_id=None, from_file=None, recursive=False):
@@ -159,6 +179,112 @@ class TestSet写入:
         assert read_track_id(str(audio_file)) == ["3424255901"]
 
 
+class Test自动写入:
+    def test_唯一命中写入(self, capsys, monkeypatch, tmp_path):
+        path = tmp_path / "a.flac"
+        _tagged_flac(path, "T", "A")
+        source = _songs_source(
+            tmp_path / "songs.json", {"id": 123, "title": "T", "artist": "A"}
+        )
+
+        commands.cmd_embed_id(ns(path, from_file=source))
+
+        assert read_track_id(str(path)) == ["123"]
+        assert "写入" in capsys.readouterr().err
+
+    def test_已有相同值不写(self, capsys, monkeypatch, tmp_path):
+        path = tmp_path / "a.flac"
+        _tagged_flac(path, "T", "A")
+        write_track_id(str(path), 123)
+        source = _songs_source(
+            tmp_path / "songs.json", {"id": 123, "title": "T", "artist": "A"}
+        )
+        called = []
+        monkeypatch.setattr(commands, "write_track_id", lambda *a: called.append(a))
+
+        commands.cmd_embed_id(ns(path, from_file=source))
+
+        assert called == []
+        assert "已是最新" in capsys.readouterr().err
+
+    def test_已有不同值报冲突(self, capsys, tmp_path):
+        path = tmp_path / "a.flac"
+        _tagged_flac(path, "T", "A")
+        write_track_id(str(path), 999)
+        source = _songs_source(
+            tmp_path / "songs.json", {"id": 123, "title": "T", "artist": "A"}
+        )
+
+        commands.cmd_embed_id(ns(path, from_file=source))
+
+        assert read_track_id(str(path)) == ["999"]
+        err = capsys.readouterr().err
+        assert "冲突" in err
+        assert "匹配到 123" in err
+        assert "--set" not in err
+
+    def test_歧义不写(self, capsys, tmp_path):
+        path = tmp_path / "a.flac"
+        _tagged_flac(path, "T", "A")
+        source = _songs_source(
+            tmp_path / "songs.json",
+            {"id": 1, "title": "T", "artist": "A"},
+            {"id": 2, "title": "T", "artist": "A"},
+        )
+
+        commands.cmd_embed_id(ns(path, from_file=source))
+
+        assert read_track_id(str(path)) == []
+        assert "匹配到多个候选" in capsys.readouterr().err
+
+    def test_按标题兜底写入(self, capsys, tmp_path):
+        path = tmp_path / "a.flac"
+        _tagged_flac(path, "T", "A")
+        source = _songs_source(
+            tmp_path / "songs.json", {"id": 123, "title": "T", "artist": "B"}
+        )
+
+        commands.cmd_embed_id(ns(path, from_file=source))
+
+        assert read_track_id(str(path)) == ["123"]
+
+    def test_同一id命中多个文件(self, capsys, tmp_path):
+        for name in ("a.flac", "b.flac"):
+            _tagged_flac(tmp_path / name, "T", "A")
+        source = _songs_source(
+            tmp_path / "songs.json", {"id": 123, "title": "T", "artist": "A"}
+        )
+
+        commands.cmd_embed_id(ns(tmp_path, from_file=source))
+
+        assert read_track_id(str(tmp_path / "a.flac")) == ["123"]
+        assert read_track_id(str(tmp_path / "b.flac")) == ["123"]
+        assert "有 1 个 track_id 匹配到多个文件" in capsys.readouterr().err
+
+    def test_写失败后继续(self, capsys, monkeypatch, tmp_path):
+        for name, title in (("a.flac", "T1"), ("b.flac", "T2")):
+            _tagged_flac(tmp_path / name, title, "A")
+        source = _songs_source(
+            tmp_path / "songs.json",
+            {"id": 1, "title": "T1", "artist": "A"},
+            {"id": 2, "title": "T2", "artist": "A"},
+        )
+        original = commands.write_track_id
+
+        def fake(path, song_id):
+            if path.endswith("a.flac"):
+                raise OSError("boom")
+            original(path, song_id)
+
+        monkeypatch.setattr(commands, "write_track_id", fake)
+
+        commands.cmd_embed_id(ns(tmp_path, from_file=source))
+
+        err = capsys.readouterr().err
+        assert "未能写入" in err
+        assert read_track_id(str(tmp_path / "b.flac")) == ["2"]
+
+
 class Test收集文件:
     def test_单个文件直接返回(self, audio_file):
         assert commands._collect_audio_files(audio_file, False) == [audio_file]
@@ -188,15 +314,14 @@ class Test收集文件:
         path = tmp_path / "tracks"
         path.mkdir()
         (path / "a.m4a").write_bytes(b"")
-        (path / "b.mp3").write_bytes(b"")
-        source = tmp_path / "songs.json"
-        source.write_text(json.dumps({"songs": []}), encoding="utf-8")
+        _make_mp3(path / "b.mp3")
+        source = _songs_source(tmp_path / "songs.json")
 
         commands.cmd_embed_id(ns(path, from_file=source))
 
         err = capsys.readouterr().err
         assert "跳过 1 个不支持的格式" in err
-        assert "尚未实现" in err
+        assert "未能匹配到" in err
 
     def test_只有不支持格式(self, tmp_path, capsys):
         path = tmp_path / "tracks"
@@ -210,7 +335,6 @@ class Test收集文件:
         err = capsys.readouterr().err
         assert "跳过 1 个不支持的格式" in err
         assert "没有可写入" in err
-        assert "尚未实现" not in err
 
     def test_目录没有音频(self, tmp_path, capsys):
         path = tmp_path / "empty"
@@ -238,11 +362,10 @@ class TestFrom:
         assert exc.value.code == 1
         assert "无法解析" in capsys.readouterr().err
 
-    def test_文件能解析就进入占位(self, capsys, audio_file, tmp_path):
-        source = tmp_path / "songs.json"
-        source.write_text(json.dumps({"songs": []}), encoding="utf-8")
+    def test_文件能解析就进入匹配(self, capsys, audio_file, tmp_path):
+        source = _songs_source(tmp_path / "songs.json")
         commands.cmd_embed_id(ns(audio_file, from_file=source))
-        assert "尚未实现" in capsys.readouterr().err
+        assert "未能匹配到" in capsys.readouterr().err
 
     def test_缺少songs列表退一(self, capsys, audio_file, tmp_path):
         source = tmp_path / "songs.json"
@@ -256,22 +379,22 @@ class TestFrom:
 
 
 class Test没有来源:
-    def test_没有tracker时提示from(self, capsys, audio_file, no_trackers):
+    def test_没有tracker时提示未找到(self, capsys, audio_file, no_trackers):
         with pytest.raises(SystemExit) as exc:
             commands.cmd_embed_id(ns(audio_file))
         assert exc.value.code == 1
         err = capsys.readouterr().err
         assert "未找到 Tracker 曲目库" in err
-        assert "--from" in err
+        assert "--from" not in err
 
-    def test_有tracker时进入占位(self, capsys, audio_file, no_trackers):
+    def test_有tracker时进入匹配(self, capsys, audio_file, no_trackers):
         tracker_dir = no_trackers / "tracker" / "like"
         tracker_dir.mkdir(parents=True)
         (tracker_dir / "songs.json").write_text(
             json.dumps({"songs": []}), encoding="utf-8"
         )
         commands.cmd_embed_id(ns(audio_file))
-        assert "尚未实现" in capsys.readouterr().err
+        assert "未能匹配到" in capsys.readouterr().err
 
     def test_任意tracker曲目库损坏退一(self, capsys, audio_file, no_trackers):
         tracker_dir = no_trackers / "tracker" / "like"

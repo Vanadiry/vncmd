@@ -39,6 +39,61 @@ class MatchResult:
         return self.song_id is None and bool(self.candidates)
 
 
+@dataclass(frozen=True)
+class FileAction:
+    """一份文件在自动匹配下应采取的动作"""
+
+    action: str
+    song_id: int | None = None
+    by_title_only: bool = False
+    candidates: tuple[int, ...] = ()
+    existing: tuple[str, ...] = ()
+
+
+def decide_action(
+    index: SongIndex,
+    title,
+    artist,
+    existing: list[str] | tuple[str, ...],
+) -> FileAction:
+    """根据已有 track_id 与匹配结果决定写入、跳过或报冲突"""
+    existing = tuple(existing)
+    if len(existing) > 1:
+        return FileAction("multiple", existing=existing)
+
+    match = match_track(index, title, artist)
+    if existing:
+        if match.song_id is None:
+            action = "ambiguous" if match.ambiguous else "not_found"
+            return FileAction(
+                action,
+                by_title_only=match.by_title_only,
+                candidates=match.candidates,
+                existing=existing,
+            )
+        if existing[0] == str(match.song_id):
+            return FileAction("latest", match.song_id, existing=existing)
+        return FileAction(
+            "conflict",
+            match.song_id,
+            by_title_only=match.by_title_only,
+            existing=existing,
+        )
+
+    if match.song_id is not None:
+        return FileAction(
+            "write",
+            match.song_id,
+            by_title_only=match.by_title_only,
+        )
+    action = "ambiguous" if match.ambiguous else "not_found"
+    return FileAction(
+        action,
+        by_title_only=match.by_title_only,
+        candidates=match.candidates,
+    )
+
+
 def match_track(index: SongIndex, title, artist) -> MatchResult:
     """按标题加艺术家匹配，失败后再用标题兜底"""
     title_key = normalize(title)

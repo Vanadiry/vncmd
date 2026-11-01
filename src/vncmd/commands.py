@@ -39,14 +39,19 @@ from vncmd.downloader import (
     download_song,
     download_song_batch,
 )
-from vncmd.embed_id import build_index, load_songs_file, load_tracker_songs
+from vncmd.embed_id import (
+    build_index,
+    decide_action,
+    load_songs_file,
+    load_tracker_songs,
+)
 from vncmd.media.checker import (
     any_check_tool,
     check_audio,
     check_tools,
     describe_missing_check_tools,
 )
-from vncmd.media.metadata import read_track_id, write_track_id
+from vncmd.media.metadata import read_track_id, read_track_info, write_track_id
 from vncmd.net.api import (
     SEARCH_LIMIT_MAX,
     account_needs_check,
@@ -527,7 +532,7 @@ def cmd_embed_id(args: argparse.Namespace) -> None:
 
     if args.set_id is not None:
         if not (args.set_id.isascii() and args.set_id.isdigit()):
-            error("--set 需要纯数字的曲目 ID")
+            error("--set 的曲目 ID 不合法，应当为纯数字")
             sys.exit(2)
         if path.is_dir():
             error("--set 只能用于单个文件")
@@ -539,17 +544,17 @@ def cmd_embed_id(args: argparse.Namespace) -> None:
         try:
             existing = read_track_id(str(path))
         except Exception as e:
-            error(f"读取 track_id 失败：{e}")
+            error(f"未能读取 {path.name} 的 track_id：{e}")
             sys.exit(1)
         if existing == [args.set_id]:
-            info("track_id 已是最新")
+            info(f"{path.name} 的 track_id 已是最新")
             return
         try:
             write_track_id(str(path), args.set_id)
         except Exception as e:
-            error(f"写入 track_id 失败：{e}")
+            error(f"未能写入 {path.name} 的 track_id：{e}")
             sys.exit(1)
-        success(f"已写入 track_id={args.set_id}")
+        success(f"{path.name} 的 track_id 已写入，值为 {args.set_id}")
         return
 
     if args.from_file:
@@ -558,16 +563,16 @@ def cmd_embed_id(args: argparse.Namespace) -> None:
             error(f"--from 文件不存在：{args.from_file}")
             sys.exit(1)
         try:
-            build_index(load_songs_file(source))
+            index = build_index(load_songs_file(source))
         except ValueError as e:
             error(f"--from 文件无法解析：{e}")
             sys.exit(1)
     elif not _tracker_song_files():
-        error("未找到 Tracker 曲目库，请用 --from 指定 songs.json")
+        error("未找到 Tracker 曲目库")
         sys.exit(1)
     else:
         try:
-            build_index(load_tracker_songs(VNCMD_HOME / "tracker"))
+            index = build_index(load_tracker_songs(VNCMD_HOME / "tracker"))
         except ValueError as e:
             error(f"Tracker 曲目库无法解析：{e}")
             sys.exit(1)
@@ -585,7 +590,43 @@ def cmd_embed_id(args: argparse.Namespace) -> None:
         info("没有可写入 track_id 的文件")
         return
 
-    info("embed-id 尚未实现")
+    matched_ids: dict[int, int] = {}
+    for file in writable:
+        try:
+            title, artist, existing = read_track_info(str(file))
+        except Exception as e:
+            error(f"未能读取 {file.name} 的 track_id：{e}")
+            continue
+
+        action = decide_action(index, title, artist, existing)
+        if action.song_id is not None:
+            matched_ids[action.song_id] = matched_ids.get(action.song_id, 0) + 1
+
+        if action.action == "write":
+            try:
+                write_track_id(str(file), action.song_id)
+            except Exception as e:
+                error(f"未能写入 {file.name} 的 track_id：{e}")
+                continue
+            success(f"写入 {file.name}，track_id 为 {action.song_id}")
+        elif action.action == "latest":
+            info(f"{file.name} 的 track_id 已是最新")
+        elif action.action == "conflict":
+            warning(
+                f"{file.name} 的 track_id 冲突，"
+                f"已有 {action.existing[0]}，匹配到 {action.song_id}"
+            )
+        elif action.action == "multiple":
+            warning(f"{file.name} 的 track_id 有多个值：{'、'.join(action.existing)}")
+        elif action.action == "ambiguous":
+            candidates = "、".join(str(value) for value in action.candidates)
+            warning(f"{file.name} 匹配到多个候选：{candidates}")
+        else:
+            warning(f"未能匹配到 {file.name}")
+
+    duplicate_ids = sum(1 for count in matched_ids.values() if count > 1)
+    if duplicate_ids:
+        warning(f"有 {duplicate_ids} 个 track_id 匹配到多个文件")
 
 
 def cmd_check(args: argparse.Namespace) -> None:

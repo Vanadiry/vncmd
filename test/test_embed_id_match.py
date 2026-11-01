@@ -1,6 +1,6 @@
 """tool embed-id 的曲目匹配"""
 
-from vncmd.embed_id import build_index, match_track
+from vncmd.embed_id import build_index, decide_action, match_track
 
 
 def index():
@@ -69,3 +69,52 @@ class TestMatchTrack:
 
         assert result.song_id == 1
         assert result.candidates == ()
+
+
+class TestDecideAction:
+    def test_没有已有值时写入(self):
+        action = decide_action(index(), "星降る海", "新艺术家", [])
+
+        assert action.action == "write"
+        assert action.song_id == 3
+        assert action.by_title_only is True
+
+    def test_已有相同值时是最新(self):
+        action = decide_action(index(), "alone", "alan walker", ["1"])
+
+        assert action.action == "latest"
+        assert action.song_id == 1
+        assert action.existing == ("1",)
+
+    def test_已有不同值时冲突(self):
+        action = decide_action(index(), "alone", "alan walker", ["999"])
+
+        assert action.action == "conflict"
+        assert action.song_id == 1
+        assert action.existing == ("999",)
+
+    def test_多个已有值不动(self):
+        action = decide_action(index(), "alone", "alan walker", ["1", "2"])
+
+        assert action.action == "multiple"
+        assert action.song_id is None
+        assert action.existing == ("1", "2")
+
+    def test_没有已有值且歧义(self):
+        action = decide_action(index(), "alone", "未知艺术家", [])
+
+        assert action.action == "ambiguous"
+        assert action.candidates == (1, 2)
+        assert action.by_title_only is True
+
+    def test_没有已有值且对不上(self):
+        action = decide_action(index(), "不存在", "Artist", [])
+
+        assert action.action == "not_found"
+        assert action.candidates == ()
+
+    def test_已有值但匹配歧义(self):
+        action = decide_action(index(), "alone", "未知艺术家", ["999"])
+
+        assert action.action == "ambiguous"
+        assert action.existing == ("999",)
