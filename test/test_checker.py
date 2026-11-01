@@ -78,10 +78,10 @@ def audio_dir(tmp_path):
     return tmp_path
 
 
-def _run_check(monkeypatch, capsys, path, check):
+def _run_check(monkeypatch, capsys, path, check, recursive=False):
     monkeypatch.setattr(commands_mod, "check_audio", check)
     monkeypatch.setattr(commands_mod, "any_check_tool", lambda: True)
-    commands_mod.cmd_check(argparse.Namespace(path=str(path)))
+    commands_mod.cmd_check(argparse.Namespace(path=str(path), recursive=recursive))
     return capsys.readouterr().out
 
 
@@ -121,6 +121,39 @@ def test_并发执行但按文件名排序(monkeypatch, capsys, audio_dir):
 
     out = _run_check(monkeypatch, capsys, audio_dir, check)
     assert _names(out) == ["a.flac", "b.flac", "c.flac"]
+
+
+def test_默认只检查当前目录(monkeypatch, capsys, audio_dir):
+    sub = audio_dir / "sub"
+    sub.mkdir()
+    (sub / "deep.flac").write_bytes(b"")
+
+    out = _run_check(monkeypatch, capsys, audio_dir, lambda _p: (True, ""))
+
+    assert "a.flac" in out
+    assert "deep.flac" not in out
+
+
+def test_递归检查子目录(monkeypatch, capsys, audio_dir):
+    sub = audio_dir / "sub"
+    sub.mkdir()
+    (sub / "deep.flac").write_bytes(b"")
+
+    out = _run_check(
+        monkeypatch, capsys, audio_dir, lambda _p: (True, ""), recursive=True
+    )
+
+    assert "sub/deep.flac" in out
+    assert "a.flac" in out
+
+
+def test_parser默认不递归():
+    from vncmd.cli import build_parser
+
+    parser = build_parser()
+    assert parser.parse_args(["tool", "check", "/tmp"]).recursive is False
+    assert parser.parse_args(["tool", "check", "-r", "/tmp"]).recursive is True
+    assert parser.parse_args(["tool", "check", "--recursive", "/tmp"]).recursive is True
 
 
 def test_checker在模块顶层绑定():

@@ -516,7 +516,8 @@ def cmd_check(args: argparse.Namespace) -> None:
         if path.suffix.lower() in SUPPORTED:
             files.append(path)
     else:
-        for f in path.rglob("*"):
+        children = path.rglob("*") if args.recursive else path.iterdir()
+        for f in children:
             if f.is_file() and f.suffix.lower() in SUPPORTED:
                 files.append(f)
     files.sort()

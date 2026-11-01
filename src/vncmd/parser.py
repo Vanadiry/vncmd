@@ -154,6 +154,9 @@ def build_parser(version: str) -> _ArgumentParser:
     )
     p_tool_check = tool_sub.add_parser("check", help="检查音频文件完整性")
     p_tool_check.add_argument("path", help="文件或目录路径")
+    p_tool_check.add_argument(
+        "-r", "--recursive", action="store_true", help="递归检查目录"
+    )
     p_tool_cache = tool_sub.add_parser("cache", help="查看或清理本地缓存")
     p_tool_cache.add_argument("--stats", action="store_true", help="显示占用与条目数")
     p_tool_cache.add_argument("--clear", action="store_true", help="清空缓存目录")
