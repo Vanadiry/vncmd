@@ -11,6 +11,7 @@ CLI（`src/vncmd/cli.py`）：
 - `session.py`：会话目录与断点流程
 - `checkpoint.py`：下载断点读写
 - `tracker.py`：歌单/专辑变更追踪与同步
+- `embed_id.py`：曲目 ID 索引与匹配
 - `core/`
   - `config.py`：配置读取与校验
   - `schema.py`：配置键表，记录每一项的取值范围、默认值与报错措辞

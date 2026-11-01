@@ -2,6 +2,10 @@
 
 ## [Unreleased]
 
+### Added
+
+- 新增 tool embed-id，为已有 MP3 与 FLAC 回填 track_id
+
 ### Changed
 
 - tool check 默认只检查当前目录，新增 -r 递归检查子目录
