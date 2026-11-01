@@ -160,6 +160,17 @@ def build_parser(version: str) -> _ArgumentParser:
     p_tool_cache = tool_sub.add_parser("cache", help="查看或清理本地缓存")
     p_tool_cache.add_argument("--stats", action="store_true", help="显示占用与条目数")
     p_tool_cache.add_argument("--clear", action="store_true", help="清空缓存目录")
+    p_tool_embed = tool_sub.add_parser("embed-id", help="为已有音频补写曲目 ID")
+    p_tool_embed.add_argument("path", help="文件或目录路径")
+    p_tool_embed.add_argument(
+        "--from", dest="from_file", metavar="JSON", help="指定 songs.json"
+    )
+    p_tool_embed.add_argument(
+        "-r", "--recursive", action="store_true", help="递归处理子目录"
+    )
+    p_tool_embed.add_argument(
+        "--set", dest="set_id", metavar="ID", help="直接指定曲目 ID"
+    )
 
     p_search = sub.add_parser("search", help="搜索曲目")
     p_search.add_argument("query", help="搜索关键词")

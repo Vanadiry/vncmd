@@ -9,6 +9,7 @@ from vncmd.commands import (
     cmd_cache,
     cmd_check,
     cmd_cookie,
+    cmd_embed_id,
     cmd_init,
     cmd_playlist,
     cmd_search,
@@ -109,6 +110,7 @@ def main() -> None:
         "tool": {
             "check": cmd_check,
             "cache": cmd_cache,
+            "embed-id": cmd_embed_id,
         }.get(getattr(args, "tool", None)),
     }
 

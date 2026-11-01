@@ -494,6 +494,48 @@ def cmd_cache(args: argparse.Namespace) -> None:
         info("清空缓存：vncmd tool cache --clear")
 
 
+def _tracker_song_files() -> list[Path]:
+    """列出所有 Tracker 的 songs.json"""
+    return sorted((VNCMD_HOME / "tracker").glob("*/songs.json"))
+
+
+def cmd_embed_id(args: argparse.Namespace) -> None:
+    """为已有音频补写曲目 ID 的骨架
+
+    第 2 步只做参数校验，实际匹配与写入在后续步骤接入
+    """
+    path = Path(os.path.expanduser(args.path))
+    if not path.exists():
+        error(f"路径不存在：{args.path}")
+        sys.exit(1)
+
+    if args.set_id is not None:
+        if not (args.set_id.isascii() and args.set_id.isdigit()):
+            error("--set 需要纯数字的曲目 ID")
+            sys.exit(2)
+        if path.is_dir():
+            error("--set 只能用于单个文件")
+            sys.exit(2)
+        if path.suffix.lower() not in (".mp3", ".flac"):
+            error("--set 只支持 MP3 与 FLAC")
+            sys.exit(2)
+    elif args.from_file:
+        source = Path(os.path.expanduser(args.from_file))
+        if not source.is_file():
+            error(f"--from 文件不存在：{args.from_file}")
+            sys.exit(1)
+        try:
+            json.loads(source.read_text(encoding="utf-8"))
+        except (OSError, UnicodeDecodeError, json.JSONDecodeError) as e:
+            error(f"--from 文件无法解析：{e}")
+            sys.exit(1)
+    elif not _tracker_song_files():
+        error("未找到 Tracker 曲目库，请用 --from 指定 songs.json")
+        sys.exit(1)
+
+    info("embed-id 尚未实现")
+
+
 def cmd_check(args: argparse.Namespace) -> None:
     """检查音频文件完整性"""
     if not any_check_tool():
