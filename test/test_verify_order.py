@@ -155,3 +155,4 @@ def test_embed的位置传参与真签名对得上(harness, monkeypatch):
     assert bound.arguments["song_artist"] == "A"
     assert bound.arguments["song_album"] == "B"
     assert bound.arguments["music_type"] == "flac"
+    assert bound.arguments["track_id"] == 1

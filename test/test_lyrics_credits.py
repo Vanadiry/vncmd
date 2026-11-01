@@ -430,7 +430,8 @@ class TestDownloader接线:
 
         # _embed_with_retry 调用 fn(*args)，第一个参数为音乐路径
         def fake_embed(_music_path, *args):
-            state["credits"] = args[-1]
+            # track_id 为最后一个参数，credits 在它前面
+            state["credits"] = args[-2]
             state["embed_lyric"] = args[3]
 
         monkeypatch.setattr(downloader, "fetch_audio", fake_fetch)

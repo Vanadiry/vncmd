@@ -1,4 +1,5 @@
 import datetime
+from pathlib import Path
 
 from mutagen.flac import FLAC, Picture
 from mutagen.id3 import (
@@ -13,6 +14,7 @@ from mutagen.id3 import (
     TPE3,
     TPOS,
     TRCK,
+    TXXX,
     USLT,
 )
 from mutagen.mp3 import MP3
@@ -21,6 +23,67 @@ from vncmd.media.lyrics import CREDIT_ROLES
 
 # MP3 写法为帧 ID 或 TIPL 角色名
 _CREDIT_FRAME_CLASSES = {"TCOM": TCOM, "TEXT": TEXT, "TPE3": TPE3}
+
+# 自定义标签统一用小写，读取与写入都只认这个写法
+TRACK_ID = "track_id"
+
+
+def _music_type(path: str) -> str:
+    """按后缀判断可写标签的音频格式"""
+    suffix = Path(path).suffix.lower()
+    if suffix in (".mp3", ".flac"):
+        return suffix[1:]
+    raise ValueError(f"不支持 track_id 的格式：{suffix or '无后缀'}")
+
+
+def _read_track_id_mp3(tags) -> list[str]:
+    if tags is None:
+        return []
+    return [
+        frame.text[0]
+        for frame in tags.getall("TXXX")
+        if frame.desc == TRACK_ID and frame.text
+    ]
+
+
+def _read_track_id_flac(audio: FLAC) -> list[str]:
+    return [str(value) for value in audio.get(TRACK_ID, [])]
+
+
+def read_track_id(path: str) -> list[str]:
+    """读取文件里已有的 track_id，支持 MP3 与 FLAC
+
+    返回列表而非单值，供后续回填工具识别重复标签
+    """
+    music_type = _music_type(path)
+    if music_type == "mp3":
+        return _read_track_id_mp3(MP3(path).tags)
+    return _read_track_id_flac(FLAC(path))
+
+
+def _write_track_id_mp3(tags, track_id: int | str) -> None:
+    tags.setall(
+        f"TXXX:{TRACK_ID}",
+        [TXXX(encoding=3, desc=TRACK_ID, text=[str(track_id)])],
+    )
+
+
+def _write_track_id_flac(audio: FLAC, track_id: int | str) -> None:
+    audio[TRACK_ID] = str(track_id)
+
+
+def write_track_id(path: str, track_id: int | str) -> None:
+    """把 track_id 写入 MP3 或 FLAC，重复值会被覆盖"""
+    music_type = _music_type(path)
+    if music_type == "mp3":
+        audio = MP3(path)
+        if audio.tags is None:
+            audio.add_tags()
+        _write_track_id_mp3(audio.tags, track_id)
+    else:
+        audio = FLAC(path)
+        _write_track_id_flac(audio, track_id)
+    audio.save()
 
 
 def _set_text(tags, frame_id: str, frame_cls, text: str) -> None:
@@ -55,6 +118,7 @@ def _embed_mp3(
     track_no: int | None,
     cd_no: int | None,
     credits: dict[str, str] | None,
+    track_id: int | None,
 ) -> None:
     try:
         audio = MP3(music_path)
@@ -96,6 +160,8 @@ def _embed_mp3(
 
     if credits:
         _write_credits_mp3(tags, credits)
+    if track_id is not None:
+        _write_track_id_mp3(tags, track_id)
 
     audio.save()
 
@@ -112,6 +178,7 @@ def _embed_flac(
     track_no: int | None,
     cd_no: int | None,
     credits: dict[str, str] | None,
+    track_id: int | None,
 ) -> None:
     audio = FLAC(music_path)
 
@@ -149,6 +216,8 @@ def _embed_flac(
     if credits:
         for role, value in credits.items():
             audio[CREDIT_ROLES[role][1]] = value
+    if track_id is not None:
+        _write_track_id_flac(audio, track_id)
 
     audio.save()
 
@@ -166,6 +235,7 @@ def embed(
     track_no: int | None = None,
     cd_no: int | None = None,
     credits: dict[str, str] | None = None,
+    track_id: int | None = None,
 ) -> None:
     if music_type == "mp3":
         _embed_mp3(
@@ -180,6 +250,7 @@ def embed(
             track_no,
             cd_no,
             credits,
+            track_id,
         )
     elif music_type == "flac":
         _embed_flac(
@@ -194,4 +265,5 @@ def embed(
             track_no,
             cd_no,
             credits,
+            track_id,
         )

@@ -399,6 +399,7 @@ def download_song(
             track_no,
             cd_no,
             credits or None,
+            song_id,
         )
         if embed_err:
             # 音频已通过校验，标签失败不判整首失败，但要提示

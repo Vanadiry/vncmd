@@ -7,7 +7,7 @@ from mutagen.flac import FLAC
 from mutagen.mp3 import MP3
 from PIL import Image as PILImage
 
-from vncmd.media.metadata import embed
+from vncmd.media.metadata import embed, read_track_id, write_track_id
 
 # MPEG1 Layer3 128kbps 44100Hz 一帧为帧头 4 字节加 413 字节数据
 # mutagen 要连续两帧才认得出帧边界，一帧会抛 HeaderNotFoundError
@@ -54,6 +54,7 @@ class TestMp3Embed:
             publish_time="2023-01-01 00:00:00",
             track_no=3,
             cd_no=2,
+            track_id=2045426723,
         )
 
         tags = MP3(path).tags
@@ -64,6 +65,7 @@ class TestMp3Embed:
         assert _text(tags, "TPOS") == "2"
         assert tags.getall("APIC")
         assert any("Test" in (fr.text or "") for fr in tags.getall("USLT"))
+        assert read_track_id(path) == ["2045426723"]
 
     def test_非mp3要报错(self, temp_dir):
         """非 mp3 文件要抛 ValueError，不能静默返回"""
@@ -115,6 +117,16 @@ class TestMp3Embed:
         )
         raw = Path(path).read_bytes()
         assert b"TDRL" not in raw
+
+    def test_track_id可单独写入并覆盖(self, temp_dir):
+        path = self._make(temp_dir)
+        assert read_track_id(path) == []
+
+        write_track_id(path, 2045426723)
+        assert read_track_id(path) == ["2045426723"]
+
+        write_track_id(path, 121212124)
+        assert read_track_id(path) == ["121212124"]
 
 
 class TestMp3Credits:
@@ -233,6 +245,7 @@ class TestFlacEmbed:
             publish_time="2024-06-15 00:00:00",
             track_no=5,
             cd_no=1,
+            track_id=2045426723,
         )
 
         flac = FLAC(path)
@@ -244,6 +257,7 @@ class TestFlacEmbed:
         assert flac.get("discnumber", [""])[0] == "1"
         assert len(flac.pictures) > 0
         assert "FLACtest" in flac.get("lyrics", [""])[0]
+        assert read_track_id(path) == ["2045426723"]
 
     def test_重跑不叠加封面(self, temp_dir):
         """add_picture 为追加语义，不清就会叠层，重跑 embed 与 --force 重下都会命中"""
@@ -337,3 +351,25 @@ class TestFlacEmbed:
 
         flac = FLAC(path)
         assert flac["composer"] == ["Asteroid Music Team（monii, Johnny R, Ari）"]
+
+    def test_track_id可单独写入并覆盖(self, temp_dir):
+        path = self._make(temp_dir)
+        assert read_track_id(path) == []
+
+        write_track_id(path, 2045426723)
+        assert read_track_id(path) == ["2045426723"]
+
+        write_track_id(path, 121212124)
+        assert read_track_id(path) == ["121212124"]
+
+
+def test_track_id不支持的格式要报错(temp_dir):
+    path = str(Path(temp_dir) / "test.m4a")
+    Path(path).write_bytes(b"not audio")
+
+    try:
+        write_track_id(path, 1)
+    except ValueError as e:
+        assert "不支持" in str(e)
+    else:
+        raise AssertionError("不支持的格式没有报错")
