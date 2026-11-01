@@ -45,6 +45,7 @@ from vncmd.media.checker import (
     check_tools,
     describe_missing_check_tools,
 )
+from vncmd.media.metadata import read_track_id, write_track_id
 from vncmd.net.api import (
     SEARCH_LIMIT_MAX,
     account_needs_check,
@@ -500,9 +501,9 @@ def _tracker_song_files() -> list[Path]:
 
 
 def cmd_embed_id(args: argparse.Namespace) -> None:
-    """为已有音频补写曲目 ID 的骨架
+    """为已有音频补写曲目 ID
 
-    第 2 步只做参数校验，实际匹配与写入在后续步骤接入
+    --set 已支持单文件写入；--from 与自动匹配在后续步骤接入
     """
     path = Path(os.path.expanduser(args.path))
     if not path.exists():
@@ -519,7 +520,24 @@ def cmd_embed_id(args: argparse.Namespace) -> None:
         if path.suffix.lower() not in (".mp3", ".flac"):
             error("--set 只支持 MP3 与 FLAC")
             sys.exit(2)
-    elif args.from_file:
+
+        try:
+            existing = read_track_id(str(path))
+        except Exception as e:
+            error(f"读取 track_id 失败：{e}")
+            sys.exit(1)
+        if existing == [args.set_id]:
+            info("track_id 已是最新")
+            return
+        try:
+            write_track_id(str(path), args.set_id)
+        except Exception as e:
+            error(f"写入 track_id 失败：{e}")
+            sys.exit(1)
+        success(f"已写入 track_id={args.set_id}")
+        return
+
+    if args.from_file:
         source = Path(os.path.expanduser(args.from_file))
         if not source.is_file():
             error(f"--from 文件不存在：{args.from_file}")

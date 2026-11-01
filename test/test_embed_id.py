@@ -2,10 +2,32 @@
 
 import argparse
 import json
+import struct
 
 import pytest
 
 from vncmd import commands
+from vncmd.media.metadata import read_track_id, write_track_id
+
+# MPEG1 Layer3 128kbps 44100Hz 一帧为帧头 4 字节加 413 字节数据
+_MP3_FRAME = b"\xff\xfb\x90\x00" + b"\x00" * 413
+
+
+def _make_mp3(path):
+    path.write_bytes(_MP3_FRAME * 4)
+
+
+def _make_flac(path):
+    si = struct.pack(
+        ">HH3s3sQ16s",
+        4096,
+        4096,
+        b"\x00\x00\x00",
+        b"\x00\x00\x00",
+        0xAC44020F00000000,
+        b"\x00" * 16,
+    )
+    path.write_bytes(b"fLaC\x80\x00\x00\x22" + si)
 
 
 def ns(path, *, set_id=None, from_file=None, recursive=False):
@@ -20,7 +42,7 @@ def ns(path, *, set_id=None, from_file=None, recursive=False):
 @pytest.fixture
 def audio_file(tmp_path):
     path = tmp_path / "track.flac"
-    path.write_bytes(b"")
+    _make_flac(path)
     return path
 
 
@@ -93,15 +115,48 @@ class TestSet:
 
     def test_大写后缀也接受(self, capsys, tmp_path):
         path = tmp_path / "track.FLAC"
-        path.write_bytes(b"")
+        _make_flac(path)
         commands.cmd_embed_id(ns(path, set_id="123"))
-        assert "尚未实现" in capsys.readouterr().err
+        assert "已写入" in capsys.readouterr().err
 
     def test_给了set就不读from(self, capsys, audio_file):
         commands.cmd_embed_id(
             ns(audio_file, set_id="123", from_file="/tmp/不存在.json")
         )
-        assert "尚未实现" in capsys.readouterr().err
+        assert "已写入" in capsys.readouterr().err
+
+
+class TestSet写入:
+    def test_flac写入(self, capsys, audio_file):
+        commands.cmd_embed_id(ns(audio_file, set_id="3424255901"))
+
+        assert read_track_id(str(audio_file)) == ["3424255901"]
+        assert "已写入" in capsys.readouterr().err
+
+    def test_mp3写入(self, capsys, tmp_path):
+        path = tmp_path / "track.mp3"
+        _make_mp3(path)
+
+        commands.cmd_embed_id(ns(path, set_id="121212124"))
+
+        assert read_track_id(str(path)) == ["121212124"]
+
+    def test_已有相同值不重复写(self, capsys, monkeypatch, audio_file):
+        write_track_id(str(audio_file), 3424255901)
+        calls = []
+        monkeypatch.setattr(commands, "write_track_id", lambda *a: calls.append(a))
+
+        commands.cmd_embed_id(ns(audio_file, set_id="3424255901"))
+
+        assert calls == []
+        assert "已是最新" in capsys.readouterr().err
+
+    def test_已有不同值直接覆盖(self, capsys, audio_file):
+        write_track_id(str(audio_file), 999)
+
+        commands.cmd_embed_id(ns(audio_file, set_id="3424255901"))
+
+        assert read_track_id(str(audio_file)) == ["3424255901"]
 
 
 class TestFrom:
