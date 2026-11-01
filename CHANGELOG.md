@@ -2,14 +2,14 @@
 
 ## [v1.1.0] - 2026-11-01
 
-> 已有文件不会自动回填 track_id
+> 这版更新仅为新下载的音频写入 track_id 标签
+> 为了对之后要做的“升级音质”、“更新元数据”等功能做准备，因为需要一个唯一的 Key 来识别曲目
+> 如果不希望嵌入这个标签，在配置中关闭。详见 [config](doc/config.md#embed_track_id) 文档。
 
 ### Added
 
 - 为新下载音频写入 track_id 标签，值为上游曲目 ID
 - 新增 download.audio.embed_track_id 配置，可关闭嵌入 track_id 数据
-
-历史更新记录，参见[CHANGELOG.md](CHANGELOG.md)。
 
 ## [v1.0.2] - 2026-11-01
 
