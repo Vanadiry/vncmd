@@ -22,6 +22,43 @@ class SongIndex:
     by_title: dict[str, set[int]] = field(default_factory=dict)
 
 
+@dataclass(frozen=True)
+class MatchResult:
+    """一次匹配的结果
+
+    song_id 为 None 时，candidates 为空表示对不上，非空表示歧义
+    by_title_only 标记命中来自标题兜底
+    """
+
+    song_id: int | None
+    by_title_only: bool = False
+    candidates: tuple[int, ...] = ()
+
+    @property
+    def ambiguous(self) -> bool:
+        return self.song_id is None and bool(self.candidates)
+
+
+def match_track(index: SongIndex, title, artist) -> MatchResult:
+    """按标题加艺术家匹配，失败后再用标题兜底"""
+    title_key = normalize(title)
+    artist_key = normalize(artist)
+
+    if artist_key:
+        candidates = index.by_title_artist.get((title_key, artist_key), set())
+        if len(candidates) == 1:
+            return MatchResult(next(iter(candidates)))
+        if len(candidates) > 1:
+            return MatchResult(None, False, tuple(sorted(candidates)))
+
+    candidates = index.by_title.get(title_key, set())
+    if len(candidates) == 1:
+        return MatchResult(next(iter(candidates)), True)
+    if len(candidates) > 1:
+        return MatchResult(None, True, tuple(sorted(candidates)))
+    return MatchResult(None)
+
+
 def build_index(records: list[dict]) -> SongIndex:
     """按标题与艺术家建立两层索引，同一 id 去重"""
     index = SongIndex()
