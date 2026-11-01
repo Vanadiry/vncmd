@@ -12,14 +12,14 @@ authors = [
 keywords = ["cli", "download", "lyrics", "metadata", "music", "netease"]
 urls = { Documentation = "https://magic.vanadiry.com/wiki/vncmd", Repository = "https://github.com/Vanadiry/vncmd" }
 dependencies = [
-  "filelock>=4.2.0",
+  "filelock>=4.2.6",
   "mutagen>=1.48.1",
-  "pillow>=12.3.0",
+  "pillow>=13.0.0",
   "prompt-toolkit>=3.0.53",
   "questionary>=2.1.1",
   "requests>=2.34.2",
   "rich>=15.0.0",
-  "tzdata>=2026.5",
+  "tzdata>=2026.6",
 ]
 
 [project.scripts]
@@ -27,7 +27,7 @@ vncmd = "vncmd.cli:main"
 
 [dependency-groups]
 dev = [
-  "pytest>=9.1.1",
+  "pytest>=9.2.0",
   "pytest-cov>=7.1.0",
   "twine>=7.0.0",
 ]
