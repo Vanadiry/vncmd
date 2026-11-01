@@ -1,0 +1,1140 @@
+<!doctype html>
+<html lang="zh-CN">
+    <head>
+        <meta charset="utf-8" />
+        <meta name="viewport" content="width=device-width, initial-scale=1" />
+        <title>vncmd cmd helper</title>
+        <style>
+            body,
+            input,
+            select,
+            button,
+            code,
+            pre,
+            table {
+                font-family:
+                    ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas,
+                    "PingFang SC", monospace;
+            }
+            html,
+            body {
+                height: 100%;
+            }
+            body {
+                height: 100vh;
+                margin: 0;
+                padding: 8px;
+                box-sizing: border-box;
+                display: flex;
+                flex-direction: column;
+            }
+            header {
+                display: flex;
+                align-items: baseline;
+                justify-content: space-between;
+                padding: 2px 8px 4px;
+            }
+            header h1 {
+                margin: 0;
+                font-size: 18px;
+                font-weight: 600;
+                line-height: 1.2;
+            }
+            .command-options {
+                display: flex;
+                gap: 10px;
+                white-space: nowrap;
+                font-size: 12px;
+                margin-left: auto;
+            }
+            .command-options label {
+                color: #666;
+            }
+            #config-summary {
+                padding: 2px 6px;
+                color: #666;
+                font-size: 12px;
+                white-space: pre-wrap;
+                overflow-wrap: anywhere;
+            }
+            #config-summary:empty {
+                display: none;
+            }
+            #layout {
+                width: 100%;
+                flex: 1;
+                height: 100%;
+            }
+            #layout > tbody > tr:last-child > td {
+                height: 100%;
+                vertical-align: top;
+            }
+            #title {
+                margin: 0 0 3px;
+                font-size: 18px;
+                line-height: 1.3;
+            }
+            #summary {
+                margin: 0 0 8px;
+            }
+            #usage {
+                margin: 0 0 10px;
+                padding: 6px 8px;
+            }
+            #main .loading {
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                min-height: 200px;
+                color: #666;
+            }
+            #main table {
+                margin-top: 6px;
+            }
+            #main table td select,
+            #main table td input[type="text"],
+            #main table td input[type="number"] {
+                width: 100%;
+                box-sizing: border-box;
+            }
+            #main table td .desc-value {
+                display: inline-block;
+            }
+            #main table td .content-options label {
+                display: block;
+                white-space: nowrap;
+                line-height: 1.6;
+            }
+            #command-bar {
+                display: flex;
+                align-items: center;
+                gap: 10px;
+                padding: 3px 6px;
+            }
+            #command-bar code {
+                display: inline-block;
+                flex: 0 1 auto;
+                min-width: 0;
+                padding-bottom: 1px;
+                border-bottom: 2px solid #b9d8cf;
+                white-space: pre-wrap;
+                overflow-wrap: anywhere;
+            }
+            .config-nav {
+                display: block;
+                width: 100%;
+                margin: 0 0 4px;
+                padding: 0;
+                border: 0;
+                background: transparent;
+                color: #0000ee;
+                text-align: left;
+                font: inherit;
+                font-weight: normal;
+                cursor: pointer;
+            }
+            .config-nav:hover {
+                text-decoration: underline;
+            }
+            .config-nav.active {
+                font-weight: bold;
+            }
+        </style>
+    </head>
+    <body>
+        <header>
+            <h1>vncmd cmd helper</h1>
+            <span id="version">读取中</span>
+        </header>
+
+        <table id="layout" border="1" cellpadding="6" cellspacing="0">
+            <tr>
+                <td colspan="2">
+                    <div id="command-bar">
+                        <button type="button" id="copy-command">复制</button>
+                        <code id="command">vncmd</code>
+                        <div class="command-options">
+                            <label
+                                ><input type="checkbox" id="short-toggle" />
+                                显示缩写</label
+                            >
+                            <label
+                                ><input type="checkbox" id="override-config" />
+                                覆盖配置</label
+                            >
+                        </div>
+                    </div>
+                    <div id="config-summary"></div>
+                </td>
+            </tr>
+            <tr>
+                <td valign="top" width="220">
+                    <button type="button" id="config-nav" class="config-nav">
+                        CONFIG
+                    </button>
+                    <b>命令</b>
+                    <div id="nav"></div>
+                </td>
+                <td valign="top">
+                    <div id="crumb"></div>
+                    <h1 id="title"></h1>
+                    <p id="summary"></p>
+                    <div id="usage"></div>
+                    <div id="main">
+                        <div class="loading">正在获取配置数据…</div>
+                    </div>
+                </td>
+            </tr>
+        </table>
+
+        <script>
+            const SCHEMA_URLS = [
+                "https://raw.githubusercontent.com/Vanadiry/vncmd/main/doc/cmd_helper/schema.json",
+                "./schema.json"
+            ];
+            let schema = null;
+            let current = null;
+            let configView = false;
+            let state = { values: {}, checked: new Set() };
+            let configValues = {};
+            let pendingPositionalFocus = null;
+
+            const $ = (id) => document.getElementById(id);
+
+            function configEntries() {
+                if (!schema || !schema.config) return [];
+                return schema.config.filter(
+                    (item) => configValues[item.path] !== item.default
+                );
+            }
+
+            function configArgs(short) {
+                if (!$("override-config").checked) return [];
+                return configEntries().flatMap((item) => [
+                    short ? "-C" : "--config",
+                    quote(item.path + "=" + String(configValues[item.path]))
+                ]);
+            }
+
+            function configSummary() {
+                const entries = configEntries();
+                return entries.length
+                    ? "配置：" +
+                          entries
+                              .map(
+                                  (item) =>
+                                      item.path +
+                                      "=" +
+                                      String(configValues[item.path])
+                              )
+                              .join("  ")
+                    : "";
+            }
+
+            function updateConfigSummary() {
+                $("config-summary").textContent = configSummary();
+            }
+
+            function descriptionCell(content) {
+                const cell = document.createElement("td");
+                const value = String(content ?? "");
+                const index = value.indexOf("：");
+                if (index < 0) {
+                    cell.textContent = value;
+                    return cell;
+                }
+                cell.append(document.createTextNode(value.slice(0, index + 1)));
+                const rest = document.createElement("span");
+                rest.className = "desc-value";
+                rest.textContent = value.slice(index + 1);
+                cell.append(rest);
+                return cell;
+            }
+
+            function breakableCell(content, separator) {
+                const cell = document.createElement("td");
+                const textValue = String(content ?? "");
+                let start = 0;
+                for (let i = 0; i < textValue.length; i += 1) {
+                    if (textValue[i] === separator) {
+                        cell.append(
+                            document.createTextNode(
+                                textValue.slice(start, i + 1)
+                            )
+                        );
+                        cell.append(document.createElement("wbr"));
+                        start = i + 1;
+                    }
+                }
+                cell.append(document.createTextNode(textValue.slice(start)));
+                return cell;
+            }
+
+            function renderConfigView() {
+                $("crumb").textContent = "";
+                $("title").textContent = "CONFIG";
+                $("summary").textContent =
+                    "这里的配置只保留在当前页面，刷新后恢复默认值";
+                $("usage").textContent = "";
+                $("usage").style.display = "none";
+
+                const main = $("main");
+                main.textContent = "";
+                const table = document.createElement("table");
+                table.border = "1";
+                table.cellPadding = "4";
+                table.cellSpacing = "0";
+                const head = document.createElement("tr");
+                head.append(
+                    text("th", "当前值"),
+                    text("th", "配置"),
+                    text("th", "说明")
+                );
+                table.append(head);
+
+                for (const item of schema.config || []) {
+                    const row = document.createElement("tr");
+                    const valueCell = document.createElement("td");
+
+                    if (item.kind === "content" && item.options) {
+                        const group = document.createElement("div");
+                        group.className = "content-options";
+                        const choices = item.options.map((choice) => {
+                            const label = document.createElement("label");
+                            const checkbox = document.createElement("input");
+                            checkbox.type = "checkbox";
+                            checkbox.checked = String(
+                                configValues[item.path] ?? ""
+                            ).includes(choice.value);
+                            label.append(
+                                checkbox,
+                                document.createTextNode(choice.label)
+                            );
+                            group.append(label);
+                            return { choice, checkbox };
+                        });
+                        const onToggle = () => {
+                            configValues[item.path] = choices
+                                .filter(({ checkbox }) => checkbox.checked)
+                                .map(({ choice }) => choice.value)
+                                .join("");
+                            updateConfigSummary();
+                            updatePreview();
+                        };
+                        choices.forEach(({ checkbox }) => {
+                            checkbox.addEventListener("change", onToggle);
+                        });
+                        valueCell.append(group);
+                        row.append(
+                            valueCell,
+                            breakableCell(item.path, "."),
+                            descriptionCell(item.description || "")
+                        );
+                        table.append(row);
+                        continue;
+                    }
+
+                    const input =
+                        item.kind === "bool"
+                            ? document.createElement("input")
+                            : item.kind === "enum"
+                              ? document.createElement("select")
+                              : document.createElement("input");
+
+                    if (item.kind === "bool") {
+                        input.type = "checkbox";
+                        input.checked = Boolean(configValues[item.path]);
+                        input.addEventListener("change", () => {
+                            configValues[item.path] = input.checked;
+                            updateConfigSummary();
+                            updatePreview();
+                        });
+                    } else if (item.kind === "enum") {
+                        for (const value of item.values) {
+                            const option = document.createElement("option");
+                            option.value = String(value);
+                            option.textContent = String(value);
+                            input.append(option);
+                        }
+                        input.value = String(configValues[item.path]);
+                        input.addEventListener("change", () => {
+                            configValues[item.path] = input.value;
+                            updateConfigSummary();
+                            updatePreview();
+                        });
+                    } else {
+                        input.type = item.kind === "int" ? "number" : "text";
+                        if (item.kind === "int") {
+                            if (item.minimum !== null) input.min = item.minimum;
+                            if (item.maximum !== null) input.max = item.maximum;
+                        }
+                        input.value = String(configValues[item.path] ?? "");
+                        input.addEventListener("input", () => {
+                            if (item.kind === "int") {
+                                const value = input.value.trim();
+                                configValues[item.path] =
+                                    value === "" ? item.default : Number(value);
+                            } else {
+                                configValues[item.path] = input.value;
+                            }
+                            updateConfigSummary();
+                            updatePreview();
+                        });
+                    }
+
+                    valueCell.append(input);
+                    row.append(
+                        valueCell,
+                        breakableCell(item.path, "."),
+                        descriptionCell(item.description || "")
+                    );
+                    table.append(row);
+                }
+                main.append(table);
+                updatePreview();
+            }
+
+            function isFlag(option) {
+                return (
+                    option.nargs === 0 ||
+                    [
+                        "store_true",
+                        "store_false",
+                        "count",
+                        "version",
+                        "help"
+                    ].includes(option.kind)
+                );
+            }
+
+            function requiredPositional(positional) {
+                return !["?", "*"].includes(positional.nargs);
+            }
+
+            function longName(option) {
+                const names = option.option_strings || [];
+                return (
+                    names.find((name) => name.startsWith("--")) ||
+                    names[0] ||
+                    option.dest
+                );
+            }
+
+            function shortestName(option) {
+                return (
+                    [...(option.option_strings || [])].sort(
+                        (a, b) => a.length - b.length
+                    )[0] || option.dest
+                );
+            }
+
+            function quote(value) {
+                if (value === "") return '""';
+                if (/^[A-Za-z0-9_./:@%+=,-]+$/.test(value)) return value;
+                return '"' + value.replace(/["\\$`]/g, "\\$&") + '"';
+            }
+
+            function defaultText(option) {
+                if (option.default === null || option.default === undefined)
+                    return "";
+                if (
+                    Array.isArray(option.default) ||
+                    typeof option.default === "boolean"
+                )
+                    return "";
+                return String(option.default);
+            }
+
+            function missingRequired() {
+                if (!current) return [];
+                return current.positionals
+                    .map((positional, index) => ({
+                        positional,
+                        value: state.values["p" + index] || ""
+                    }))
+                    .filter(
+                        (item) =>
+                            requiredPositional(item.positional) && !item.value
+                    )
+                    .map(
+                        (item) =>
+                            item.positional.metavar || item.positional.dest
+                    );
+            }
+
+            function isReady() {
+                return missingRequired().length === 0;
+            }
+
+            function selectedOptions() {
+                return current.options
+                    .map((option, index) => ({ option, index }))
+                    .filter((item) => state.checked.has("o" + item.index));
+            }
+
+            function sharesGroup(a, b) {
+                const aNames = new Set(a.option_strings || []);
+                const bNames = new Set(b.option_strings || []);
+                return current.groups.some(
+                    (group) =>
+                        group.some((name) => aNames.has(name)) &&
+                        group.some((name) => bNames.has(name))
+                );
+            }
+
+            function conflictFor(option, index) {
+                for (const {
+                    option: other,
+                    index: otherIndex
+                } of selectedOptions()) {
+                    if (otherIndex !== index && sharesGroup(option, other))
+                        return other;
+                }
+                return null;
+            }
+
+            function optionIndexByRequirement(requirement) {
+                return current.options.findIndex((option) =>
+                    (option.option_strings || []).includes(requirement)
+                );
+            }
+
+            function optionSelected(name) {
+                const index = optionIndexByRequirement(name);
+                return index >= 0 && state.checked.has("o" + index);
+            }
+
+            function requirementNames(group) {
+                return group
+                    .map((name) => {
+                        const index = optionIndexByRequirement(name);
+                        return index >= 0
+                            ? longName(current.options[index])
+                            : name;
+                    })
+                    .filter((name, index, all) => all.indexOf(name) === index);
+            }
+
+            function missingDependencies(option) {
+                const missing = (option.requires || []).filter(
+                    (name) => !optionSelected(name)
+                );
+                const missingAny = (option.requires_any || []).filter(
+                    (group) => !group.some((name) => optionSelected(name))
+                );
+                return { missing, missingAny };
+            }
+
+            function dependenciesSatisfied(option) {
+                const { missing, missingAny } = missingDependencies(option);
+                return missing.length === 0 && missingAny.length === 0;
+            }
+
+            function dropInvalidDependents() {
+                current.options.forEach((option, index) => {
+                    if (
+                        state.checked.has("o" + index) &&
+                        !dependenciesSatisfied(option)
+                    ) {
+                        state.checked.delete("o" + index);
+                        state.values["o" + index] = "";
+                    }
+                });
+            }
+
+            function requiredAlternativeSatisfied(alternative) {
+                if (alternative.option)
+                    return optionSelected(alternative.option);
+                if (alternative.positional !== undefined) {
+                    return Boolean(state.values["p" + alternative.positional]);
+                }
+                return false;
+            }
+
+            function requiredAlternativeLabel(alternative) {
+                if (!alternative) return "";
+                if (alternative.label) return alternative.label;
+                if (alternative.option) {
+                    const index = optionIndexByRequirement(alternative.option);
+                    return index >= 0
+                        ? longName(current.options[index])
+                        : alternative.option;
+                }
+                if (alternative.positional !== undefined) {
+                    const positional =
+                        current.positionals[alternative.positional];
+                    return positional
+                        ? positional.metavar || positional.dest
+                        : "位置参数";
+                }
+                return "";
+            }
+
+            function requiredOneSatisfied() {
+                const alternatives = current.required_one || [];
+                return (
+                    !alternatives.length ||
+                    alternatives.some(requiredAlternativeSatisfied)
+                );
+            }
+
+            function normalizeRequiredOne() {
+                const alternatives = current.required_one || [];
+                if (!alternatives.length || !current.required_one_exclusive)
+                    return false;
+                let changed = false;
+
+                const satisfied = alternatives.filter(
+                    requiredAlternativeSatisfied
+                );
+                if (
+                    satisfied.some(
+                        (alternative) => alternative.positional !== undefined
+                    )
+                ) {
+                    for (const alternative of satisfied) {
+                        if (!alternative.option) continue;
+                        const index = optionIndexByRequirement(
+                            alternative.option
+                        );
+                        if (index >= 0 && state.checked.has("o" + index)) {
+                            state.checked.delete("o" + index);
+                            state.values["o" + index] = "";
+                            changed = true;
+                        }
+                    }
+                }
+                return changed;
+            }
+
+            function selectFirstRequiredOption() {
+                for (const alternative of current.required_one || []) {
+                    if (!alternative.option) continue;
+                    const index = optionIndexByRequirement(alternative.option);
+                    if (index >= 0) {
+                        state.checked.add("o" + index);
+                        return true;
+                    }
+                }
+                return false;
+            }
+
+            function selectNextRequiredAlternative(alternative) {
+                const alternatives = current.required_one || [];
+                const start = alternatives.indexOf(alternative);
+                if (start < 0) return;
+                for (let step = 1; step <= alternatives.length; step += 1) {
+                    const candidate =
+                        alternatives[(start + step) % alternatives.length];
+                    if (candidate.option) {
+                        const index = optionIndexByRequirement(
+                            candidate.option
+                        );
+                        if (index >= 0) {
+                            state.checked.add("o" + index);
+                            return;
+                        }
+                    } else if (candidate.positional !== undefined) {
+                        pendingPositionalFocus = candidate.positional;
+                        return;
+                    }
+                }
+            }
+
+            function requiredAlternativeForOption(option) {
+                const names = new Set(option.option_strings || []);
+                return (current.required_one || []).find(
+                    (alternative) =>
+                        alternative.option && names.has(alternative.option)
+                );
+            }
+
+            function requiredOptionBlocked(option) {
+                const alternative = requiredAlternativeForOption(option);
+                if (!alternative || !current.required_one_exclusive)
+                    return false;
+                if (requiredAlternativeSatisfied(alternative)) return false;
+                return (current.required_one || []).some(
+                    (other) =>
+                        other !== alternative &&
+                        requiredAlternativeSatisfied(other)
+                );
+            }
+
+            function clearGroup(option, index) {
+                current.options.forEach((other, otherIndex) => {
+                    if (otherIndex !== index && sharesGroup(option, other)) {
+                        state.checked.delete("o" + otherIndex);
+                        state.values["o" + otherIndex] = "";
+                    }
+                });
+            }
+
+            function buildFull() {
+                const parts = ["vncmd", ...configArgs(false)];
+                if (!current) return parts.join(" ");
+                parts.push(...current.path.slice(1));
+                current.positionals.forEach((positional, index) => {
+                    const value = state.values["p" + index] || "";
+                    if (value) parts.push(quote(value));
+                });
+                for (const { option, index } of selectedOptions()) {
+                    parts.push(longName(option));
+                    if (!isFlag(option)) {
+                        const value = state.values["o" + index] ?? "";
+                        if (value !== "") parts.push(quote(value));
+                    }
+                }
+                return parts.join(" ");
+            }
+
+            function buildMinimal() {
+                const parts = ["vncmd", ...configArgs(true)];
+                if (!current) return parts.join(" ");
+                parts.push(...current.path.slice(1));
+                const shortFlags = [];
+                const longFlags = [];
+                const values = [];
+
+                current.positionals.forEach((positional, index) => {
+                    const value = state.values["p" + index] || "";
+                    if (value) parts.push(quote(value));
+                });
+
+                for (const { option, index } of selectedOptions()) {
+                    const name = shortestName(option);
+                    if (isFlag(option)) {
+                        if (/^-[^-]$/.test(name))
+                            shortFlags.push(name.slice(1));
+                        else longFlags.push(name);
+                        continue;
+                    }
+                    values.push(name);
+                    const value = state.values["o" + index] ?? "";
+                    if (value !== "") values.push(quote(value));
+                }
+
+                if (shortFlags.length) parts.push("-" + shortFlags.join(""));
+                parts.push(...longFlags, ...values);
+                return parts.join(" ");
+            }
+
+            function text(tag, content) {
+                const node = document.createElement(tag);
+                node.textContent = content;
+                return node;
+            }
+
+            function button(label, action) {
+                const node = document.createElement("button");
+                node.type = "button";
+                node.textContent = label;
+                node.addEventListener("click", action);
+                return node;
+            }
+
+            function renderNav() {
+                $("config-nav").classList.toggle("active", configView);
+                const nav = $("nav");
+                nav.textContent = "";
+                for (const command of schema.commands) {
+                    if (command.path.length < 2) continue;
+                    if (command.subcommands && command.subcommands.length)
+                        continue;
+                    const line = document.createElement("div");
+                    const link = document.createElement("a");
+                    link.href = "#";
+                    link.textContent = command.path.slice(1).join(" > ");
+                    link.addEventListener("click", (event) => {
+                        event.preventDefault();
+                        selectCommand(command);
+                    });
+                    if (!configView && command === current) {
+                        link.innerHTML = "<b>" + link.textContent + "</b>";
+                    }
+                    line.append(link);
+                    nav.append(line);
+                }
+            }
+
+            function renderOverview() {
+                configView = false;
+                $("crumb").textContent = "";
+                $("title").textContent = "命令一览";
+                $("summary").textContent = "选择左侧命令开始拼装。";
+                $("usage").textContent = "";
+                $("usage").style.display = "none";
+
+                const main = $("main");
+                main.textContent = "";
+                const table = document.createElement("table");
+                table.border = "1";
+                table.cellPadding = "4";
+                table.cellSpacing = "0";
+                const head = document.createElement("tr");
+                head.append(text("th", "命令"), text("th", "说明"));
+                table.append(head);
+                for (const command of schema.commands) {
+                    if (command.path.length < 2) continue;
+                    if (command.subcommands && command.subcommands.length)
+                        continue;
+                    const row = document.createElement("tr");
+                    row.append(
+                        text("td", command.path.slice(1).join(" > ")),
+                        text("td", command.summary || "")
+                    );
+                    table.append(row);
+                }
+                main.append(table);
+                updatePreview();
+            }
+
+            function renderMain() {
+                const main = $("main");
+                main.textContent = "";
+                if (!current) return;
+
+                normalizeRequiredOne();
+                dropInvalidDependents();
+
+                $("crumb").textContent = "";
+                $("title").textContent = current.path.join(" ");
+                $("summary").textContent =
+                    current.summary || current.description || "";
+                $("usage").textContent =
+                    "用法：" + current.usage.replace(/^用法：/, "");
+                $("usage").style.display = "";
+
+                const table = document.createElement("table");
+                table.border = "1";
+                table.cellPadding = "4";
+                table.cellSpacing = "0";
+
+                const ready = isReady();
+
+                current.positionals.forEach((positional, index) => {
+                    const key = "p" + index;
+                    const row = document.createElement("tr");
+
+                    const checkCell = document.createElement("td");
+                    const checkbox = document.createElement("input");
+                    checkbox.type = "checkbox";
+                    checkbox.checked = Boolean(state.values[key]);
+                    checkCell.append(checkbox);
+                    row.append(checkCell);
+
+                    const name = document.createElement("th");
+                    name.textContent =
+                        (positional.metavar || positional.dest) +
+                        (requiredPositional(positional) ? " *" : "");
+                    row.append(name);
+
+                    const value = document.createElement("td");
+                    const input = document.createElement("input");
+                    input.type = "text";
+                    input.value = state.values[key] || "";
+                    input.placeholder = positional.metavar || positional.dest;
+                    input.dataset.pos = String(index);
+                    input.addEventListener("input", () => {
+                        const before = isReady();
+                        const beforeSatisfied = requiredOneSatisfied();
+                        state.values[key] = input.value.trim();
+                        checkbox.checked = Boolean(state.values[key]);
+                        const normalized = normalizeRequiredOne();
+                        const restored =
+                            !state.values[key] && !requiredOneSatisfied()
+                                ? selectFirstRequiredOption()
+                                : false;
+                        const after = isReady();
+                        if (!after) state.checked.clear();
+                        const satisfiedChanged =
+                            beforeSatisfied !== requiredOneSatisfied();
+                        if (
+                            normalized ||
+                            restored ||
+                            satisfiedChanged ||
+                            before !== after
+                        ) {
+                            renderMain();
+                            const next = document.querySelector(
+                                '[data-pos="' + index + '"]'
+                            );
+                            if (next) {
+                                next.focus();
+                                next.setSelectionRange(
+                                    next.value.length,
+                                    next.value.length
+                                );
+                            }
+                        } else {
+                            updatePreview();
+                        }
+                    });
+                    checkbox.addEventListener("change", () => {
+                        if (checkbox.checked) {
+                            input.focus();
+                            return;
+                        }
+                        state.values[key] = "";
+                        input.value = "";
+                        state.checked.clear();
+                        normalizeRequiredOne();
+                        renderMain();
+                    });
+                    value.append(input);
+                    row.append(value);
+
+                    const help = document.createElement("td");
+                    help.textContent = positional.help || "";
+                    row.append(help);
+                    table.append(row);
+                });
+
+                current.options.forEach((option, index) => {
+                    if (option.kind === "help") return;
+                    const key = "o" + index;
+                    const conflict = conflictFor(option, index);
+                    const { missing, missingAny } = missingDependencies(option);
+                    const dependencyMissing =
+                        missing.length > 0 || missingAny.length > 0;
+                    const requiredBlocked = requiredOptionBlocked(option);
+                    const disabled =
+                        !ready ||
+                        Boolean(conflict) ||
+                        dependencyMissing ||
+                        requiredBlocked;
+                    const row = document.createElement("tr");
+
+                    const checkCell = document.createElement("td");
+                    const checkbox = document.createElement("input");
+                    checkbox.type = "checkbox";
+                    checkbox.checked = state.checked.has(key);
+                    checkbox.disabled = disabled;
+                    checkCell.append(checkbox);
+                    row.append(checkCell);
+
+                    const name = document.createElement("td");
+                    name.textContent = (option.option_strings || []).join(
+                        " / "
+                    );
+                    row.append(name);
+
+                    const valueCell = document.createElement("td");
+                    let valueNode = null;
+                    if (!isFlag(option)) {
+                        valueNode =
+                            option.choices && option.choices.length
+                                ? document.createElement("select")
+                                : document.createElement("input");
+                        if (valueNode.tagName === "SELECT") {
+                            for (const choice of option.choices) {
+                                const item = document.createElement("option");
+                                item.value = String(choice);
+                                item.textContent = String(choice);
+                                valueNode.append(item);
+                            }
+                        } else {
+                            valueNode.type = "text";
+                            valueNode.placeholder =
+                                option.metavar || option.dest;
+                        }
+                        valueNode.disabled = disabled;
+                        valueNode.value =
+                            state.values[key] || defaultText(option);
+                        const onValue = () => {
+                            state.values[key] = valueNode.value.trim();
+                            if (state.values[key]) {
+                                clearGroup(option, index);
+                                state.checked.add(key);
+                            } else {
+                                state.checked.delete(key);
+                            }
+                            checkbox.checked = state.checked.has(key);
+                            updatePreview();
+                        };
+                        valueNode.addEventListener("input", onValue);
+                        valueNode.addEventListener("change", onValue);
+                        valueCell.append(valueNode);
+                    }
+                    row.append(valueCell);
+
+                    const help = document.createElement("td");
+                    help.textContent = option.help || "";
+                    if (defaultText(option)) {
+                        help.append(" 默认 " + defaultText(option));
+                    }
+                    if (conflict) {
+                        const note = text(
+                            "b",
+                            " 与 " + longName(conflict) + " 冲突"
+                        );
+                        help.append(note);
+                    }
+                    if (missing.length) {
+                        help.append(
+                            text("b", " 需要先选 " + missing.join("、"))
+                        );
+                    }
+                    for (const group of missingAny) {
+                        help.append(
+                            text(
+                                "b",
+                                " 需要先选 " +
+                                    requirementNames(group).join(" 或 ")
+                            )
+                        );
+                    }
+                    if (requiredBlocked) {
+                        const alternative =
+                            requiredAlternativeForOption(option);
+                        const blocking = (current.required_one || []).find(
+                            (other) =>
+                                other !== alternative &&
+                                requiredAlternativeSatisfied(other)
+                        );
+                        help.append(
+                            text(
+                                "b",
+                                " 与 " +
+                                    requiredAlternativeLabel(blocking) +
+                                    " 二选一"
+                            )
+                        );
+                    }
+                    row.append(help);
+
+                    checkbox.addEventListener("change", () => {
+                        if (checkbox.checked) {
+                            clearGroup(option, index);
+                            state.checked.add(key);
+                            if (valueNode) {
+                                valueNode.focus();
+                            }
+                        } else {
+                            const alternative =
+                                requiredAlternativeForOption(option);
+                            state.checked.delete(key);
+                            state.values[key] = "";
+                            if (valueNode) valueNode.value = "";
+                            if (alternative && !requiredOneSatisfied()) {
+                                selectNextRequiredAlternative(alternative);
+                            }
+                        }
+                        renderMain();
+                    });
+
+                    table.append(row);
+                });
+
+                if (!table.rows.length) {
+                    const row = document.createElement("tr");
+                    const cell = document.createElement("td");
+                    cell.textContent = "该命令没有可配置的参数";
+                    row.append(cell);
+                    table.append(row);
+                }
+
+                main.append(table);
+                updatePreview();
+                if (pendingPositionalFocus !== null) {
+                    const input = document.querySelector(
+                        '[data-pos="' + pendingPositionalFocus + '"]'
+                    );
+                    pendingPositionalFocus = null;
+                    if (input) input.focus();
+                }
+            }
+
+            function requiredOneHint() {
+                if (!current) return "";
+                return (current.required_one || [])
+                    .map(requiredAlternativeLabel)
+                    .filter(Boolean)
+                    .join(" 或 ");
+            }
+
+            function updatePreview() {
+                if (current && !requiredOneSatisfied()) {
+                    $("command").textContent = "请先选择 " + requiredOneHint();
+                    $("copy-command").disabled = true;
+                    return;
+                }
+                $("copy-command").disabled = false;
+                $("command").textContent = $("short-toggle").checked
+                    ? buildMinimal()
+                    : buildFull();
+            }
+
+            function selectCommand(command) {
+                configView = false;
+                current = command;
+                state = { values: {}, checked: new Set() };
+                selectFirstRequiredOption();
+                renderNav();
+                renderMain();
+            }
+
+            function selectConfig() {
+                configView = true;
+                current = null;
+                renderNav();
+                renderConfigView();
+            }
+
+            $("config-nav").addEventListener("click", selectConfig);
+            $("short-toggle").addEventListener("change", updatePreview);
+            $("override-config").addEventListener("change", updatePreview);
+            $("copy-command").addEventListener("click", async () => {
+                const button = $("copy-command");
+                try {
+                    await navigator.clipboard.writeText(
+                        $("command").textContent
+                    );
+                    button.textContent = "已复制";
+                } catch {
+                    button.textContent = "复制失败";
+                }
+                setTimeout(() => {
+                    button.textContent = "复制";
+                }, 1200);
+            });
+
+            async function load() {
+                let lastError = null;
+                for (const url of SCHEMA_URLS) {
+                    try {
+                        const response = await fetch(url, {
+                            cache: "no-cache"
+                        });
+                        if (!response.ok)
+                            throw new Error(
+                                response.status + " " + response.statusText
+                            );
+                        schema = await response.json();
+                        break;
+                    } catch (error) {
+                        lastError = error;
+                    }
+                }
+                if (!schema) {
+                    $("version").textContent = "读取失败";
+                    $("main").textContent =
+                        "读取 schema 失败：" +
+                        (lastError ? lastError.message : "未知错误");
+                    return;
+                }
+                $("version").textContent = schema.version || "未知";
+                configValues = {};
+                for (const item of schema.config || []) {
+                    configValues[item.path] = item.default;
+                }
+                $("override-config").checked = false;
+                updateConfigSummary();
+                renderNav();
+                renderOverview();
+            }
+
+            load();
+        </script>
+    </body>
+</html>

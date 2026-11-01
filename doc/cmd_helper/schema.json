@@ -1,0 +1,1098 @@
+{
+  "version": "1.1.0",
+  "commands": [
+    {
+      "path": [
+        "vncmd"
+      ],
+      "summary": "",
+      "description": "网易云音乐 CLI 下载与管理工具",
+      "usage": "用法：vncmd [-h] [-v] [-i] [-C key=value]\n         {doctor,cookie,tool,search,song,album,playlist,tracker} ...",
+      "positionals": [],
+      "options": [
+        {
+          "kind": "version",
+          "dest": "version",
+          "option_strings": [
+            "-v",
+            "--version"
+          ],
+          "help": "显示版本号并退出",
+          "default": null,
+          "required": false,
+          "nargs": 0,
+          "choices": null,
+          "metavar": null
+        },
+        {
+          "kind": "store_true",
+          "dest": "init",
+          "option_strings": [
+            "-i",
+            "--init"
+          ],
+          "help": "初始化 vncmd 并写入默认配置",
+          "default": false,
+          "required": false,
+          "nargs": 0,
+          "choices": null,
+          "metavar": null
+        },
+        {
+          "kind": "append",
+          "dest": "config",
+          "option_strings": [
+            "-C",
+            "--config"
+          ],
+          "help": "临时覆盖配置项，可重复，后者生效，须放在子命令之前",
+          "default": [],
+          "required": false,
+          "nargs": null,
+          "choices": null,
+          "metavar": "key=value"
+        }
+      ],
+      "groups": [],
+      "subcommands": [
+        "doctor",
+        "cookie",
+        "tool",
+        "search",
+        "song",
+        "album",
+        "playlist",
+        "tracker"
+      ]
+    },
+    {
+      "path": [
+        "vncmd",
+        "doctor"
+      ],
+      "summary": "检查配置",
+      "description": "",
+      "usage": "用法：vncmd doctor [-h]",
+      "positionals": [],
+      "options": [],
+      "groups": [],
+      "subcommands": []
+    },
+    {
+      "path": [
+        "vncmd",
+        "cookie"
+      ],
+      "summary": "设置 Cookie",
+      "description": "",
+      "usage": "用法：vncmd cookie [-h] [--check | value]",
+      "positionals": [
+        {
+          "kind": "store",
+          "dest": "value",
+          "option_strings": [],
+          "help": "Cookie 值，省略时需配 --check",
+          "default": null,
+          "required": false,
+          "nargs": "?",
+          "choices": null,
+          "metavar": null
+        }
+      ],
+      "options": [
+        {
+          "kind": "store_true",
+          "dest": "check",
+          "option_strings": [
+            "--check"
+          ],
+          "help": "不写文件，只检查当前 Cookie 状态",
+          "default": false,
+          "required": false,
+          "nargs": 0,
+          "choices": null,
+          "metavar": null
+        }
+      ],
+      "groups": [
+        [
+          "--check"
+        ]
+      ],
+      "subcommands": [],
+      "required_one": [
+        {
+          "option": "--check",
+          "label": "--check"
+        },
+        {
+          "positional": 0,
+          "label": "Cookie 值"
+        }
+      ],
+      "required_one_exclusive": true
+    },
+    {
+      "path": [
+        "vncmd",
+        "tool"
+      ],
+      "summary": "实用工具",
+      "description": "",
+      "usage": "用法：vncmd tool [-h] {check,cache,embed-id} ...",
+      "positionals": [],
+      "options": [],
+      "groups": [],
+      "subcommands": [
+        "check",
+        "cache",
+        "embed-id"
+      ]
+    },
+    {
+      "path": [
+        "vncmd",
+        "tool",
+        "check"
+      ],
+      "summary": "检查音频文件完整性",
+      "description": "",
+      "usage": "用法：vncmd tool check [-h] [-r] path",
+      "positionals": [
+        {
+          "kind": "store",
+          "dest": "path",
+          "option_strings": [],
+          "help": "文件或目录路径",
+          "default": null,
+          "required": true,
+          "nargs": null,
+          "choices": null,
+          "metavar": null
+        }
+      ],
+      "options": [
+        {
+          "kind": "store_true",
+          "dest": "recursive",
+          "option_strings": [
+            "-r",
+            "--recursive"
+          ],
+          "help": "递归检查目录",
+          "default": false,
+          "required": false,
+          "nargs": 0,
+          "choices": null,
+          "metavar": null
+        }
+      ],
+      "groups": [],
+      "subcommands": []
+    },
+    {
+      "path": [
+        "vncmd",
+        "tool",
+        "cache"
+      ],
+      "summary": "查看或清理本地缓存",
+      "description": "",
+      "usage": "用法：vncmd tool cache [-h] [--stats] [--clear]",
+      "positionals": [],
+      "options": [
+        {
+          "kind": "store_true",
+          "dest": "stats",
+          "option_strings": [
+            "--stats"
+          ],
+          "help": "显示占用与条目数",
+          "default": false,
+          "required": false,
+          "nargs": 0,
+          "choices": null,
+          "metavar": null
+        },
+        {
+          "kind": "store_true",
+          "dest": "clear",
+          "option_strings": [
+            "--clear"
+          ],
+          "help": "清空缓存目录",
+          "default": false,
+          "required": false,
+          "nargs": 0,
+          "choices": null,
+          "metavar": null
+        }
+      ],
+      "groups": [],
+      "subcommands": [],
+      "required_one": [
+        {
+          "option": "--stats"
+        },
+        {
+          "option": "--clear"
+        }
+      ]
+    },
+    {
+      "path": [
+        "vncmd",
+        "tool",
+        "embed-id"
+      ],
+      "summary": "为已有音频补写曲目 ID",
+      "description": "",
+      "usage": "用法：vncmd tool embed-id [-h] [--from JSON] [-r] [--set ID] path",
+      "positionals": [
+        {
+          "kind": "store",
+          "dest": "path",
+          "option_strings": [],
+          "help": "文件或目录路径",
+          "default": null,
+          "required": true,
+          "nargs": null,
+          "choices": null,
+          "metavar": null
+        }
+      ],
+      "options": [
+        {
+          "kind": "store",
+          "dest": "from_file",
+          "option_strings": [
+            "--from"
+          ],
+          "help": "指定 songs.json",
+          "default": null,
+          "required": false,
+          "nargs": null,
+          "choices": null,
+          "metavar": "JSON"
+        },
+        {
+          "kind": "store_true",
+          "dest": "recursive",
+          "option_strings": [
+            "-r",
+            "--recursive"
+          ],
+          "help": "递归处理子目录",
+          "default": false,
+          "required": false,
+          "nargs": 0,
+          "choices": null,
+          "metavar": null
+        },
+        {
+          "kind": "store",
+          "dest": "set_id",
+          "option_strings": [
+            "--set"
+          ],
+          "help": "直接指定曲目 ID",
+          "default": null,
+          "required": false,
+          "nargs": null,
+          "choices": null,
+          "metavar": "ID"
+        }
+      ],
+      "groups": [],
+      "subcommands": []
+    },
+    {
+      "path": [
+        "vncmd",
+        "search"
+      ],
+      "summary": "搜索曲目",
+      "description": "",
+      "usage": "用法：vncmd search [-h] [-c N] [--offset OFFSET] [-j] query",
+      "positionals": [
+        {
+          "kind": "store",
+          "dest": "query",
+          "option_strings": [],
+          "help": "搜索关键词",
+          "default": null,
+          "required": true,
+          "nargs": null,
+          "choices": null,
+          "metavar": null
+        }
+      ],
+      "options": [
+        {
+          "kind": "store",
+          "dest": "count",
+          "option_strings": [
+            "-c",
+            "--count"
+          ],
+          "help": "最大结果数，1 至 100，默认 10",
+          "default": null,
+          "required": false,
+          "nargs": null,
+          "choices": null,
+          "metavar": "N",
+          "type": "_search_limit"
+        },
+        {
+          "kind": "store",
+          "dest": "offset",
+          "option_strings": [
+            "--offset",
+            "-o"
+          ],
+          "help": "分页偏移量",
+          "default": 0,
+          "required": false,
+          "nargs": null,
+          "choices": null,
+          "metavar": null,
+          "type": "int"
+        },
+        {
+          "kind": "store_true",
+          "dest": "json",
+          "option_strings": [
+            "-j",
+            "--json"
+          ],
+          "help": "以 JSON 输出结果并退出",
+          "default": false,
+          "required": false,
+          "nargs": 0,
+          "choices": null,
+          "metavar": null
+        }
+      ],
+      "groups": [],
+      "subcommands": []
+    },
+    {
+      "path": [
+        "vncmd",
+        "song"
+      ],
+      "summary": "预览或下载单曲",
+      "description": "",
+      "usage": "用法：vncmd song [-h] [-u | -d] [-j] [-l] [-t] id",
+      "positionals": [
+        {
+          "kind": "store",
+          "dest": "id",
+          "option_strings": [],
+          "help": "曲目 ID",
+          "default": null,
+          "required": true,
+          "nargs": null,
+          "choices": null,
+          "metavar": null,
+          "type": "int"
+        }
+      ],
+      "options": [
+        {
+          "kind": "store_true",
+          "dest": "dlink",
+          "option_strings": [
+            "-u",
+            "--dlink"
+          ],
+          "help": "显示下载链接与音质、费用等详情",
+          "default": false,
+          "required": false,
+          "nargs": 0,
+          "choices": null,
+          "metavar": null
+        },
+        {
+          "kind": "store_true",
+          "dest": "json",
+          "option_strings": [
+            "-j",
+            "--json"
+          ],
+          "help": "以 JSON 输出结果并退出",
+          "default": false,
+          "required": false,
+          "nargs": 0,
+          "choices": null,
+          "metavar": null
+        },
+        {
+          "kind": "store_true",
+          "dest": "download",
+          "option_strings": [
+            "-d",
+            "--download"
+          ],
+          "help": "下载而非仅预览",
+          "default": false,
+          "required": false,
+          "nargs": 0,
+          "choices": null,
+          "metavar": null
+        },
+        {
+          "kind": "store_true",
+          "dest": "lyric",
+          "option_strings": [
+            "-l",
+            "--lyric"
+          ],
+          "help": "显示歌词",
+          "default": false,
+          "required": false,
+          "nargs": 0,
+          "choices": null,
+          "metavar": null
+        },
+        {
+          "kind": "store_true",
+          "dest": "translate",
+          "option_strings": [
+            "-t",
+            "--translate"
+          ],
+          "help": "配 --lyric 时一并显示翻译歌词",
+          "default": false,
+          "required": false,
+          "nargs": 0,
+          "choices": null,
+          "metavar": null,
+          "requires": [
+            "--lyric"
+          ]
+        }
+      ],
+      "groups": [
+        [
+          "-u",
+          "--dlink",
+          "-d",
+          "--download"
+        ],
+        [
+          "-j",
+          "--json",
+          "-d",
+          "--download"
+        ]
+      ],
+      "subcommands": []
+    },
+    {
+      "path": [
+        "vncmd",
+        "album"
+      ],
+      "summary": "预览或下载专辑",
+      "description": "",
+      "usage": "用法：vncmd album [-h] [-c N] [-o N] [-j] [-u] [-d] id",
+      "positionals": [
+        {
+          "kind": "store",
+          "dest": "id",
+          "option_strings": [],
+          "help": "专辑 ID",
+          "default": null,
+          "required": true,
+          "nargs": null,
+          "choices": null,
+          "metavar": null,
+          "type": "int"
+        }
+      ],
+      "options": [
+        {
+          "kind": "store",
+          "dest": "count",
+          "option_strings": [
+            "-c",
+            "--count"
+          ],
+          "help": "最多处理曲目数，默认面板 10，JSON 与下载全部",
+          "default": null,
+          "required": false,
+          "nargs": null,
+          "choices": null,
+          "metavar": "N",
+          "type": "int"
+        },
+        {
+          "kind": "store",
+          "dest": "offset",
+          "option_strings": [
+            "-o",
+            "--offset"
+          ],
+          "help": "起始序号，从 0 计",
+          "default": 0,
+          "required": false,
+          "nargs": null,
+          "choices": null,
+          "metavar": "N",
+          "type": "int"
+        },
+        {
+          "kind": "store_true",
+          "dest": "json",
+          "option_strings": [
+            "-j",
+            "--json"
+          ],
+          "help": "以 JSON 输出结果并退出",
+          "default": false,
+          "required": false,
+          "nargs": 0,
+          "choices": null,
+          "metavar": null
+        },
+        {
+          "kind": "store_true",
+          "dest": "dlink",
+          "option_strings": [
+            "-u",
+            "--dlink"
+          ],
+          "help": "取下载链接，需配合 --json",
+          "default": false,
+          "required": false,
+          "nargs": 0,
+          "choices": null,
+          "metavar": null,
+          "requires": [
+            "--json"
+          ]
+        },
+        {
+          "kind": "store_true",
+          "dest": "download",
+          "option_strings": [
+            "-d",
+            "--download"
+          ],
+          "help": "下载而非仅预览",
+          "default": false,
+          "required": false,
+          "nargs": 0,
+          "choices": null,
+          "metavar": null
+        }
+      ],
+      "groups": [
+        [
+          "-j",
+          "--json",
+          "-d",
+          "--download"
+        ]
+      ],
+      "subcommands": []
+    },
+    {
+      "path": [
+        "vncmd",
+        "playlist"
+      ],
+      "summary": "预览或下载歌单",
+      "description": "",
+      "usage": "用法：vncmd playlist [-h] [-c N] [-o N] [-j] [-u] [-d] id",
+      "positionals": [
+        {
+          "kind": "store",
+          "dest": "id",
+          "option_strings": [],
+          "help": "歌单 ID",
+          "default": null,
+          "required": true,
+          "nargs": null,
+          "choices": null,
+          "metavar": null,
+          "type": "int"
+        }
+      ],
+      "options": [
+        {
+          "kind": "store",
+          "dest": "count",
+          "option_strings": [
+            "-c",
+            "--count"
+          ],
+          "help": "最多处理曲目数，默认面板 10，JSON 与下载全部",
+          "default": null,
+          "required": false,
+          "nargs": null,
+          "choices": null,
+          "metavar": "N",
+          "type": "int"
+        },
+        {
+          "kind": "store",
+          "dest": "offset",
+          "option_strings": [
+            "-o",
+            "--offset"
+          ],
+          "help": "起始序号，从 0 计",
+          "default": 0,
+          "required": false,
+          "nargs": null,
+          "choices": null,
+          "metavar": "N",
+          "type": "int"
+        },
+        {
+          "kind": "store_true",
+          "dest": "json",
+          "option_strings": [
+            "-j",
+            "--json"
+          ],
+          "help": "以 JSON 输出结果并退出",
+          "default": false,
+          "required": false,
+          "nargs": 0,
+          "choices": null,
+          "metavar": null
+        },
+        {
+          "kind": "store_true",
+          "dest": "dlink",
+          "option_strings": [
+            "-u",
+            "--dlink"
+          ],
+          "help": "取下载链接，需配合 --json",
+          "default": false,
+          "required": false,
+          "nargs": 0,
+          "choices": null,
+          "metavar": null,
+          "requires": [
+            "--json"
+          ]
+        },
+        {
+          "kind": "store_true",
+          "dest": "download",
+          "option_strings": [
+            "-d",
+            "--download"
+          ],
+          "help": "下载而非仅预览",
+          "default": false,
+          "required": false,
+          "nargs": 0,
+          "choices": null,
+          "metavar": null
+        }
+      ],
+      "groups": [
+        [
+          "-j",
+          "--json",
+          "-d",
+          "--download"
+        ]
+      ],
+      "subcommands": []
+    },
+    {
+      "path": [
+        "vncmd",
+        "tracker"
+      ],
+      "summary": "追踪音乐来源变更并批量下载",
+      "description": "",
+      "usage": "用法：vncmd tracker [-h] [-f | -d] [-A | -F] [-x] [-j] [-c N] [-o N] name",
+      "positionals": [
+        {
+          "kind": "store",
+          "dest": "name",
+          "option_strings": [],
+          "help": "Tracker 名称",
+          "default": null,
+          "required": true,
+          "nargs": null,
+          "choices": null,
+          "metavar": null
+        }
+      ],
+      "options": [
+        {
+          "kind": "store_true",
+          "dest": "fetch",
+          "option_strings": [
+            "-f",
+            "--fetch"
+          ],
+          "help": "拉取并对比，交互式解决冲突",
+          "default": false,
+          "required": false,
+          "nargs": 0,
+          "choices": null,
+          "metavar": null
+        },
+        {
+          "kind": "store_true",
+          "dest": "download",
+          "option_strings": [
+            "-d",
+            "--download"
+          ],
+          "help": "下载所有已缓存曲目",
+          "default": false,
+          "required": false,
+          "nargs": 0,
+          "choices": null,
+          "metavar": null
+        },
+        {
+          "kind": "store_true",
+          "dest": "auto_accept",
+          "option_strings": [
+            "-A",
+            "--auto-accept"
+          ],
+          "help": "配 --fetch 时自动接受全部变更，无需交互",
+          "default": false,
+          "required": false,
+          "nargs": 0,
+          "choices": null,
+          "metavar": null,
+          "requires": [
+            "--fetch"
+          ]
+        },
+        {
+          "kind": "store_true",
+          "dest": "force",
+          "option_strings": [
+            "-F",
+            "--force"
+          ],
+          "help": "配 --fetch 时覆盖 songs.json，diff.json 变化才更新，连续两次会顶掉备份",
+          "default": false,
+          "required": false,
+          "nargs": 0,
+          "choices": null,
+          "metavar": null,
+          "requires": [
+            "--fetch"
+          ]
+        },
+        {
+          "kind": "store_true",
+          "dest": "diff",
+          "option_strings": [
+            "-x",
+            "--diff"
+          ],
+          "help": "上次 --fetch 的记录，不联网，可配 -d 或 --json",
+          "default": false,
+          "required": false,
+          "nargs": 0,
+          "choices": null,
+          "metavar": null,
+          "requires_any": [
+            [
+              "-d",
+              "--download",
+              "-j",
+              "--json"
+            ]
+          ]
+        },
+        {
+          "kind": "store_true",
+          "dest": "json",
+          "option_strings": [
+            "-j",
+            "--json"
+          ],
+          "help": "以 JSON 输出结果并退出",
+          "default": false,
+          "required": false,
+          "nargs": 0,
+          "choices": null,
+          "metavar": null
+        },
+        {
+          "kind": "store",
+          "dest": "count",
+          "option_strings": [
+            "-c",
+            "--count"
+          ],
+          "help": "最多处理曲目数，默认面板 10，JSON 全部",
+          "default": null,
+          "required": false,
+          "nargs": null,
+          "choices": null,
+          "metavar": "N",
+          "type": "int"
+        },
+        {
+          "kind": "store",
+          "dest": "offset",
+          "option_strings": [
+            "-o",
+            "--offset"
+          ],
+          "help": "起始序号，从 0 计",
+          "default": 0,
+          "required": false,
+          "nargs": null,
+          "choices": null,
+          "metavar": "N",
+          "type": "int"
+        }
+      ],
+      "groups": [
+        [
+          "-f",
+          "--fetch",
+          "-d",
+          "--download"
+        ],
+        [
+          "-A",
+          "--auto-accept",
+          "-F",
+          "--force"
+        ],
+        [
+          "-j",
+          "--json",
+          "-d",
+          "--download"
+        ],
+        [
+          "-j",
+          "--json",
+          "-f",
+          "--fetch"
+        ]
+      ],
+      "subcommands": []
+    }
+  ],
+  "config": [
+    {
+      "path": "download.filename_artist",
+      "description": "艺术家在文件名中的位置：back=曲目-艺术家，front=艺术家-曲目，drop=仅曲目",
+      "kind": "enum",
+      "values": [
+        "front",
+        "back",
+        "drop"
+      ],
+      "minimum": null,
+      "maximum": null,
+      "default": "back"
+    },
+    {
+      "path": "download.content",
+      "description": "下载内容：a=音频，l=歌词，c=封面，任意组合（如 alc=全部，cl=歌词和封面）",
+      "kind": "content",
+      "values": [],
+      "minimum": null,
+      "maximum": null,
+      "default": "alc",
+      "options": [
+        {
+          "value": "a",
+          "label": "音频"
+        },
+        {
+          "value": "l",
+          "label": "歌词"
+        },
+        {
+          "value": "c",
+          "label": "封面"
+        }
+      ]
+    },
+    {
+      "path": "download.audio.quality",
+      "description": "音质：128、192、320（kbps），或 max（可用的最高质量）",
+      "kind": "enum",
+      "values": [
+        "128",
+        "192",
+        "320",
+        "max"
+      ],
+      "minimum": null,
+      "maximum": null,
+      "default": "max"
+    },
+    {
+      "path": "download.lyric.embed_mode",
+      "description": "嵌入译文时，与原文的合并模式：line=交错，block=拼接，drop=丢弃译文",
+      "kind": "enum",
+      "values": [
+        "line",
+        "block",
+        "drop"
+      ],
+      "minimum": null,
+      "maximum": null,
+      "default": "drop"
+    },
+    {
+      "path": "download.lyric.save_mode",
+      "description": "下载译文时，与原文的合并模式：line=交错，block=拼接，drop=丢弃译文，split=拆分文件",
+      "kind": "enum",
+      "values": [
+        "line",
+        "block",
+        "split",
+        "drop"
+      ],
+      "minimum": null,
+      "maximum": null,
+      "default": "line"
+    },
+    {
+      "path": "download.downloader",
+      "description": "下载方式：builtin=内建下载实现，curl=系统 curl",
+      "kind": "enum",
+      "values": [
+        "builtin",
+        "curl"
+      ],
+      "minimum": null,
+      "maximum": null,
+      "default": "builtin"
+    },
+    {
+      "path": "download.dir",
+      "description": "绝对路径，或相对于 VNCMD_HOME 的路径，留空使用 ~/Downloads",
+      "kind": "str",
+      "values": [],
+      "minimum": null,
+      "maximum": null,
+      "default": ""
+    },
+    {
+      "path": "download.concurrency",
+      "description": "并发下载数：1-16（默认 4）",
+      "kind": "int",
+      "values": [],
+      "minimum": 1,
+      "maximum": 16,
+      "default": 4
+    },
+    {
+      "path": "download.check",
+      "description": "下载后是否做 ffmpeg/flac 全量解码校验",
+      "kind": "bool",
+      "values": [],
+      "minimum": null,
+      "maximum": null,
+      "default": true
+    },
+    {
+      "path": "download.curl_arg",
+      "description": "追加给 curl 的参数",
+      "kind": "str",
+      "values": [],
+      "minimum": null,
+      "maximum": null,
+      "default": ""
+    },
+    {
+      "path": "download.audio.parse_credits",
+      "description": "从歌词头解析“作曲人”并嵌入元数据",
+      "kind": "bool",
+      "values": [],
+      "minimum": null,
+      "maximum": null,
+      "default": false
+    },
+    {
+      "path": "download.audio.embed_track_id",
+      "description": "新下载音频是否写入 track_id 标签",
+      "kind": "bool",
+      "values": [],
+      "minimum": null,
+      "maximum": null,
+      "default": true
+    },
+    {
+      "path": "download.lyric.auto_trim",
+      "description": "自动裁剪无用歌词数据，如纯音乐占位行等",
+      "kind": "bool",
+      "values": [],
+      "minimum": null,
+      "maximum": null,
+      "default": false
+    },
+    {
+      "path": "download.lyric.credit_scan_lines",
+      "description": "parse_credits 扫描的歌词行数",
+      "kind": "int",
+      "values": [],
+      "minimum": 1,
+      "maximum": null,
+      "default": 10
+    },
+    {
+      "path": "download.cover.embed_compress",
+      "description": "嵌入封面压缩：false=原图，true=缩放至最大 500x500 JPEG",
+      "kind": "bool",
+      "values": [],
+      "minimum": null,
+      "maximum": null,
+      "default": true
+    },
+    {
+      "path": "download.cover.save_compress",
+      "description": "独立封面文件压缩，规则同 embed_compress",
+      "kind": "bool",
+      "values": [],
+      "minimum": null,
+      "maximum": null,
+      "default": false
+    },
+    {
+      "path": "cache.enabled",
+      "description": "启用本地缓存（曲目详情与歌词）",
+      "kind": "bool",
+      "values": [],
+      "minimum": null,
+      "maximum": null,
+      "default": true
+    },
+    {
+      "path": "cache.ttl",
+      "description": "缓存有效期，单位为天，0 表示永不过期",
+      "kind": "int",
+      "values": [],
+      "minimum": 0,
+      "maximum": null,
+      "default": 3
+    },
+    {
+      "path": "display.artist_color",
+      "description": "艺术家按各自代表色着色",
+      "kind": "bool",
+      "values": [],
+      "minimum": null,
+      "maximum": null,
+      "default": true
+    }
+  ]
+}
