@@ -70,6 +70,16 @@ def _action_info(action) -> dict:
     return item
 
 
+def _usage_parts(text: str) -> list[str]:
+    """把 usage 拆成可比较的片段
+
+    argparse 的输出随 Python 版本变化：含位置参数的互斥组在 3.13 起写成
+    [--check | value]，更早版本写成 [--check] [value]；选项的排列顺序也
+    不一致。这里统一写法并排序，只比较内容。
+    """
+    return sorted(text.replace(" | ", "] [").split())
+
+
 def _command_info(parser, path: list[str], summary: str = "") -> dict:
     positionals = []
     options = []
@@ -239,7 +249,13 @@ class Test命令与parser一致:
             expected = dict(expected)
             parser_groups = expected.pop("groups")
 
+            actual_usage = actual.pop("usage")
+            expected_usage = expected.pop("usage")
+
             assert actual == expected, f"{name} 与 schema.json 不一致"
+            assert _usage_parts(actual_usage) == _usage_parts(expected_usage), (
+                f"{name} 的 usage 与 schema.json 不一致"
+            )
             assert all(group in schema_groups for group in parser_groups), (
                 f"{name} 的 schema.json 缺少 argparse 的互斥组"
             )
