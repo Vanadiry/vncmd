@@ -1,11 +1,12 @@
 # Changelog
 
-## [Unreleased]
+## [v1.2.0] - 2026-11-01
 
 ### Added
 
 - 新增 tool embed-id，为已有 MP3 与 FLAC 回填 track_id
 - 新增 doctor，用于检查配置缺失项、类型错误与未知配置项
+- 新增 cmd helper，用于从网页拼装命令并查看配置
 
 ### Changed
 
