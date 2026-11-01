@@ -271,9 +271,7 @@ class Test互斥与依赖:
 
         for group in command["groups"]:
             assert group, f"{name} 有空的互斥组"
-            assert set(group) <= names, (
-                f"{name} 的互斥组 {group} 引用了不存在的选项"
-            )
+            assert set(group) <= names, f"{name} 的互斥组 {group} 引用了不存在的选项"
 
     @pytest.mark.parametrize("name", sorted(命令表(读schema())))
     def test_requires引用的选项都存在(self, name):
@@ -347,9 +345,7 @@ class Test互斥与依赖:
             if "--diff" in option["option_strings"]
         )
 
-        assert diff.get("requires_any") == [
-            ["-d", "--download", "-j", "--json"]
-        ]
+        assert diff.get("requires_any") == [["-d", "--download", "-j", "--json"]]
 
     @pytest.mark.parametrize("name", ["vncmd album", "vncmd playlist"])
     def test_dlink依赖json(self, name):
