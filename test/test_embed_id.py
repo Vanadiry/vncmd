@@ -235,7 +235,9 @@ class Test自动写入:
         commands.cmd_embed_id(ns(path, from_file=source))
 
         assert read_track_id(str(path)) == []
-        assert "匹配到多个候选" in capsys.readouterr().err
+        err = capsys.readouterr().err
+        assert "歧义 1" in err
+        assert "候选 1、2" in err
 
     def test_按标题兜底写入(self, capsys, tmp_path):
         path = tmp_path / "a.flac"
@@ -247,6 +249,32 @@ class Test自动写入:
         commands.cmd_embed_id(ns(path, from_file=source))
 
         assert read_track_id(str(path)) == ["123"]
+        err = capsys.readouterr().err
+        assert "按标题匹配 1" in err
+        assert "本地：A" in err
+        assert "上游：B" in err
+
+    def test_没有标题不写(self, capsys, tmp_path):
+        path = tmp_path / "a.flac"
+        _make_flac(path)
+        source = _songs_source(tmp_path / "songs.json")
+
+        commands.cmd_embed_id(ns(path, from_file=source))
+
+        assert read_track_id(str(path)) == []
+        assert "未能读取标题 1" in capsys.readouterr().err
+
+    def test_读取失败退一(self, capsys, tmp_path):
+        path = tmp_path / "bad.mp3"
+        path.write_bytes(b"broken")
+        source = _songs_source(tmp_path / "songs.json")
+
+        with pytest.raises(SystemExit) as exc:
+            commands.cmd_embed_id(ns(path, from_file=source))
+
+        assert exc.value.code == 1
+        err = capsys.readouterr().err
+        assert "未能读取 1" in err
 
     def test_同一id命中多个文件(self, capsys, tmp_path):
         for name in ("a.flac", "b.flac"):
@@ -320,7 +348,7 @@ class Test收集文件:
         commands.cmd_embed_id(ns(path, from_file=source))
 
         err = capsys.readouterr().err
-        assert "跳过 1 个不支持的格式" in err
+        assert "跳过格式 1" in err
         assert "未能匹配到" in err
 
     def test_只有不支持格式(self, tmp_path, capsys):

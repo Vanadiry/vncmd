@@ -20,6 +20,7 @@ class SongIndex:
 
     by_title_artist: dict[tuple[str, str], set[int]] = field(default_factory=dict)
     by_title: dict[str, set[int]] = field(default_factory=dict)
+    entries: dict[int, tuple[str, str]] = field(default_factory=dict)
 
 
 @dataclass(frozen=True)
@@ -60,6 +61,9 @@ def decide_action(
     existing = tuple(existing)
     if len(existing) > 1:
         return FileAction("multiple", existing=existing)
+
+    if not normalize(title):
+        return FileAction("no_title", existing=existing)
 
     match = match_track(index, title, artist)
     if existing:
@@ -125,8 +129,17 @@ def build_index(records: list[dict]) -> SongIndex:
         except (KeyError, TypeError, ValueError):
             continue
 
-        title = normalize(record.get("title"))
-        artist = normalize(record.get("artist"))
+        raw_title = record.get("title")
+        raw_artist = record.get("artist")
+        title = normalize(raw_title)
+        artist = normalize(raw_artist)
+        index.entries.setdefault(
+            song_id,
+            (
+                raw_title if isinstance(raw_title, str) else "",
+                raw_artist if isinstance(raw_artist, str) else "",
+            ),
+        )
         if not title:
             continue
         index.by_title.setdefault(title, set()).add(song_id)

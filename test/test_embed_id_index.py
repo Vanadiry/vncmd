@@ -37,6 +37,7 @@ class TestBuildIndex:
         assert index.by_title_artist[("alone", "alan walker")] == {2}
         assert index.by_title_artist[("alone", "marshmello")] == {3}
         assert ("no artist", "") not in index.by_title_artist
+        assert index.entries[2] == ("Alone", "Alan Walker")
 
     def test_标题为空不进索引(self):
         index = build_index([{"id": 1, "title": "", "artist": "A"}])

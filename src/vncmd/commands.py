@@ -584,18 +584,39 @@ def cmd_embed_id(args: argparse.Namespace) -> None:
 
     writable = [f for f in files if f.suffix.lower() in _EMBED_ID_EXTENSIONS]
     skipped = len(files) - len(writable)
-    if skipped:
-        warning(f"跳过 {skipped} 个不支持的格式")
     if not writable:
+        if skipped:
+            warning(f"跳过 {skipped} 个不支持的格式")
         info("没有可写入 track_id 的文件")
         return
 
+    counts = {
+        "write": 0,
+        "title_match": 0,
+        "latest": 0,
+        "ambiguous": 0,
+        "not_found": 0,
+        "conflict": 0,
+        "multiple": 0,
+        "no_title": 0,
+        "write_failed": 0,
+    }
+    details = {
+        "title_match": [],
+        "conflict": [],
+        "ambiguous": [],
+        "not_found": [],
+        "multiple": [],
+        "no_title": [],
+        "write_failed": [],
+        "read_failed": [],
+    }
     matched_ids: dict[int, int] = {}
     for file in writable:
         try:
             title, artist, existing = read_track_info(str(file))
         except Exception as e:
-            error(f"未能读取 {file.name} 的 track_id：{e}")
+            details["read_failed"].append((file, str(e)))
             continue
 
         action = decide_action(index, title, artist, existing)
@@ -606,27 +627,98 @@ def cmd_embed_id(args: argparse.Namespace) -> None:
             try:
                 write_track_id(str(file), action.song_id)
             except Exception as e:
-                error(f"未能写入 {file.name} 的 track_id：{e}")
+                counts["write_failed"] += 1
+                details["write_failed"].append((file, str(e)))
                 continue
-            success(f"写入 {file.name}，track_id 为 {action.song_id}")
+            if action.by_title_only:
+                counts["title_match"] += 1
+                upstream_artist = index.entries.get(action.song_id, ("", ""))[1]
+                details["title_match"].append((file, artist, upstream_artist))
+            else:
+                counts["write"] += 1
         elif action.action == "latest":
-            info(f"{file.name} 的 track_id 已是最新")
+            counts["latest"] += 1
         elif action.action == "conflict":
-            warning(
-                f"{file.name} 的 track_id 冲突，"
-                f"已有 {action.existing[0]}，匹配到 {action.song_id}"
-            )
+            counts["conflict"] += 1
+            details["conflict"].append((file, action.existing[0], action.song_id))
         elif action.action == "multiple":
-            warning(f"{file.name} 的 track_id 有多个值：{'、'.join(action.existing)}")
+            counts["multiple"] += 1
+            details["multiple"].append((file, action.existing))
         elif action.action == "ambiguous":
-            candidates = "、".join(str(value) for value in action.candidates)
-            warning(f"{file.name} 匹配到多个候选：{candidates}")
+            counts["ambiguous"] += 1
+            details["ambiguous"].append((file, action.candidates))
+        elif action.action == "no_title":
+            counts["no_title"] += 1
+            details["no_title"].append(file)
         else:
-            warning(f"未能匹配到 {file.name}")
+            counts["not_found"] += 1
+            details["not_found"].append(file)
+
+    err_console.print()
+    err_console.print(
+        f"写入 {counts['write']}  按标题匹配 {counts['title_match']}  "
+        f"手动指定 0  已是最新 {counts['latest']}"
+    )
+    err_console.print(
+        f"歧义 {counts['ambiguous']}  未能匹配到 {counts['not_found']}  "
+        f"冲突 {counts['conflict']}  多个 track_id {counts['multiple']}"
+    )
+    err_console.print(
+        f"未能读取标题 {counts['no_title']}  跳过格式 {skipped}  "
+        f"未能写入 {counts['write_failed']}"
+    )
+
+    if details["title_match"]:
+        err_console.print(f"\n按标题匹配 {len(details['title_match'])}")
+        for file, local_artist, upstream_artist in details["title_match"]:
+            err_console.print(f"  {escape(file.name)}")
+            err_console.print(f"    本地：{escape(local_artist)}")
+            err_console.print(f"    上游：{escape(upstream_artist)}")
+
+    if details["conflict"]:
+        err_console.print(f"\n冲突 {len(details['conflict'])}")
+        for file, existing, song_id in details["conflict"]:
+            err_console.print(
+                f"  {escape(file.name)}  已有 track_id {existing}，匹配到 {song_id}"
+            )
+
+    if details["ambiguous"]:
+        err_console.print(f"\n歧义 {len(details['ambiguous'])}")
+        for file, candidates in details["ambiguous"]:
+            values = "、".join(str(value) for value in candidates)
+            err_console.print(f"  {escape(file.name)}  候选 {values}")
+
+    if details["not_found"]:
+        err_console.print(f"\n未能匹配到 {len(details['not_found'])}")
+        for file in details["not_found"]:
+            err_console.print(f"  {escape(file.name)}")
+
+    if details["multiple"]:
+        err_console.print(f"\n多个 track_id {len(details['multiple'])}")
+        for file, existing in details["multiple"]:
+            err_console.print(f"  {escape(file.name)}  {'、'.join(existing)}")
+
+    if details["no_title"]:
+        err_console.print(f"\n未能读取标题 {len(details['no_title'])}")
+        for file in details["no_title"]:
+            err_console.print(f"  {escape(file.name)}")
+
+    if details["write_failed"]:
+        err_console.print(f"\n未能写入 {len(details['write_failed'])}")
+        for file, message in details["write_failed"]:
+            err_console.print(f"  {escape(file.name)}：{escape(message)}")
+
+    if details["read_failed"]:
+        err_console.print(f"\n未能读取 {len(details['read_failed'])}")
+        for file, message in details["read_failed"]:
+            err_console.print(f"  {escape(file.name)}：{escape(message)}")
 
     duplicate_ids = sum(1 for count in matched_ids.values() if count > 1)
     if duplicate_ids:
         warning(f"有 {duplicate_ids} 个 track_id 匹配到多个文件")
+
+    if details["read_failed"]:
+        sys.exit(1)
 
 
 def cmd_check(args: argparse.Namespace) -> None:

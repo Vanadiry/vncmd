@@ -118,3 +118,8 @@ class TestDecideAction:
 
         assert action.action == "ambiguous"
         assert action.existing == ("999",)
+
+    def test_没有标题(self):
+        action = decide_action(index(), "", "Artist", [])
+
+        assert action.action == "no_title"
