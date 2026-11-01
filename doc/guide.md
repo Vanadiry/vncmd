@@ -8,6 +8,8 @@
 
 [项目](project.md)
 
+如果你不了解如何拼装参数，可以访问[命令构造器](https://vanadiry.com/wiki/vncmd/cmd_helper/)查看完整命令。
+
 ## 基本命令
 
 | 命令 | 说明 |
@@ -19,6 +21,7 @@
 | `tracker <名称>` | 新建或查看 Tracker |
 | `cookie "..."` | 写入 Cookie |
 | `cookie --check` | 检查 Cookie 状态 |
+| `doctor` | 检查配置 |
 
 对于 `song/playlist/album`，传入 `-d` 参数，可以下载对应内容。  
 例如 `vncmd song 409926 -d`。

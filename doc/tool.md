@@ -37,11 +37,11 @@ vncmd tool embed-id <目录或文件路径> [--from <json>] [-r] [--set <id>]
 
 此功能会改写音频的元数据，在自定义标签位添加 `track_id` 标签，记录上游的曲目 ID。
 
-你需要一份形如 vncmd 的 Tracker 功能生成的，记录了“标题、艺术家、id”的 `song.json`，并使用 `--from` 传入。  
-没有指定 `--from` 时，vncmd 会合并所有 Tracker 的 `song.json`。  
+你需要一份形如 vncmd 的 Tracker 功能生成的，记录了“标题、艺术家、id”的 `songs.json`，并使用 `--from` 传入。  
+没有指定 `--from` 时，vncmd 会合并所有 Tracker 的 `songs.json`。  
 如果你之前使用 Tracker 功能来下载曲库，则不需要指定 `--from` 参数。
 
-vncmd 读取你曲目元数据中的标题、艺术家，并与 `song.json` 匹配，并写入 id。
+vncmd 读取你曲目元数据中的标题、艺术家，并与 `songs.json` 匹配，并写入 id。
 可能无法精确的匹配到所有曲目，embed-id 工具会报告异常的文件。
 
 对于 vncmd 无法匹配的文件，你可以自行核对，使用 `--set` 来手动设置 id。

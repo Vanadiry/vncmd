@@ -7,7 +7,7 @@
 本项目不提供越权操作，下载 VIP 音乐需要确保账号有 VIP 权限。  
 本项目仅供学习交流，使用本项目获取的数据，请于 24 小时内删除。
 
-[GitHub](https://github.com/Vanadiry/vncmd)｜[PyPI](https://pypi.org/project/vncmd/)｜[Blog](https://magic.vanadiry.com/wiki/vncmd/)｜[LICENSE](LICENSE)
+[GitHub](https://github.com/Vanadiry/vncmd)｜[PyPI](https://pypi.org/project/vncmd/)｜[Wiki](https://magic.vanadiry.com/wiki/vncmd/)｜[cmd_helper](https://vanadiry.com/wiki/vncmd/cmd_helper/)｜[LICENSE](LICENSE)
 
 ## 功能
 
@@ -29,8 +29,10 @@ uv tool install vncmd # 如果你使用 uv，推荐用此
 vncmd --init
 ```
 
-初次使用，请至少阅读[详细指南](doc/guide.md)。
+初次使用，请至少阅读[详细指南](doc/guide.md)。  
 从 0.x 升级请阅读[迁移说明](MIGRATION.md)。
+
+我制作了[命令构造器](https://vanadiry.com/wiki/vncmd/cmd_helper/)的交互式页面，希望帮你快速上手。
 
 配置和缓存默认放在 `~/.vSoft/vncmd/`，可通过环境变量 `VNCMD_HOME` 自定义。  
 下载目录默认 `~/Downloads/vncmd-dl/`，在配置文件中可修改。
