@@ -169,3 +169,24 @@ def test_批量失败时保留空日期(monkeypatch):
     got = api.get_playlist_details(1)
 
     assert got["tracks"][0]["publish_time"] == ""
+
+
+def test_音轨号与CD号(monkeypatch):
+    t = track(1)
+    t["no"] = 3
+    t["cd"] = 2
+    fake(monkeypatch, playlist(t))
+
+    got = api.get_playlist_details(1)
+
+    assert got["tracks"][0]["track_no"] == 3
+    assert got["tracks"][0]["cd_no"] == 2
+
+
+def test_没有音轨号时留空(monkeypatch):
+    fake(monkeypatch, playlist(track(1)))
+
+    got = api.get_playlist_details(1)
+
+    assert got["tracks"][0]["track_no"] is None
+    assert got["tracks"][0]["cd_no"] is None

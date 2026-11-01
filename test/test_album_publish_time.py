@@ -81,3 +81,24 @@ def test_两者都为0时留空(monkeypatch):
     got = api.get_album_details(1)
 
     assert got["tracks"][0]["publish_time"] == ""
+
+
+def test_音轨号与CD号(monkeypatch):
+    s = song()
+    s["no"] = 3
+    s["cd"] = 2
+    fake(monkeypatch, album(s))
+
+    got = api.get_album_details(1)
+
+    assert got["tracks"][0]["track_no"] == 3
+    assert got["tracks"][0]["cd_no"] == 2
+
+
+def test_没有音轨号时留空(monkeypatch):
+    fake(monkeypatch, album(song()))
+
+    got = api.get_album_details(1)
+
+    assert got["tracks"][0]["track_no"] is None
+    assert got["tracks"][0]["cd_no"] is None

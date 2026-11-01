@@ -166,9 +166,29 @@ def _normalize_song(song: dict) -> dict:
     }
 
 
+# 缓存结构版本。旧缓存少字段时按未命中处理，避免把半份详情当成完整数据
+_DETAIL_KEYS = (
+    "id",
+    "title",
+    "artist",
+    "album",
+    "album_id",
+    "cover",
+    "publish_time",
+    "duration",
+    "track_no",
+    "cd_no",
+)
+
+
+def _complete_details(data: dict | None) -> bool:
+    """判断缓存是否包含当前版本需要的全部键"""
+    return isinstance(data, dict) and all(key in data for key in _DETAIL_KEYS)
+
+
 def get_song_details(song_id: int) -> dict:
     cached = cache_get_song(song_id)
-    if cached:
+    if _complete_details(cached):
         return cached
 
     v0_data = {}
@@ -205,7 +225,7 @@ def get_song_details_many(song_ids: list[int]) -> dict[int, dict]:
     missing: list[int] = []
     for song_id in song_ids:
         cached = cache_get_song(song_id)
-        if cached:
+        if _complete_details(cached):
             result[song_id] = cached
         else:
             missing.append(song_id)
@@ -308,6 +328,8 @@ def get_playlist_details(playlist_id: int) -> dict:
                 "cover": al.get("picUrl", ""),
                 "publish_time": publish_time,
                 "duration": _fmt_duration(t.get("dt")),
+                "track_no": _first_number(t.get("no")),
+                "cd_no": _first_number(t.get("cd")),
             }
         )
 
@@ -351,6 +373,8 @@ def get_album_details(album_id: int) -> dict:
                     s.get("publishTime") or album.get("publishTime")
                 ),
                 "duration": _fmt_duration(s.get("dt")),
+                "track_no": _first_number(s.get("no")),
+                "cd_no": _first_number(s.get("cd")),
             }
         )
 

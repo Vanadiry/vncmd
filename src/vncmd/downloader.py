@@ -76,6 +76,7 @@ from vncmd.net.api import (
     get_audio_source,
     get_lyrics_url,
     get_song_details,
+    get_song_details_many,
 )
 from vncmd.net.download import fetch_audio, fetch_cover, fetch_lyrics
 from vncmd.session import _setup_session, _summarize
@@ -160,6 +161,8 @@ def _progress_desc(text: str) -> str:
 def _process_cover(cover_data, cover_url):
     """把封面分成嵌入用与保存用两份，失败时返回三个 None"""
     if not cover_data:
+        if cover_url:
+            warning("封面获取失败，本次不写入封面")
         return None, None, None
     try:
         embed_data, embed_mime = process_cover_image(
@@ -172,6 +175,62 @@ def _process_cover(cover_data, cover_url):
         warning(f"封面处理失败，本次不嵌入封面：{e}")
         return None, None, None
     return embed_data, embed_mime, save_data
+
+
+# 下载与嵌入需要的完整字段，缺任意一项就补详情
+_DETAIL_FIELDS = (
+    "title",
+    "artist",
+    "album",
+    "album_id",
+    "cover",
+    "publish_time",
+    "duration",
+    "track_no",
+    "cd_no",
+)
+_DETAIL_REQUIRED = ("title", "artist", "album", "cover", "track_no", "cd_no")
+
+
+def _has_detail_value(value) -> bool:
+    """空串与 None 视为缺失，数字 0 仍是有效值"""
+    return value is not None and value != ""
+
+
+def _needs_details(track: dict) -> bool:
+    """判断批量入口传进来的曲目是否缺嵌入字段"""
+    return any(not _has_detail_value(track.get(key)) for key in _DETAIL_REQUIRED)
+
+
+def _complete_track_details(tracks: list[dict]) -> None:
+    """下载前补齐 Tracker 等入口缺少的曲目详情
+
+    详情失败时保留已有字段，不能因为补详情失败挡住音频下载
+    """
+    pending = [track for track in tracks if _needs_details(track)]
+    if not pending:
+        return
+
+    try:
+        details = get_song_details_many([int(track["id"]) for track in pending])
+    except Exception as e:
+        warning(f"补全曲目详情失败，本次使用已有字段：{e}")
+        return
+
+    missing = 0
+    for track in pending:
+        detail = details.get(track["id"])
+        if not detail:
+            missing += 1
+            continue
+        for key in _DETAIL_FIELDS:
+            value = detail.get(key)
+            # 详情里的空值不能覆盖 Tracker 已经存下的标题、日期等
+            if _has_detail_value(value):
+                track[key] = value
+
+    if missing:
+        warning(f"{missing} 首曲目未取到详情，本次使用已有字段")
 
 
 def _download_and_verify(
@@ -289,13 +348,12 @@ def download_song(
         tlyric_text = ""
 
     # 取封面
-    cover_data = None
+    embed_cover_data = embed_cover_mime = save_cover_data = None
     if want_cover or want_song:
         cover_data = fetch_cover(cover_url)
-
-    embed_cover_data, embed_cover_mime, save_cover_data = _process_cover(
-        cover_data, cover_url
-    )
+        embed_cover_data, embed_cover_mime, save_cover_data = _process_cover(
+            cover_data, cover_url
+        )
 
     music_type, temp_music_path = None, None
     temp_lyric_paths = []
@@ -512,7 +570,9 @@ def download_song_batch(
 
     info(f"下载到 {abbrev_home(session_dir)}")
 
-    want_song = "a" in get_download_content()
+    content = get_download_content()
+    want_song = "a" in content
+    want_cover = "c" in content
     total = len(tracks)
     _cancelled.clear()
     success_count = 0
@@ -523,6 +583,13 @@ def download_song_batch(
     if total == 0:
         success(f"所有曲目已下载完毕，目录为 {session_dir}")
         return success_count, fail_count, session_dir
+
+    # Tracker 只存少量字段，进入 worker 前统一补成完整曲目
+    if want_song or want_cover:
+        _complete_track_details(tracks)
+        missing_cover = sum(1 for track in tracks if not track.get("cover"))
+        if missing_cover:
+            warning(f"{missing_cover} 首曲目没有封面，本次不会写入封面")
 
     workers = _prepare_workers(tracks, concurrency)
     # 成功数、失败数与失败 id 为多个 worker 共享，写入必须串行

@@ -1,5 +1,12 @@
 # Changelog
 
+## [Unreleased]
+
+### Fixed
+
+- Tracker 等批量入口下载前补全曲目详情
+- 专辑与歌单解析音轨号与 CD 号
+
 ## [v1.0.1] - 2026-10-20
 
 > 本次有破坏性更新，请阅读[迁移说明](MIGRATION.md)

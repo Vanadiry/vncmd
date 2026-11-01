@@ -7,7 +7,7 @@ CLI（`src/vncmd/cli.py`）：
 - `cli.py`：入口、配置覆盖、参数互斥与命令分派
 - `parser.py`：参数定义与帮助文案
 - `commands.py`：各个子命令的实现
-- `downloader.py`：编排下载流程
+- `downloader.py`：编排下载流程与下载前补全曲目详情
 - `session.py`：会话目录与断点流程
 - `checkpoint.py`：下载断点读写
 - `tracker.py`：歌单/专辑变更追踪与同步
