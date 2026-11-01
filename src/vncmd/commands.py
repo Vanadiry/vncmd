@@ -39,6 +39,7 @@ from vncmd.downloader import (
     download_song,
     download_song_batch,
 )
+from vncmd.embed_id import build_index, load_songs_file, load_tracker_songs
 from vncmd.media.checker import (
     any_check_tool,
     check_audio,
@@ -557,13 +558,19 @@ def cmd_embed_id(args: argparse.Namespace) -> None:
             error(f"--from 文件不存在：{args.from_file}")
             sys.exit(1)
         try:
-            json.loads(source.read_text(encoding="utf-8"))
-        except (OSError, UnicodeDecodeError, json.JSONDecodeError) as e:
+            build_index(load_songs_file(source))
+        except ValueError as e:
             error(f"--from 文件无法解析：{e}")
             sys.exit(1)
     elif not _tracker_song_files():
         error("未找到 Tracker 曲目库，请用 --from 指定 songs.json")
         sys.exit(1)
+    else:
+        try:
+            build_index(load_tracker_songs(VNCMD_HOME / "tracker"))
+        except ValueError as e:
+            error(f"Tracker 曲目库无法解析：{e}")
+            sys.exit(1)
 
     files = _collect_audio_files(path, args.recursive)
     if not files:

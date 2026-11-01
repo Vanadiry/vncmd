@@ -244,6 +244,16 @@ class TestFrom:
         commands.cmd_embed_id(ns(audio_file, from_file=source))
         assert "尚未实现" in capsys.readouterr().err
 
+    def test_缺少songs列表退一(self, capsys, audio_file, tmp_path):
+        source = tmp_path / "songs.json"
+        source.write_text("{}", encoding="utf-8")
+        with pytest.raises(SystemExit) as exc:
+            commands.cmd_embed_id(ns(audio_file, from_file=source))
+        assert exc.value.code == 1
+        err = capsys.readouterr().err
+        assert "无法解析" in err
+        assert "缺少 songs" in err
+
 
 class Test没有来源:
     def test_没有tracker时提示from(self, capsys, audio_file, no_trackers):
@@ -262,3 +272,14 @@ class Test没有来源:
         )
         commands.cmd_embed_id(ns(audio_file))
         assert "尚未实现" in capsys.readouterr().err
+
+    def test_任意tracker曲目库损坏退一(self, capsys, audio_file, no_trackers):
+        tracker_dir = no_trackers / "tracker" / "like"
+        tracker_dir.mkdir(parents=True)
+        (tracker_dir / "songs.json").write_text("{坏", encoding="utf-8")
+
+        with pytest.raises(SystemExit) as exc:
+            commands.cmd_embed_id(ns(audio_file))
+
+        assert exc.value.code == 1
+        assert "Tracker 曲目库无法解析" in capsys.readouterr().err
