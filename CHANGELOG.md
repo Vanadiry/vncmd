@@ -1,5 +1,11 @@
 # Changelog
 
+## [Unreleased]
+
+### Changed
+
+- tool check 默认只检查当前目录，新增 -r 递归检查子目录
+
 ## [v1.1.0] - 2026-11-01
 
 > 这版更新仅为新下载的音频写入 track_id 标签

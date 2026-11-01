@@ -4,8 +4,9 @@
 [搜索](search.md)  
 [单曲/歌单/专辑](music.md)  
 [Tracker](tracker.md)  
-[项目](project.md)  
-[其他](other.md)
+[工具](tool.md)
+
+[项目](project.md)
 
 ## 基本命令
 
@@ -15,15 +16,12 @@
 | `song <ID>` | 预览单曲 |
 | `playlist <ID>` | 预览歌单 |
 | `album <ID>` | 预览专辑 |
-| `song <ID> -d` | 下载单曲 |
-| `playlist <ID> -d` | 下载歌单 |
-| `album <ID> -d` | 下载专辑 |
 | `tracker <名称>` | 新建或查看 Tracker |
 | `cookie "..."` | 写入 Cookie |
 | `cookie --check` | 检查 Cookie 状态 |
-| `tool check "文件或目录"` | 校验音频完整性 |
 
 对于 `song/playlist/album`，传入 `-d` 参数，可以下载对应内容。  
+例如 `vncmd song 409926 -d`。
 
 详细参数见 [music](music.md)。
 
@@ -37,10 +35,10 @@
 
 ## 完整性校验
 
-如果系统中安装了 ffmpeg 和 flac 工具，程序会自动在下载完毕后校验音频完整性。  
-你可以使用 `vncmd tool check "文件或目录"` 来校验其他目录下的音频。
+如果系统中安装了 ffmpeg 和 flac 工具，程序会自动在下载完毕后校验音频完整性。
 
-支持格式：mp3、flac、m4a、wav、ogg、opus、wma、ape。  
+你还可以使用 vncmd 的完整性校验工作流，来检查其他目录下的音频。  
+详细用法见 [工具](tool.md)。
 
 ## 其他
 
