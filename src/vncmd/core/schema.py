@@ -400,6 +400,16 @@ def value_of(cfg: dict, path: str) -> Any:
     return value
 
 
+def missing_keys(cfg: dict) -> list[tuple[str, Any]]:
+    """列出未写的配置项及其默认值，顺序与配置表一致"""
+    result = []
+    for setting in SCHEMA:
+        parts, _key, value = _locate(cfg, setting.path)
+        if not parts or value is None:
+            result.append((setting.path, setting.default))
+    return result
+
+
 def validate(cfg: dict) -> list[str]:
     """校验表里全部配置项，返回错误列表
 

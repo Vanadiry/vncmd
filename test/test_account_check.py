@@ -450,7 +450,7 @@ class TestAnnounceSkips:
         """
         from vncmd.cli import _NO_ACCOUNT_REPORT
 
-        assert set(_NO_ACCOUNT_REPORT) == {"cookie", "tool"}
+        assert set(_NO_ACCOUNT_REPORT) == {"cookie", "doctor", "tool"}
 
     def test_下载与浏览类的命令要查(self):
         from vncmd.cli import _NO_ACCOUNT_REPORT

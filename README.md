@@ -42,7 +42,7 @@ vncmd 有各种方便的功能，但可能不适合所有用户，因此默认�
 # 搜索
 vncmd search "Beyond"
 
-# 使用。数字为曲目 ID，专辑歌单同理。加入 -d 参数即为下载。
+# 使用数字曲目 ID，专辑歌单同理。加入 -d 参数即为下载。
 # 单曲：song｜歌单：playlist｜专辑：album。
 vncmd song 409926           # 预览单曲
 vncmd song 409926 -d        # 下载单曲
@@ -54,11 +54,12 @@ vncmd album 405493 -d       # 下载专辑
 vncmd cookie "..."
 
 # Tracker
-vncmd tracker my-list          # 新建/查看 Tracker
-vncmd tracker my-list -f       # 交互式更新
+vncmd tracker my-list       # 新建/查看 Tracker
+vncmd tracker my-list -f    # 交互式更新
 
-# 音频完整性校验
-vncmd tool check ~/Music
+# 其他功能
+vncmd tool check ~/Music    # 音频完整性校验
+vncmd doctor                # 检查配置
 ```
 
 ## 二进制

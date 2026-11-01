@@ -9,6 +9,7 @@ from vncmd.commands import (
     cmd_cache,
     cmd_check,
     cmd_cookie,
+    cmd_doctor,
     cmd_embed_id,
     cmd_init,
     cmd_playlist,
@@ -38,7 +39,7 @@ def build_parser():
 
 
 # 这些命令不查账号：cookie 自查，tool 不联网
-_NO_ACCOUNT_REPORT = {"cookie", "tool"}
+_NO_ACCOUNT_REPORT = {"cookie", "doctor", "tool"}
 
 
 def _reject_json_download(args: argparse.Namespace) -> None:
@@ -83,6 +84,7 @@ def main() -> None:
 
     # 先校验 --config，避免拼错键只打帮助就退 0
     overrides = _config_overrides(args.config)
+    args.config_overrides = overrides
 
     # 只看帮助时不碰配置与锁，--help 在 parse_args 内部就已退出
     if args.command is None:
@@ -91,9 +93,10 @@ def main() -> None:
 
     _reject_json_download(args)
 
-    acquire_lock()
-
-    validate_config(overrides=overrides)
+    # doctor 只读，不持锁，也不创建配置
+    if args.command != "doctor":
+        acquire_lock()
+        validate_config(overrides=overrides)
 
     # 账号播报放在取链接之前，付费歌拿不到链接会直接退出
     if args.command not in _NO_ACCOUNT_REPORT:
@@ -101,6 +104,7 @@ def main() -> None:
 
     dispatch = {
         "cookie": cmd_cookie,
+        "doctor": cmd_doctor,
         "search": cmd_search,
         "song": cmd_song,
         "album": cmd_album,

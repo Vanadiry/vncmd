@@ -13,12 +13,16 @@ from vncmd.core.config import (
     COOKIE_FILE,
     VNCMD_HOME,
     abbrev_home,
+    apply_overrides,
+    collect_config_errors,
     get_cache_dir,
     get_cache_ttl,
     get_download_content,
     get_download_dir,
     get_quality,
     get_quality_name,
+    load_config,
+    unknown_keys,
     validate_config,
 )
 from vncmd.core.output import (
@@ -35,6 +39,7 @@ from vncmd.core.output import (
     success,
     warning,
 )
+from vncmd.core.schema import missing_keys
 from vncmd.downloader import (
     download_song,
     download_song_batch,
@@ -439,6 +444,74 @@ def cmd_init(args: argparse.Namespace) -> None:
         "  [dim]详细指南：[/]https://github.com/Vanadiry/vncmd/blob/main/doc/guide.md"
     )
     console.print()
+
+
+def _config_value(value) -> str:
+    """把默认值写成命令行里看得懂的形式"""
+    if isinstance(value, bool):
+        return "true" if value else "false"
+    if isinstance(value, str):
+        return json.dumps(value, ensure_ascii=False)
+    return str(value)
+
+
+def cmd_doctor(args: argparse.Namespace) -> None:
+    """检查配置文件，缺失项按默认值报告"""
+    path = CONFIG_FILE
+    if not path.is_file():
+        console.print(f"配置文件：{abbrev_home(path)}")
+        console.print("状态：未找到")
+        console.print("首次运行时会写入默认配置")
+        return
+
+    try:
+        cfg = load_config()
+    except Exception as e:
+        message = f"配置文件无法解析：{e}"
+        console.print(f"配置文件：{abbrev_home(path)}")
+        console.print("状态：失败")
+        console.print("错误 1 项")
+        console.print(f"  {escape(message)}")
+        sys.exit(1)
+
+    overrides = getattr(args, "config_overrides", {})
+    cfg = apply_overrides(cfg, overrides)
+    unknown = unknown_keys(cfg)
+    unknown_messages = {f"未知配置项：{item}" for item in unknown}
+    errors = [
+        message
+        for message in collect_config_errors(cfg)
+        if message not in unknown_messages
+    ]
+    missing = missing_keys(cfg)
+    ok = not errors and not unknown
+
+    console.print(f"配置文件：{abbrev_home(path)}")
+    console.print(f"状态：{'通过' if ok else '失败'}")
+
+    if missing:
+        console.print(f"缺失 {len(missing)} 项，将使用默认值")
+        for key, value in missing:
+            console.print(f"  {key} = {_config_value(value)}")
+    else:
+        console.print("缺失 0 项")
+
+    if errors:
+        console.print(f"错误 {len(errors)} 项")
+        for message in errors:
+            console.print(f"  {escape(message)}")
+    else:
+        console.print("错误 0 项")
+
+    if unknown:
+        console.print(f"未知配置项 {len(unknown)} 项")
+        for item in unknown:
+            console.print(f"  {escape(item)}")
+    else:
+        console.print("未知配置项 0 项")
+
+    if not ok:
+        sys.exit(1)
 
 
 def cmd_cookie(args: argparse.Namespace) -> None:

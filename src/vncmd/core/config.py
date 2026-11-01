@@ -109,14 +109,8 @@ def apply_overrides(cfg: dict, overrides: dict) -> dict:
     return out
 
 
-def check_config(cfg: dict) -> None:
-    """校验内存里的配置，有错就退出
-
-    校验通过后这份配置成为进程内唯一来源
-    """
-    global _cfg
-    _cfg = cfg
-
+def collect_config_errors(cfg: dict) -> list[str]:
+    """收集配置错误，不退出进程，供 doctor 等只读检查使用"""
     errors = []
 
     # 段类型写错时先拦下，否则逐项校验取不到值
@@ -132,11 +126,9 @@ def check_config(cfg: dict) -> None:
             # 整段未写按缺键处理，由各项取默认值
             continue
         if not isinstance(container, dict):
-            _die(
-                [
-                    f"[{section}] 配置不合法，应当为配置段，"
-                    f"实际是 {type(container).__name__}"
-                ]
+            errors.append(
+                f"[{section}] 配置不合法，应当为配置段，"
+                f"实际是 {type(container).__name__}"
             )
 
     # 段检查在前，逐项表才能区分缺键与段写坏
@@ -144,7 +136,18 @@ def check_config(cfg: dict) -> None:
 
     # 未知段与键一律报错，避免旧键静默失效
     errors.extend(f"未知配置项：{item}" for item in unknown_keys(cfg))
+    return errors
 
+
+def check_config(cfg: dict) -> None:
+    """校验内存里的配置，有错就退出
+
+    校验通过后这份配置成为进程内唯一来源
+    """
+    global _cfg
+    _cfg = cfg
+
+    errors = collect_config_errors(cfg)
     if errors:
         _die(errors)
 

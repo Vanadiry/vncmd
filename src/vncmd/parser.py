@@ -141,6 +141,8 @@ def build_parser(version: str) -> _ArgumentParser:
         help="临时覆盖配置项，可重复，后者生效，须放在子命令之前",
     )
 
+    sub.add_parser("doctor", help="检查配置")
+
     p_cookie = sub.add_parser("cookie", help="设置 Cookie")
     grp_cookie = p_cookie.add_mutually_exclusive_group()
     grp_cookie.add_argument("value", nargs="?", help="Cookie 值，省略时需配 --check")
