@@ -159,6 +159,70 @@ class TestSet写入:
         assert read_track_id(str(audio_file)) == ["3424255901"]
 
 
+class Test收集文件:
+    def test_单个文件直接返回(self, audio_file):
+        assert commands._collect_audio_files(audio_file, False) == [audio_file]
+
+    def test_默认只扫当前层(self, tmp_path):
+        (tmp_path / "a.mp3").write_bytes(b"")
+        (tmp_path / "b.flac").write_bytes(b"")
+        sub = tmp_path / "sub"
+        sub.mkdir()
+        (sub / "deep.mp3").write_bytes(b"")
+
+        got = commands._collect_audio_files(tmp_path, False)
+
+        assert [p.name for p in got] == ["a.mp3", "b.flac"]
+
+    def test_递归扫子目录(self, tmp_path):
+        sub = tmp_path / "sub"
+        sub.mkdir()
+        (sub / "deep.mp3").write_bytes(b"")
+        (tmp_path / "a.mp3").write_bytes(b"")
+
+        got = commands._collect_audio_files(tmp_path, True)
+
+        assert [p.name for p in got] == ["a.mp3", "deep.mp3"]
+
+    def test_跳过不支持的格式(self, tmp_path, capsys):
+        path = tmp_path / "tracks"
+        path.mkdir()
+        (path / "a.m4a").write_bytes(b"")
+        (path / "b.mp3").write_bytes(b"")
+        source = tmp_path / "songs.json"
+        source.write_text(json.dumps({"songs": []}), encoding="utf-8")
+
+        commands.cmd_embed_id(ns(path, from_file=source))
+
+        err = capsys.readouterr().err
+        assert "跳过 1 个不支持的格式" in err
+        assert "尚未实现" in err
+
+    def test_只有不支持格式(self, tmp_path, capsys):
+        path = tmp_path / "tracks"
+        path.mkdir()
+        (path / "a.m4a").write_bytes(b"")
+        source = tmp_path / "songs.json"
+        source.write_text(json.dumps({"songs": []}), encoding="utf-8")
+
+        commands.cmd_embed_id(ns(path, from_file=source))
+
+        err = capsys.readouterr().err
+        assert "跳过 1 个不支持的格式" in err
+        assert "没有可写入" in err
+        assert "尚未实现" not in err
+
+    def test_目录没有音频(self, tmp_path, capsys):
+        path = tmp_path / "empty"
+        path.mkdir()
+        source = tmp_path / "songs.json"
+        source.write_text(json.dumps({"songs": []}), encoding="utf-8")
+
+        commands.cmd_embed_id(ns(path, from_file=source))
+
+        assert "未找到音频文件" in capsys.readouterr().err
+
+
 class TestFrom:
     def test_文件不存在退一(self, capsys, audio_file):
         with pytest.raises(SystemExit) as exc:

@@ -495,6 +495,20 @@ def cmd_cache(args: argparse.Namespace) -> None:
         info("清空缓存：vncmd tool cache --clear")
 
 
+_AUDIO_EXTENSIONS = {".mp3", ".flac", ".m4a", ".wav", ".ogg", ".opus", ".wma", ".ape"}
+_EMBED_ID_EXTENSIONS = {".mp3", ".flac"}
+
+
+def _collect_audio_files(path: Path, recursive: bool) -> list[Path]:
+    """收集路径下支持的音频文件，目录默认只看当前这一层"""
+    if path.is_file():
+        return [path] if path.suffix.lower() in _AUDIO_EXTENSIONS else []
+    children = path.rglob("*") if recursive else path.iterdir()
+    return sorted(
+        f for f in children if f.is_file() and f.suffix.lower() in _AUDIO_EXTENSIONS
+    )
+
+
 def _tracker_song_files() -> list[Path]:
     """列出所有 Tracker 的 songs.json"""
     return sorted((VNCMD_HOME / "tracker").glob("*/songs.json"))
@@ -517,7 +531,7 @@ def cmd_embed_id(args: argparse.Namespace) -> None:
         if path.is_dir():
             error("--set 只能用于单个文件")
             sys.exit(2)
-        if path.suffix.lower() not in (".mp3", ".flac"):
+        if path.suffix.lower() not in _EMBED_ID_EXTENSIONS:
             error("--set 只支持 MP3 与 FLAC")
             sys.exit(2)
 
@@ -551,6 +565,19 @@ def cmd_embed_id(args: argparse.Namespace) -> None:
         error("未找到 Tracker 曲目库，请用 --from 指定 songs.json")
         sys.exit(1)
 
+    files = _collect_audio_files(path, args.recursive)
+    if not files:
+        info("未找到音频文件")
+        return
+
+    writable = [f for f in files if f.suffix.lower() in _EMBED_ID_EXTENSIONS]
+    skipped = len(files) - len(writable)
+    if skipped:
+        warning(f"跳过 {skipped} 个不支持的格式")
+    if not writable:
+        info("没有可写入 track_id 的文件")
+        return
+
     info("embed-id 尚未实现")
 
 
@@ -570,18 +597,7 @@ def cmd_check(args: argparse.Namespace) -> None:
         error(f"路径不存在：{args.path}")
         sys.exit(1)
 
-    SUPPORTED = {".mp3", ".flac", ".m4a", ".wav", ".ogg", ".opus", ".wma", ".ape"}
-    files = []
-    if path.is_file():
-        if path.suffix.lower() in SUPPORTED:
-            files.append(path)
-    else:
-        children = path.rglob("*") if args.recursive else path.iterdir()
-        for f in children:
-            if f.is_file() and f.suffix.lower() in SUPPORTED:
-                files.append(f)
-    files.sort()
-
+    files = _collect_audio_files(path, args.recursive)
     if not files:
         info("未找到支持的音频文件")
         return
