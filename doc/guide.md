@@ -8,7 +8,7 @@
 
 [项目](project.md)
 
-如果你不了解如何拼装参数，可以访问[命令构造器](https://vanadiry.com/wiki/vncmd/cmd_helper/)查看完整命令。
+如果你不了解如何拼装参数，可以访问[命令构造器](https://vanadiry.com/lab/vncmd-cmd-helper/)查看完整命令。
 
 ## 基本命令
 
