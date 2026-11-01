@@ -50,15 +50,39 @@ def _read_track_id_flac(audio: FLAC) -> list[str]:
     return [str(value) for value in audio.get(TRACK_ID, [])]
 
 
+def _read_info_mp3(tags) -> tuple[str, str, list[str]]:
+    if tags is None:
+        return "", "", []
+    title_frames = tags.getall("TIT2")
+    title = title_frames[0].text[0] if title_frames and title_frames[0].text else ""
+    artists = [value for frame in tags.getall("TPE1") for value in (frame.text or [])]
+    return title, ", ".join(artists), _read_track_id_mp3(tags)
+
+
+def _read_info_flac(audio: FLAC) -> tuple[str, str, list[str]]:
+    titles = audio.get("title", [])
+    title = str(titles[0]) if titles else ""
+    artists = [str(value) for value in audio.get("artist", [])]
+    return title, ", ".join(artists), _read_track_id_flac(audio)
+
+
+def read_track_info(path: str) -> tuple[str, str, list[str]]:
+    """读取标题、艺术家与已有 track_id，支持 MP3 与 FLAC
+
+    artist 多值时按上游习惯用逗号加空格拼接
+    """
+    music_type = _music_type(path)
+    if music_type == "mp3":
+        return _read_info_mp3(MP3(path).tags)
+    return _read_info_flac(FLAC(path))
+
+
 def read_track_id(path: str) -> list[str]:
     """读取文件里已有的 track_id，支持 MP3 与 FLAC
 
     返回列表而非单值，供后续回填工具识别重复标签
     """
-    music_type = _music_type(path)
-    if music_type == "mp3":
-        return _read_track_id_mp3(MP3(path).tags)
-    return _read_track_id_flac(FLAC(path))
+    return read_track_info(path)[2]
 
 
 def _write_track_id_mp3(tags, track_id: int | str) -> None:
