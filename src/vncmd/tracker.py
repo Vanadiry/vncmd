@@ -381,6 +381,45 @@ def compare_songs(fresh: dict[str, dict], cached_list: list[dict]) -> dict:
     return {"added": added, "removed": removed, "changed": changed}
 
 
+def _applied_changes(cached_list: list[dict], resolved: list[dict]) -> dict:
+    """只保留用户真正接受的变更
+
+    交互式解决冲突时，新增、删除、改名都可以只选一部分。
+    diff.json 必须与 songs.json 一致，否则 -d 会按 diff 去曲目库里
+    找并不存在的 id。
+    """
+    cached = {s["id"]: s for s in cached_list}
+    result = {s["id"]: s for s in resolved}
+
+    added = sorted(
+        [result[sid] for sid in result.keys() - cached.keys()],
+        key=lambda s: s.get("title", ""),
+    )
+    removed = sorted(
+        [cached[sid] for sid in cached.keys() - result.keys()],
+        key=lambda s: s.get("title", ""),
+    )
+    changed = [
+        (cached[sid], result[sid])
+        for sid in cached.keys() & result.keys()
+        if cached[sid].get("title") != result[sid].get("title")
+    ]
+    changed.sort(key=lambda pair: pair[0].get("title", ""))
+
+    return {"added": added, "removed": removed, "changed": changed}
+
+
+def _save_fetch_result(name: str, cached: list[dict], resolved: list[dict]) -> None:
+    """写入曲目库，并只记录实际接受的变更
+
+    一次都没确认时不写 diff，保留上次的记录。
+    """
+    save_songs_db(name, resolved)
+    applied = _applied_changes(cached, resolved)
+    if any(applied.values()):
+        save_diff(name, applied)
+
+
 def _get_checkbox_style(color: str = "green") -> object:
     from questionary import Style
 
@@ -575,10 +614,17 @@ def download_diff(name: str, quality: int, output_dir: str) -> None:
         info("未找到 diff")
         return
 
+    added_songs = []
+    missing = []
     if added:
-        # -fF 为升级前提，added 的 id 都在 songs.json 里
         songs_by_id = {s["id"]: s for s in load_songs_db(name)}
-        added_songs = [songs_by_id[sid] for sid in added]
+        added_songs = [songs_by_id[sid] for sid in added if sid in songs_by_id]
+        missing = [sid for sid in added if sid not in songs_by_id]
+    if missing:
+        # 旧版本会把未接受的变更也写进 diff，这里兜底跳过
+        warning(f"diff 中有 {len(missing)} 首曲目不在曲目库，已跳过")
+
+    if added_songs:
         _, _, session_dir = download_song_batch(
             added_songs,
             quality,
@@ -668,14 +714,12 @@ def cmd_tracker(args: argparse.Namespace) -> None:
         elif args.auto_accept:
             resolved = auto_resolve(comparison, cached, fresh)
             if resolved is not None:
-                save_songs_db(name, resolved)
-                save_diff(name, comparison)
+                _save_fetch_result(name, cached, resolved)
                 success(f"已保存 {len(resolved)} 首曲目")
         else:
             resolved = resolve_conflicts(comparison, cached, fresh)
             if resolved is not None:
-                save_songs_db(name, resolved)
-                save_diff(name, comparison)
+                _save_fetch_result(name, cached, resolved)
                 success(f"已保存 {len(resolved)} 首曲目")
 
     elif args.download:

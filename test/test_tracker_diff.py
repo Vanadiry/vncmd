@@ -154,6 +154,75 @@ class Test保存diff:
         assert data["changed"] == [{"id": 2, "title_old": "旧名", "title_new": "新名"}]
 
 
+class Test只记录已接受的变更:
+    def _ready(self, monkeypatch, tmp_path, cached, fresh):
+        (tmp_path / "like").mkdir(exist_ok=True)
+        monkeypatch.setattr(tracker, "_tracker_path", lambda name: tmp_path / name)
+        monkeypatch.setattr(
+            tracker,
+            "load_settings",
+            lambda name: {"sources": [{"type": "playlist", "ids": [1]}]},
+        )
+        monkeypatch.setattr(tracker, "fetch_all_songs", lambda s: (fresh, []))
+        monkeypatch.setattr(tracker, "load_songs_db", lambda name: cached)
+        monkeypatch.setattr(tracker, "save_songs_db", lambda name, songs: None)
+        written = {}
+        monkeypatch.setattr(tracker, "save_diff", lambda name, cmp: written.update(cmp))
+        return written
+
+    def test_未确认任何变更时不写diff(self, monkeypatch, tmp_path):
+        """没确认的变更只是和上游的差异，不能覆盖上次的 diff"""
+        cached = [{"id": 1, "title": "留着", "artist": "A"}]
+        fresh = {
+            1: {"id": 1, "title": "留着", "artist": "A"},
+            2: {"id": 2, "title": "新来的", "artist": "A"},
+        }
+        written = self._ready(monkeypatch, tmp_path, cached, fresh)
+        monkeypatch.setattr(
+            tracker, "resolve_conflicts", lambda cmp, cached, fresh: cached
+        )
+
+        tracker.cmd_tracker(ns(fetch=True))
+
+        assert written == {}, "一次都没确认时不该碰 diff.json"
+
+    def test_只勾选删除时diff只记删除(self, monkeypatch, tmp_path):
+        cached = [
+            {"id": 1, "title": "留着", "artist": "A"},
+            {"id": 2, "title": "要删的", "artist": "A"},
+        ]
+        fresh = {1: {"id": 1, "title": "留着", "artist": "A"}}
+        written = self._ready(monkeypatch, tmp_path, cached, fresh)
+        monkeypatch.setattr(
+            tracker, "resolve_conflicts", lambda cmp, cached, fresh: cached[:1]
+        )
+
+        tracker.cmd_tracker(ns(fetch=True))
+
+        assert written["added"] == []
+        assert [s["id"] for s in written["removed"]] == [2]
+        assert written["changed"] == []
+
+
+class Test旧diff兼容:
+    def test_库里没有的id跳过而不是崩(self, ready, monkeypatch, tmp_path, capsys):
+        """旧版本可能把没接受的变更写进 diff，读到时不能 KeyError"""
+        monkeypatch.setattr(
+            tracker,
+            "load_diff",
+            lambda name: {"added": [999], "removed": [], "changed": []},
+        )
+        called = []
+        monkeypatch.setattr(
+            tracker, "download_song_batch", lambda *a, **k: called.append(1)
+        )
+
+        tracker.download_diff("like", 320, str(tmp_path / "out"))
+
+        assert not called
+        assert "跳过" in capsys.readouterr().err
+
+
 class Test下载diff落盘:
     def _fake_batch(self, monkeypatch, out):
         """假装真的下载过：得把会话目录建出来，代码才会往里写文件"""
@@ -177,6 +246,17 @@ class Test下载diff落盘:
         monkeypatch.setattr(tracker, "download_song_batch", fake)
         tracker.download_diff("like", 320, str(tmp_path / "out"))
         assert got["songs"] == [SONGS[2]]
+
+    def test_下载后不清空diff(self, ready, monkeypatch, tmp_path):
+        """再次 fetch 之前，-dx 下载的应始终是同一批"""
+        path = ready / "like" / "diff.json"
+        path.write_text(json.dumps(DIFF, ensure_ascii=False), encoding="utf-8")
+        out = tmp_path / "out"
+        self._fake_batch(monkeypatch, out)
+
+        tracker.download_diff("like", 320, str(out))
+
+        assert json.loads(path.read_text(encoding="utf-8")) == DIFF
 
     def test_写changed_txt而不是removed_txt(self, ready, monkeypatch, tmp_path):
         """跑一次 --diff 只该拿一个文件，分成两个要自己记得上次那个还在不在"""

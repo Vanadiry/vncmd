@@ -25,9 +25,9 @@ Tracker 的名称为文件夹名（`.vSoft/vncmd/tracker` 下的子目录名）�
 ## 使用
 
 ```bash
-vncmd tracker "名称" -f         # 拉取并交互式解决冲突
-vncmd tracker "名称" -d         # 下载全部已记录的曲目
-vncmd tracker "名称" -d --diff  # 下载自上次拉取以来新增的曲目
+vncmd tracker "名称" -f   # 拉取并交互式解决冲突
+vncmd tracker "名称" -d   # 下载全部已记录的曲目
+vncmd tracker "名称" -dx  # 下载上次拉取时记录的新增曲目
 ```
 
 ### 解决冲突
@@ -53,7 +53,7 @@ vncmd tracker <名称> [-f | -d] [-A | -F] [-x] [-j] [-c 数量] [-o 序号]
 | `--fetch` | `-f` | 拉取，交互式解决冲突 |
 | `--auto-accept` | `-A` | 配合 `--fetch` 时自动接受全部变更，不交互 |
 | `--force` | `-F` | 配合 `--fetch` 时无条件覆盖 `songs.json` |
-| `--diff` | `-x` | 列出上次 `--fetch` 的变更。配合 `-d` 下载变更的部分，配 `--json` 输出 JSON |
+| `--diff` | `-x` | 列出上次 `--fetch` 实际确认的变更。配合 `-d` 下载新增部分，配 `--json` 输出 JSON |
 | `--json` | `-j` | 以 JSON 输出结果并退出 |
 | `--download` | `-d` | 下载 Tracker 中的全部曲目 |
 | `--count` | `-c` | 最多处理曲目数，面板默认 `10`，`--json` 给全部 |
