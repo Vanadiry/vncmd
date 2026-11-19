@@ -202,6 +202,7 @@ class Test枚举校验:
             ("download.lyric.embed_mode", "line"),
             ("download.lyric.save_mode", "split"),
             ("download.downloader", "curl"),
+            ("download.audio.artist_mode", "multi"),
         ],
     )
     def test合法值放行(self, 路径, 合法):
@@ -216,6 +217,7 @@ class Test枚举校验:
             ("download.lyric.embed_mode", "line", "2"),
             ("download.lyric.save_mode", "split", "2"),
             ("download.downloader", "curl", "wget"),
+            ("download.audio.artist_mode", "single", "both"),
         ],
     )
     def test非法值报错且点名这一项(self, 路径, 合法, 非法):

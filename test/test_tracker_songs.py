@@ -77,10 +77,38 @@ class TestArtist入库:
         src = inspect.getsource(tracker.fetch_all_songs)
         assert '"artist": data.get("artist", "")' in src, "entry 少了 artist"
 
+    def test_raw里存了artists(self):
+        raw = {}
+        tracker._add_to_raw(
+            raw,
+            {"id": 1, "title": "T", "artist": "A, B", "artists": ["A", "B"]},
+            "album",
+            5,
+        )
+        assert raw[1]["artists"] == ["A", "B"]
+
+    def test_entry把artists带进结果(self):
+        import inspect
+
+        src = inspect.getsource(tracker.fetch_all_songs)
+        assert '"artists": data.get("artists", [])' in src, "entry 少了 artists"
+
+    def test_后一个源补上artists(self):
+        raw = {}
+        tracker._add_to_raw(raw, {"id": 1, "title": "T", "artist": "A"}, "album", 1)
+        tracker._add_to_raw(
+            raw,
+            {"id": 1, "title": "T", "artist": "A, B", "artists": ["A", "B"]},
+            "playlist",
+            2,
+        )
+        assert raw[1]["artists"] == ["A", "B"]
+
     def test_曲目没有artist时留空(self):
         raw = {}
         tracker._add_to_raw(raw, {"id": 1, "title": "T"}, "song", 5)
         assert raw[1]["artist"] == "", "缺了就留空，不要回退到现查 API"
+        assert raw[1]["artists"] == []
 
     def test_同一首来自多个源时artist一致(self):
         raw = {}

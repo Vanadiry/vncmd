@@ -77,6 +77,13 @@ class Test四条命令:
         assert list(data) == ["song"]
         assert data["song"] == SONG
 
+    def test_artists数组原样输出(self, monkeypatch, capsys):
+        song = {**SONG, "artists": ["TAK", "初音ミク"]}
+        monkeypatch.setattr(commands, "get_song_details", lambda _i: song)
+        commands.cmd_song(ns(json=True))
+        data, _out, _err = parsed(capsys)
+        assert data["song"]["artists"] == ["TAK", "初音ミク"]
+
     def test_album(self, monkeypatch, capsys):
         monkeypatch.setattr(commands, "get_album_details", lambda _i: ALBUM)
         commands.cmd_album(ns(json=True))

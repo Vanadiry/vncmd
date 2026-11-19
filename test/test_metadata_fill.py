@@ -8,6 +8,7 @@ DETAIL = {
     "id": 1,
     "title": "T",
     "artist": "A",
+    "artists": ["A"],
     "album": "AL",
     "album_id": 9,
     "cover": "https://x/c.jpg",
@@ -200,3 +201,6 @@ class Test缓存完整性:
 
         assert not _complete_details({"title": "x"})
         assert _complete_details(DETAIL)
+        assert not _complete_details(
+            {k: v for k, v in DETAIL.items() if k != "artists"}
+        ), "旧缓存没有 artists，要重新取一次"

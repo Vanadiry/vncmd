@@ -5,11 +5,13 @@ import pytest
 
 from vncmd.core import config as config_mod
 from vncmd.core.config import (
+    ARTIST_MODES,
     CONFIG_FILE,
     CONTENT_LETTERS,
     FILENAME_ARTIST,
     LYRIC_MODES,
     QUALITY_MAP,
+    get_artist_mode,
     get_cache_dir,
     get_concurrency,
     get_cookie,
@@ -89,6 +91,10 @@ class TestGetters:
 
     def test_embed_track_id(self):
         assert get_embed_track_id() is True
+
+    def test_artist_mode(self):
+        assert get_artist_mode() in ARTIST_MODES
+        assert get_artist_mode() == "single"
 
     def test_save_cover_compress(self):
         assert isinstance(get_save_cover_compress(), bool)

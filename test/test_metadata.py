@@ -144,6 +144,42 @@ class TestMp3Embed:
 
         assert read_track_info(path) == ("", "A, B", [])
 
+    def test_multi模式写多个artist值(self, temp_dir):
+        path = self._make(temp_dir)
+        embed(
+            path,
+            "mp3",
+            cover_data=None,
+            cover_mime=None,
+            lyric_text=None,
+            song_title="T",
+            song_artist="A, B",
+            song_album=None,
+            publish_time=None,
+            song_artists=["A", "B"],
+        )
+
+        tags = MP3(path).tags
+        assert tags.getall("TPE1")[0].text == ["A", "B"]
+        assert read_track_info(path) == ("T", "A, B", [])
+
+    def test_空artist列表仍写单值(self, temp_dir):
+        path = self._make(temp_dir)
+        embed(
+            path,
+            "mp3",
+            cover_data=None,
+            cover_mime=None,
+            lyric_text=None,
+            song_title="T",
+            song_artist="A, B",
+            song_album=None,
+            publish_time=None,
+            song_artists=[],
+        )
+
+        assert _text(MP3(path).tags, "TPE1") == "A, B"
+
     def test_没有标签时返回空(self, temp_dir):
         path = self._make(temp_dir)
 
@@ -391,6 +427,24 @@ class TestFlacEmbed:
         audio.save()
 
         assert read_track_info(path) == ("", "A, B", [])
+
+    def test_multi模式写多条artist注释(self, temp_dir):
+        path = self._make(temp_dir)
+        embed(
+            path,
+            "flac",
+            cover_data=None,
+            cover_mime=None,
+            lyric_text=None,
+            song_title="T",
+            song_artist="A, B",
+            song_album=None,
+            publish_time=None,
+            song_artists=["A", "B"],
+        )
+
+        assert FLAC(path).get("artist") == ["A", "B"]
+        assert read_track_info(path) == ("T", "A, B", [])
 
     def test_没有标签时返回空(self, temp_dir):
         path = self._make(temp_dir)
