@@ -103,6 +103,21 @@ def create_tracker(name: str) -> None:
     info("settings.toml 用于添加需要跟踪的曲目、歌单或专辑 ID")
 
 
+def _join_artists(song: dict) -> str:
+    """数组在调用处才拼成字符串，存盘只保留数组"""
+    artists = song.get("artists")
+    if isinstance(artists, list) and artists:
+        return ", ".join(str(artist) for artist in artists)
+    return song.get("artist", "")
+
+
+def _song_for_storage(song: dict) -> dict:
+    """有 artists 数组时不再重复保存拼接后的 artist"""
+    if song.get("artists"):
+        return {key: value for key, value in song.items() if key != "artist"}
+    return song
+
+
 def load_songs_db_full(name: str) -> dict:
     """读曲目库全文，含 updated_at
 
@@ -119,7 +134,15 @@ def load_songs_db_full(name: str) -> dict:
             warning(f"已改用备份：{bak}")
     if not isinstance(data, dict):
         return {"updated_at": "", "songs": []}
-    return {"updated_at": data.get("updated_at", ""), "songs": data.get("songs", [])}
+    songs = []
+    for song in data.get("songs", []):
+        if not isinstance(song, dict):
+            continue
+        item = dict(song)
+        if item.get("artists"):
+            item["artist"] = _join_artists(item)
+        songs.append(item)
+    return {"updated_at": data.get("updated_at", ""), "songs": songs}
 
 
 def load_songs_db(name: str) -> list[dict]:
@@ -144,7 +167,7 @@ def save_songs_db(name: str, songs: list[dict]) -> None:
     backup_db(name)
     data = {
         "updated_at": datetime.now(UTC).strftime("%Y-%m-%dT%H:%M:%SZ"),
-        "songs": songs,
+        "songs": [_song_for_storage(song) for song in songs],
     }
     write_json_atomic(_songs_path(name), data)
 
@@ -322,12 +345,14 @@ def fetch_all_songs(settings: dict) -> tuple[dict[str, dict], list[dict]]:
 
     result = {}
     for sid, data in raw.items():
+        artists = data.get("artists") or []
+        if not artists and data.get("artist"):
+            # 上游只给了拼接字符串时按单个艺术家处理，不拆逗号
+            artists = [data["artist"]]
         entry = {
             "id": data["id"],
             "title": data["title"],
-            # 老条目缺 artist 时留空，下次 --fetch 补齐
-            "artist": data.get("artist", ""),
-            "artists": data.get("artists", []),
+            "artists": artists,
             "publish_time": data.get("publish_time", ""),
         }
         if len(data["sources"]) > 1:

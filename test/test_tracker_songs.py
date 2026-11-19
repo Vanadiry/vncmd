@@ -70,13 +70,6 @@ class TestArtist入库:
         tracker._add_to_raw(raw, {"id": 1, "title": "T", "artist": "A"}, "album", 5)
         assert raw[1]["artist"] == "A"
 
-    def test_entry把artist带进结果(self):
-        """raw 存了不算完，entry 那一段也得往下带，否则存不进 songs.json"""
-        import inspect
-
-        src = inspect.getsource(tracker.fetch_all_songs)
-        assert '"artist": data.get("artist", "")' in src, "entry 少了 artist"
-
     def test_raw里存了artists(self):
         raw = {}
         tracker._add_to_raw(
@@ -91,7 +84,7 @@ class TestArtist入库:
         import inspect
 
         src = inspect.getsource(tracker.fetch_all_songs)
-        assert '"artists": data.get("artists", [])' in src, "entry 少了 artists"
+        assert '"artists": artists' in src, "entry 少了 artists"
 
     def test_后一个源补上artists(self):
         raw = {}
@@ -132,6 +125,32 @@ class TestArtist入库:
         merged = [{"id": 1, "title": "T", "artist": "A"}]
         tracker.save_songs_db("x", merged)
         assert captured["songs"][0]["artist"] == "A"
+
+    def test_保存artists时不重复写artist(self, ready):
+        tracker.save_songs_db(
+            "like",
+            [{"id": 1, "title": "T", "artist": "A, B", "artists": ["A", "B"]}],
+        )
+
+        data = json.loads((ready / "like" / "songs.json").read_text(encoding="utf-8"))
+        assert data["songs"][0]["artists"] == ["A", "B"]
+        assert "artist" not in data["songs"][0]
+
+    def test_读取时把artists拼成artist(self, monkeypatch, tmp_path):
+        (tmp_path / "like").mkdir()
+        monkeypatch.setattr(tracker, "_tracker_path", lambda name: tmp_path / name)
+        (tmp_path / "like" / "songs.json").write_text(
+            json.dumps(
+                {
+                    "updated_at": "",
+                    "songs": [{"id": 1, "title": "T", "artists": ["A", "B"]}],
+                },
+                ensure_ascii=False,
+            ),
+            encoding="utf-8",
+        )
+
+        assert tracker.load_songs_db("like")[0]["artist"] == "A, B"
 
 
 class TestPublishTime入库:

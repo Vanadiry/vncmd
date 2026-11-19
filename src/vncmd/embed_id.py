@@ -131,6 +131,13 @@ def build_index(records: list[dict]) -> SongIndex:
 
         raw_title = record.get("title")
         raw_artist = record.get("artist")
+        artists = record.get("artists")
+        if (
+            (not isinstance(raw_artist, str) or not raw_artist)
+            and isinstance(artists, list)
+            and artists
+        ):
+            raw_artist = ", ".join(str(artist) for artist in artists)
         title = normalize(raw_title)
         artist = normalize(raw_artist)
         index.entries.setdefault(
