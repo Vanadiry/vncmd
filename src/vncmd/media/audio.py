@@ -58,11 +58,11 @@ def cover_ext(cover_url: str | None) -> str:
     return ext if ext in ("jpg", "jpeg", "png") else "jpg"
 
 
-def build_filename(title: str, artist: str) -> tuple[str, str | None]:
+def build_filename(title: str, artists_text: str) -> tuple[str, str | None]:
     """返回收敛后的文件名与截断前完整名字"""
     fmt = get_filename_artist()
     safe_title = check_filename(title)
-    safe_artist = check_filename(artist)
+    safe_artist = check_filename(artists_text)
     # 艺术家为空时只留标题
     if fmt == "front" and safe_artist:
         name = f"{safe_artist} - {safe_title}"

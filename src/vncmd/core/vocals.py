@@ -65,17 +65,19 @@ def _lookup(chunk: str) -> str | None:
     return None
 
 
-def colorize(artist: str) -> list[tuple[str, str | None]]:
+def colorize(artists_text: str) -> list[tuple[str, str | None]]:
     """把艺术家串按分隔符切开，逐段查代表色"""
     segments: list[list[str | None]] = []
     pos = 0
-    for m in _SEP.finditer(artist):
+    for m in _SEP.finditer(artists_text):
         if m.start() > pos:
-            segments.append([artist[pos : m.start()], _lookup(artist[pos : m.start()])])
+            segments.append(
+                [artists_text[pos : m.start()], _lookup(artists_text[pos : m.start()])]
+            )
         segments.append([m.group(), None])
         pos = m.end()
-    if pos < len(artist):
-        segments.append([artist[pos:], _lookup(artist[pos:])])
+    if pos < len(artists_text):
+        segments.append([artists_text[pos:], _lookup(artists_text[pos:])])
 
     merged: list[tuple[str, str | None]] = []
     for text, color in segments:

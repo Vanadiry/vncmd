@@ -161,7 +161,7 @@ class Test读整个库:
         monkeypatch.setattr(tracker, "_songs_path", lambda name: path)
         got = tracker.load_songs_db_full("x")
         assert got["updated_at"] == "2026-01-01T00:00:00Z"
-        assert got["songs"] == [{"id": 1}]
+        assert got["songs"] == [{"id": 1, "artists": []}]
 
     def test_原函数仍只给songs(self, monkeypatch, tmp_path):
         path = tmp_path / "songs.json"
@@ -170,7 +170,7 @@ class Test读整个库:
             encoding="utf-8",
         )
         monkeypatch.setattr(tracker, "_songs_path", lambda name: path)
-        assert tracker.load_songs_db("x") == [{"id": 1}]
+        assert tracker.load_songs_db("x") == [{"id": 1, "artists": []}]
 
     def test_主文件坏了退回备份(self, monkeypatch, tmp_path):
         """两处读文件的退回路径要一致，不能只有一处认 .bak"""
@@ -183,7 +183,7 @@ class Test读整个库:
         monkeypatch.setattr(tracker, "_songs_path", lambda name: path)
         got = tracker.load_songs_db_full("x")
         assert got["updated_at"] == "2026-02-02T00:00:00Z"
-        assert got["songs"] == [{"id": 9}]
+        assert got["songs"] == [{"id": 9, "artists": []}]
 
 
 class Testparser:

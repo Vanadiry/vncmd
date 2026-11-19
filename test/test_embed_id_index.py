@@ -24,10 +24,10 @@ class TestBuildIndex:
     def test_两层索引与id去重(self):
         index = build_index(
             [
-                {"id": 1, "title": "Ａ Title", "artist": "Artist"},
-                {"id": 1, "title": "a title", "artist": "artist"},
-                {"id": 2, "title": "Alone", "artist": "Alan Walker"},
-                {"id": 3, "title": "Alone", "artist": "Marshmello"},
+                {"id": 1, "title": "Ａ Title", "artists": ["Artist"]},
+                {"id": 1, "title": "a title", "artists": ["artist"]},
+                {"id": 2, "title": "Alone", "artists": ["Alan Walker"]},
+                {"id": 3, "title": "Alone", "artists": ["Marshmello"]},
                 {"id": 4, "title": "No Artist"},
             ]
         )
@@ -37,16 +37,16 @@ class TestBuildIndex:
         assert index.by_title_artist[("alone", "alan walker")] == {2}
         assert index.by_title_artist[("alone", "marshmello")] == {3}
         assert ("no artist", "") not in index.by_title_artist
-        assert index.entries[2] == ("Alone", "Alan Walker")
+        assert index.entries[2] == ("Alone", ("Alan Walker",))
 
     def test_只有artists数组也能建索引(self):
         index = build_index([{"id": 1, "title": "T", "artists": ["A", "B"]}])
 
         assert index.by_title_artist[("t", "a, b")] == {1}
-        assert index.entries[1] == ("T", "A, B")
+        assert index.entries[1] == ("T", ("A", "B"))
 
     def test_标题为空不进索引(self):
-        index = build_index([{"id": 1, "title": "", "artist": "A"}])
+        index = build_index([{"id": 1, "title": "", "artists": ["A"]}])
 
         assert index.by_title == {}
         assert index.by_title_artist == {}

@@ -22,7 +22,7 @@ class SongIndex:
 
     by_title_artist: dict[tuple[str, str], set[int]] = field(default_factory=dict)
     by_title: dict[str, set[int]] = field(default_factory=dict)
-    entries: dict[int, tuple[str, str]] = field(default_factory=dict)
+    entries: dict[int, tuple[str, tuple[str, ...]]] = field(default_factory=dict)
 
 
 @dataclass(frozen=True)
@@ -56,7 +56,7 @@ class FileAction:
 def decide_action(
     index: SongIndex,
     title,
-    artist,
+    artists,
     existing: list[str] | tuple[str, ...],
 ) -> FileAction:
     """根据已有 track_id 与匹配结果决定写入、跳过或报冲突"""
@@ -67,7 +67,7 @@ def decide_action(
     if not normalize(title):
         return FileAction("no_title", existing=existing)
 
-    match = match_track(index, title, artist)
+    match = match_track(index, title, artists)
     if existing:
         if match.song_id is None:
             action = "ambiguous" if match.ambiguous else "not_found"
@@ -100,10 +100,10 @@ def decide_action(
     )
 
 
-def match_track(index: SongIndex, title, artist) -> MatchResult:
+def match_track(index: SongIndex, title, artists) -> MatchResult:
     """按标题加艺术家匹配，失败后再用标题兜底"""
     title_key = normalize(title)
-    artist_key = normalize(artist)
+    artist_key = normalize(join_artists(artists))
 
     if artist_key:
         candidates = index.by_title_artist.get((title_key, artist_key), set())
@@ -132,28 +132,23 @@ def build_index(records: list[dict]) -> SongIndex:
             continue
 
         raw_title = record.get("title")
-        raw_artist = record.get("artist")
-        artists = record.get("artists")
-        if (
-            (not isinstance(raw_artist, str) or not raw_artist)
-            and isinstance(artists, list)
-            and artists
-        ):
-            raw_artist = join_artists(artists)
+        raw_artists = record.get("artists")
+        artists = (
+            tuple(str(artist) for artist in raw_artists if artist)
+            if isinstance(raw_artists, list)
+            else ()
+        )
         title = normalize(raw_title)
-        artist = normalize(raw_artist)
+        artist_key = normalize(join_artists(artists))
         index.entries.setdefault(
             song_id,
-            (
-                raw_title if isinstance(raw_title, str) else "",
-                raw_artist if isinstance(raw_artist, str) else "",
-            ),
+            (raw_title if isinstance(raw_title, str) else "", artists),
         )
         if not title:
             continue
         index.by_title.setdefault(title, set()).add(song_id)
-        if artist:
-            index.by_title_artist.setdefault((title, artist), set()).add(song_id)
+        if artist_key:
+            index.by_title_artist.setdefault((title, artist_key), set()).add(song_id)
     return index
 
 

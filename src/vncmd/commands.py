@@ -8,6 +8,7 @@ from pathlib import Path
 
 from rich.markup import escape
 
+from vncmd.core.artists import join_artists
 from vncmd.core.config import (
     CONFIG_FILE,
     COOKIE_FILE,
@@ -237,13 +238,14 @@ def cmd_song(args: argparse.Namespace) -> None:
             sys.exit(1)
 
     output_dir = make_session_dir(get_download_dir())
-    info(f"正在下载“{song['title']} - {song['artist']}”")
+    song_artists = song.get("artists") or []
+    artists_text = join_artists(song_artists)
+    info(f"正在下载“{song['title']} - {artists_text}”")
     info(f"下载到 {abbrev_home(output_dir)}")
     lyrics_api = get_lyrics_url(args.id)
     ok, msg, _ = download_song(
         song_url=source.url if source else "",
         song_title=song["title"],
-        song_artist=song["artist"],
         song_album=song["album"],
         song_id=song["id"],
         cover_url=song["cover"],
@@ -258,7 +260,7 @@ def cmd_song(args: argparse.Namespace) -> None:
         use_curl=None,
         song_level=source.level if source else "",
         want_br=quality,
-        song_artists=song.get("artists"),
+        song_artists=song_artists,
     )
     if ok:
         success(msg)
@@ -351,7 +353,8 @@ def cmd_playlist(args: argparse.Namespace) -> None:
         for r in removed:
             err_console.print(
                 f"    [dim]{r['id']}[/]  [red]{escape(r['title'])}[/]"
-                f"  [dim]{escape(r['artist'])}，{escape(r['album'])}[/]"
+                f"  [dim]{escape(join_artists(r.get('artists')))}，"
+                f"{escape(r['album'])}[/]"
             )
 
     if not args.download:
@@ -688,12 +691,13 @@ def cmd_embed_id(args: argparse.Namespace) -> None:
     matched_ids: dict[int, int] = {}
     for file in writable:
         try:
-            title, artist, existing = read_track_info(str(file))
+            title, artists, existing = read_track_info(str(file))
         except Exception as e:
             details["read_failed"].append((file, str(e)))
             continue
+        artists_text = join_artists(artists)
 
-        action = decide_action(index, title, artist, existing)
+        action = decide_action(index, title, artists, existing)
         if action.song_id is not None:
             matched_ids[action.song_id] = matched_ids.get(action.song_id, 0) + 1
 
@@ -706,8 +710,10 @@ def cmd_embed_id(args: argparse.Namespace) -> None:
                 continue
             if action.by_title_only:
                 counts["title_match"] += 1
-                upstream_artist = index.entries.get(action.song_id, ("", ""))[1]
-                details["title_match"].append((file, artist, upstream_artist))
+                upstream_artists = index.entries.get(action.song_id, ("", ()))[1]
+                details["title_match"].append(
+                    (file, artists_text, join_artists(upstream_artists))
+                )
             else:
                 counts["write"] += 1
         elif action.action == "latest":

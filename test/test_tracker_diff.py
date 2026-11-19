@@ -34,12 +34,12 @@ DIFF = {
 
 
 SONGS = [
-    {"id": 1, "title": "被删了", "artist": "A", "publish_time": ""},
-    {"id": 2, "title": "旧名", "artist": "A", "publish_time": ""},
+    {"id": 1, "title": "被删了", "artists": ["A"], "publish_time": ""},
+    {"id": 2, "title": "旧名", "artists": ["A"], "publish_time": ""},
     {
         "id": 3,
         "title": "新来的",
-        "artist": "A",
+        "artists": ["A"],
         "publish_time": "2021-01-01 08:00:00",
     },
 ]
@@ -143,7 +143,7 @@ class Testchanged不再被丢:
 class Test保存diff:
     def test_added只存id(self, ready):
         comparison = {
-            "added": [{"id": 3, "title": "新来的", "artist": "A"}],
+            "added": [{"id": 3, "title": "新来的", "artists": ["A"]}],
             "removed": [{"id": 1, "title": "被删了"}],
             "changed": [({"id": 2, "title": "旧名"}, {"id": 2, "title": "新名"})],
         }
@@ -172,10 +172,10 @@ class Test只记录已接受的变更:
 
     def test_未确认任何变更时不写diff(self, monkeypatch, tmp_path):
         """没确认的变更只是和上游的差异，不能覆盖上次的 diff"""
-        cached = [{"id": 1, "title": "留着", "artist": "A"}]
+        cached = [{"id": 1, "title": "留着", "artists": ["A"]}]
         fresh = {
-            1: {"id": 1, "title": "留着", "artist": "A"},
-            2: {"id": 2, "title": "新来的", "artist": "A"},
+            1: {"id": 1, "title": "留着", "artists": ["A"]},
+            2: {"id": 2, "title": "新来的", "artists": ["A"]},
         }
         written = self._ready(monkeypatch, tmp_path, cached, fresh)
         monkeypatch.setattr(
@@ -188,10 +188,10 @@ class Test只记录已接受的变更:
 
     def test_只勾选删除时diff只记删除(self, monkeypatch, tmp_path):
         cached = [
-            {"id": 1, "title": "留着", "artist": "A"},
-            {"id": 2, "title": "要删的", "artist": "A"},
+            {"id": 1, "title": "留着", "artists": ["A"]},
+            {"id": 2, "title": "要删的", "artists": ["A"]},
         ]
-        fresh = {1: {"id": 1, "title": "留着", "artist": "A"}}
+        fresh = {1: {"id": 1, "title": "留着", "artists": ["A"]}}
         written = self._ready(monkeypatch, tmp_path, cached, fresh)
         monkeypatch.setattr(
             tracker, "resolve_conflicts", lambda cmp, cached, fresh: cached[:1]

@@ -18,7 +18,7 @@ class TestNonexistentResources:
         ok, _, _ = download_song(
             song_url="http://invalid.example/never.mp3",
             song_title="Test",
-            song_artist="Test",
+            song_artists=["Test"],
             song_album="Test",
             song_id=0,
             cover_url="",

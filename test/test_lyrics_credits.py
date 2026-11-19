@@ -460,7 +460,7 @@ class TestDownloader接线:
             ok, msg, _ = download_song(
                 song_url="http://x/a.flac",
                 song_title="歌",
-                song_artist="人",
+                song_artists=["人"],
                 song_album="专",
                 song_id=1,
                 cover_url="http://x/c.png",

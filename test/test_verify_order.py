@@ -45,7 +45,7 @@ def run(download_dir, **kw):
     params = {
         "song_url": "http://example.com/a.flac",
         "song_title": "T",
-        "song_artist": "A",
+        "song_artists": ["A"],
         "song_album": "B",
         "song_id": 1,
         "cover_url": "",
@@ -152,7 +152,7 @@ def test_embed的位置传参与真签名对得上(harness, monkeypatch):
     bound = inspect.signature(metadata.embed).bind(*seen["a"], **seen["k"])
     bound.apply_defaults()
     assert bound.arguments["song_title"] == "T"
-    assert bound.arguments["song_artist"] == "A"
+    assert bound.arguments["song_artists"] == ["A"]
     assert bound.arguments["song_album"] == "B"
     assert bound.arguments["music_type"] == "flac"
     assert bound.arguments["track_id"] == 1

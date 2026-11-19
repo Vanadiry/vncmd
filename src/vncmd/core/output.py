@@ -6,6 +6,7 @@ from rich.panel import Panel
 from rich.table import Table
 from rich.text import Text
 
+from vncmd.core.artists import join_artists
 from vncmd.core.config import is_artist_color
 from vncmd.core.vocals import colorize
 
@@ -15,14 +16,15 @@ console = Console()
 err_console = Console(stderr=True)
 
 
-def _artist_text(artist: str, base_style: str) -> Text:
-    """把艺术家串拼成 Text，命中代表色的片段换色"""
+def _artists_text(artists: list[str] | None, base_style: str) -> Text:
+    """把艺术家数组拼成 Text，命中代表色的片段换色"""
+    artists_text = join_artists(artists)
     text = Text()
     if is_artist_color():
-        for chunk, color in colorize(artist):
+        for chunk, color in colorize(artists_text):
             text.append(chunk, style=color or base_style)
     else:
-        text.append(artist, style=base_style)
+        text.append(artists_text, style=base_style)
     return text
 
 
@@ -77,7 +79,7 @@ def _build_track_table(
             str(i),
             str(t["id"]),
             escape(t["title"]),
-            _artist_text(t["artist"], "bright_white"),
+            _artists_text(t.get("artists"), "bright_white"),
         ]
         # 专辑视图下每行专辑名相同，再列一遍没有信息量
         if show_album:
@@ -245,7 +247,7 @@ def display_song_detail(song: dict) -> None:
     album_id = song.get("album_id") or 0
     lines = [
         ("标题", song["title"] or ""),
-        ("艺术家", _artist_text(song["artist"] or "", "bright_white")),
+        ("艺术家", _artists_text(song.get("artists"), "bright_white")),
         ("专辑", f"{album}（{album_id}）" if album_id > 0 else album),
         ("封面", song["cover"] or ""),
         ("发行时间", _trim_midnight(song["publish_time"] or "")),
@@ -310,7 +312,7 @@ def display_album(album: dict, max_tracks: int = 100, offset: int = 0) -> None:
     header.append("专辑：", style="bold")
     header.append(f"{album['name']}\n", style="bold bright_white")
     header.append("艺术家：", style="dim")
-    header.append(f"{album['artist']}", style="yellow")
+    header.append(join_artists(album.get("artists")), style="yellow")
     console.print(
         Panel(
             header,

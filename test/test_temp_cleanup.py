@@ -15,7 +15,7 @@ def _params(tmp_path, **kw):
     p = {
         "song_url": "http://example.com/a.flac",
         "song_title": "T",
-        "song_artist": "A",
+        "song_artists": ["A"],
         "song_album": "B",
         "song_id": 7,
         "cover_url": "",

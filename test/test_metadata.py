@@ -55,7 +55,7 @@ class TestMp3Embed:
             cover_mime="image/jpeg",
             lyric_text="[00:01.00]Test",
             song_title="T",
-            song_artist="A",
+            song_artists=["A"],
             song_album="AL",
             publish_time="2023-01-01 00:00:00",
             track_no=3,
@@ -72,7 +72,7 @@ class TestMp3Embed:
         assert tags.getall("APIC")
         assert any("Test" in (fr.text or "") for fr in tags.getall("USLT"))
         assert read_track_id(path) == ["2045426723"]
-        assert read_track_info(path) == ("T", "A", ["2045426723"])
+        assert read_track_info(path) == ("T", ["A"], ["2045426723"])
 
     def test_非mp3要报错(self, temp_dir):
         """非 mp3 文件要抛 ValueError，不能静默返回"""
@@ -97,7 +97,7 @@ class TestMp3Embed:
             cover_mime=None,
             lyric_text=None,
             song_title=None,
-            song_artist=None,
+            song_artists=[],
             song_album=None,
             publish_time="2023-01-01 00:00:00",
         )
@@ -118,7 +118,7 @@ class TestMp3Embed:
             cover_mime=None,
             lyric_text=None,
             song_title="T",
-            song_artist="A",
+            song_artists=["A"],
             song_album=None,
             publish_time="",
         )
@@ -142,7 +142,7 @@ class TestMp3Embed:
         audio.tags.add(TPE1(encoding=3, text=["A", "B"]))
         audio.save()
 
-        assert read_track_info(path) == ("", "A, B", [])
+        assert read_track_info(path) == ("", ["A", "B"], [])
 
     def test_multi模式写多个artist值(self, temp_dir):
         path = self._make(temp_dir)
@@ -153,15 +153,15 @@ class TestMp3Embed:
             cover_mime=None,
             lyric_text=None,
             song_title="T",
-            song_artist="A, B",
             song_album=None,
             publish_time=None,
             song_artists=["A", "B"],
+            multi_artist=True,
         )
 
         tags = MP3(path).tags
         assert tags.getall("TPE1")[0].text == ["A", "B"]
-        assert read_track_info(path) == ("T", "A, B", [])
+        assert read_track_info(path) == ("T", ["A", "B"], [])
 
     def test_空artist列表仍写单值(self, temp_dir):
         path = self._make(temp_dir)
@@ -172,18 +172,17 @@ class TestMp3Embed:
             cover_mime=None,
             lyric_text=None,
             song_title="T",
-            song_artist="A, B",
             song_album=None,
             publish_time=None,
             song_artists=[],
         )
 
-        assert _text(MP3(path).tags, "TPE1") == "A, B"
+        assert _text(MP3(path).tags, "TPE1") is None
 
     def test_没有标签时返回空(self, temp_dir):
         path = self._make(temp_dir)
 
-        assert read_track_info(path) == ("", "", [])
+        assert read_track_info(path) == ("", [], [])
 
 
 class TestMp3Credits:
@@ -205,7 +204,7 @@ class TestMp3Credits:
             cover_mime=None,
             lyric_text=None,
             song_title="T",
-            song_artist="A",
+            song_artists=["A"],
             song_album=None,
             publish_time=None,
             credits=credits,
@@ -297,7 +296,7 @@ class TestFlacEmbed:
             cover_mime="image/jpeg",
             lyric_text="[00:01.00]FLACtest",
             song_title="TF",
-            song_artist="AF",
+            song_artists=["AF"],
             song_album="ALF",
             publish_time="2024-06-15 00:00:00",
             track_no=5,
@@ -315,7 +314,7 @@ class TestFlacEmbed:
         assert len(flac.pictures) > 0
         assert "FLACtest" in flac.get("lyrics", [""])[0]
         assert read_track_id(path) == ["2045426723"]
-        assert read_track_info(path) == ("TF", "AF", ["2045426723"])
+        assert read_track_info(path) == ("TF", ["AF"], ["2045426723"])
 
     def test_重跑不叠加封面(self, temp_dir):
         """add_picture 为追加语义，不清就会叠层，重跑 embed 与 --force 重下都会命中"""
@@ -327,7 +326,7 @@ class TestFlacEmbed:
             cover_mime="image/jpeg",
             lyric_text=None,
             song_title="T",
-            song_artist="A",
+            song_artists=["A"],
             song_album=None,
             publish_time=None,
         )
@@ -341,7 +340,7 @@ class TestFlacEmbed:
                 cover_mime="image/jpeg",
                 lyric_text=None,
                 song_title="T",
-                song_artist="A",
+                song_artists=["A"],
                 song_album=None,
                 publish_time=None,
             )
@@ -359,7 +358,7 @@ class TestFlacEmbed:
                 cover_mime="image/jpeg",
                 lyric_text=None,
                 song_title="T",
-                song_artist="A",
+                song_artists=["A"],
                 song_album=None,
                 publish_time=None,
             )
@@ -376,7 +375,7 @@ class TestFlacEmbed:
             cover_mime=None,
             lyric_text=None,
             song_title="T",
-            song_artist="A",
+            song_artists=["A"],
             song_album=None,
             publish_time=None,
             credits=TestMp3Credits.CREDITS,
@@ -401,7 +400,7 @@ class TestFlacEmbed:
             cover_mime=None,
             lyric_text=None,
             song_title="T",
-            song_artist="A",
+            song_artists=["A"],
             song_album=None,
             publish_time=None,
             credits={"作曲": "Asteroid Music Team（monii, Johnny R, Ari）"},
@@ -426,7 +425,7 @@ class TestFlacEmbed:
         audio["artist"] = ["A", "B"]
         audio.save()
 
-        assert read_track_info(path) == ("", "A, B", [])
+        assert read_track_info(path) == ("", ["A", "B"], [])
 
     def test_multi模式写多条artist注释(self, temp_dir):
         path = self._make(temp_dir)
@@ -437,19 +436,19 @@ class TestFlacEmbed:
             cover_mime=None,
             lyric_text=None,
             song_title="T",
-            song_artist="A, B",
             song_album=None,
             publish_time=None,
             song_artists=["A", "B"],
+            multi_artist=True,
         )
 
         assert FLAC(path).get("artist") == ["A", "B"]
-        assert read_track_info(path) == ("T", "A, B", [])
+        assert read_track_info(path) == ("T", ["A", "B"], [])
 
     def test_没有标签时返回空(self, temp_dir):
         path = self._make(temp_dir)
 
-        assert read_track_info(path) == ("", "", [])
+        assert read_track_info(path) == ("", [], [])
 
 
 def test_track_id不支持的格式要报错(temp_dir):

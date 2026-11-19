@@ -12,21 +12,21 @@ TRACKS = [
     {
         "id": 26096281,
         "title": "鏡音レンの暴走",
-        "artist": "cosMo@暴走P, 鏡音レン",
+        "artists": ["cosMo@暴走P", "鏡音レン"],
         "album": "鏡音レンの暴走",
         "duration": "4:50",
     },
     {
         "id": 1294899572,
         "title": "劣等上等",
-        "artist": "鏡音リン, 鏡音レン, Giga",
+        "artists": ["鏡音リン", "鏡音レン", "Giga"],
         "album": "「マジカルミライ2018」OFFICIAL ALBUM",
         "duration": "3:56",
     },
     {
         "id": 548648148,
         "title": "病名は愛だった",
-        "artist": "Neru, 鏡音レン, 鏡音リン, z'5",
+        "artists": ["Neru", "鏡音レン", "鏡音リン", "z'5"],
         "album": "CYNICISM",
         "duration": "3:51",
     },
@@ -77,7 +77,7 @@ def test_ID超长时不裁掉():
         {
             "id": 33975028291234,
             "title": "短标题",
-            "artist": "甲",
+            "artists": ["甲"],
             "album": "乙",
             "duration": "1:00",
         }
@@ -107,7 +107,7 @@ MIXED_ARTIST = [
     {
         "id": 1,
         "title": "歌名",
-        "artist": "某乐队, 初音ミク, 歌愛ユキ",
+        "artists": ["某乐队", "初音ミク", "歌愛ユキ"],
         "album": "某专辑",
         "duration": "1:00",
     }
@@ -117,7 +117,7 @@ LONG_ALBUM = [
     {
         "id": 3397502829,
         "title": "強風オールバック(Game Size.)",
-        "artist": "モンスターピース, Leo/need, 初音ミク, 巡音ルカ, 星乃一歌",
+        "artists": ["モンスターピース", "Leo/need", "初音ミク", "巡音ルカ", "星乃一歌"],
         "album": "エイプリルフール 〜sing, updates, and flowers〜",
         "duration": "2:16",
     }
@@ -200,7 +200,7 @@ class TestAlbumWraps:
                 "id": 2132951282,
                 "title": "強風オールバック "
                 "(feat. 鏡音リン&天馬司&鳳えむ&草薙寧々&神代類)",
-                "artist": "ワンダーランズ×ショウタイム, 鏡音リン, ゆこぴ",
+                "artists": ["ワンダーランズ×ショウタイム", "鏡音リン", "ゆこぴ"],
                 "album": "ワンダーランズ×ショウタイム SEKAI ALBUM vol.3",
                 "duration": "2:13",
             }
@@ -209,10 +209,13 @@ class TestAlbumWraps:
             rows = _rows_of(_plain(_ansi(tracks, width=width)))
             for key, col in (
                 ("title", _TITLE_COL),
-                ("artist", _ARTIST_COL),
+                ("artists", _ARTIST_COL),
                 ("album", _ALBUM_COL),
             ):
-                want = tracks[0][key].replace(" ", "")
+                value = tracks[0][key]
+                if isinstance(value, list):
+                    value = ", ".join(value)
+                want = value.replace(" ", "")
                 got = "".join(c[col] for c in rows[0]).replace(" ", "")
                 assert got == want, f"宽 {width} 的 {key} 列丢了字：{got!r}"
 
@@ -226,7 +229,7 @@ class TestAlbumWraps:
             {
                 "id": 1,
                 "title": "短",
-                "artist": "甲",
+                "artists": ["甲"],
                 "album": "很长的专辑名字" * 6,
                 "duration": "1:00",
             }
@@ -239,7 +242,7 @@ class TestAlbumWraps:
             {
                 "id": 1,
                 "title": "短",
-                "artist": "甲",
+                "artists": ["甲"],
                 "album": "短专辑",
                 "duration": "1:00",
             }
@@ -252,7 +255,7 @@ class TestAlbumWraps:
             {
                 "id": 1,
                 "title": "A Title With Spaces That Goes On",
-                "artist": "An Artist Name With Spaces Too",
+                "artists": ["An Artist Name With Spaces Too"],
                 "album": "Album Name That Is Also Long",
                 "duration": "1:00",
             }
@@ -275,7 +278,7 @@ class TestAlbumWraps:
             {
                 "id": 1,
                 "title": "A Title With Spaces That Goes On",
-                "artist": "An Artist Name With Spaces Too",
+                "artists": ["An Artist Name With Spaces Too"],
                 "album": "Album Name That Is Also Long",
                 "duration": "1:00",
             }

@@ -48,7 +48,7 @@ def song(tmp_path, monkeypatch):
         ok, msg, _ = downloader.download_song(
             song_url="http://x/a.flac",
             song_title=title,
-            song_artist=artist,
+            song_artists=[artist],
             song_album="专",
             song_id=1,
             cover_url="http://x/c.png",

@@ -40,7 +40,7 @@ class TestFullDownload:
         ok, msg, _ = download_song(
             song_url=url,
             song_title=song["title"],
-            song_artist=song["artist"],
+            song_artists=song["artists"],
             song_album=song["album"],
             song_id=str(song["id"]),
             cover_url=song["cover"],

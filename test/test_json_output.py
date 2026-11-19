@@ -12,7 +12,7 @@ SONG = {
     "id": 2742965504,
     # 歌名里常带方括号，rich 会当样式标记解析，裸 print 不会
     "title": "PPPP [Live]",
-    "artist": "TAK, 初音ミク",
+    "artists": ["TAK", "初音ミク"],
     "album": "PPPP",
     "cover": "https://p1.music.126.net/x.jpg",
     "publish_time": "2025-09-17 00:00:00",
@@ -23,7 +23,7 @@ TRACKS = [
     {
         "id": 26096281,
         "title": "鏡音レンの暴走",
-        "artist": "cosMo@暴走P",
+        "artists": ["cosMo@暴走P"],
         "album": "鏡音レンの暴走",
         "duration": "4:50",
     },
@@ -32,7 +32,7 @@ TRACKS = [
 ALBUM = {
     "id": 123388631,
     "name": "叶惠美",
-    "artist": "周杰伦",
+    "artists": ["周杰伦"],
     "track_count": 12,
     "tracks": TRACKS,
 }
@@ -77,12 +77,12 @@ class Test四条命令:
         assert list(data) == ["song"]
         assert data["song"] == SONG
 
-    def test_artists数组原样输出(self, monkeypatch, capsys):
-        song = {**SONG, "artists": ["TAK", "初音ミク"]}
-        monkeypatch.setattr(commands, "get_song_details", lambda _i: song)
+    def test_artist字符串不再输出(self, monkeypatch, capsys):
+        monkeypatch.setattr(commands, "get_song_details", lambda _i: SONG)
         commands.cmd_song(ns(json=True))
         data, _out, _err = parsed(capsys)
         assert data["song"]["artists"] == ["TAK", "初音ミク"]
+        assert "artist" not in data["song"]
 
     def test_album(self, monkeypatch, capsys):
         monkeypatch.setattr(commands, "get_album_details", lambda _i: ALBUM)

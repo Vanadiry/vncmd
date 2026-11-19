@@ -22,7 +22,7 @@ def _norm(**over):
 def test_字段为null时不崩(over):
     # .get 的默认值只在键缺失时生效，值为 null 时仍返回 None
     r = _norm(**over)
-    assert isinstance(r["artist"], str)
+    assert isinstance(r["artists"], list)
     assert isinstance(r["album"], str)
     assert isinstance(r["cover"], str)
 
@@ -39,13 +39,13 @@ def test_al为null时按无专辑处理():
 
 def test_ar为null时按无艺术家处理():
     r = _norm(ar=None, al={"name": "专"})
-    assert r["artist"] == ""
+    assert r["artists"] == []
     assert r["album"] == "专"
 
 
 def test_缺键与值为null结果一致():
     assert _norm(al=None)["album"] == _norm()["album"]
-    assert _norm(ar=None)["artist"] == _norm()["artist"]
+    assert _norm(ar=None)["artists"] == _norm()["artists"]
 
 
 def test_字段齐全时照常取出():
@@ -55,7 +55,7 @@ def test_字段齐全时照常取出():
             ar=[{"name": "人"}],
             al={"name": "专", "id": 9, "picUrl": "u", "publishTime": 1314864000000},
         )
-        assert r["artist"] == "人"
+        assert r["artists"] == ["人"]
         assert r["album"] == "专"
         assert r["album_id"] == 9
         assert r["cover"] == "u"
@@ -100,7 +100,7 @@ def test_歌曲日与专辑日都没有时留空():
 
 def test_零宽字符被清掉():
     r = _norm(ar=[{"name": "B﻿eyond"}], al={"name": "A﻿lbum"})
-    assert r["artist"] == "Beyond"
+    assert r["artists"] == ["Beyond"]
     assert r["album"] == "Album"
 
 

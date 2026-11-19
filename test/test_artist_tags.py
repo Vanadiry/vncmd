@@ -17,7 +17,7 @@ def test_规范化保留艺术家数组():
 
     got = _normalize_song(dict(song))
 
-    assert got["artist"] == "A, B"
+    assert "artist" not in got
     assert got["artists"] == ["A", "B"]
 
 
@@ -45,11 +45,3 @@ def test_补详情的空艺术家列表不覆盖(monkeypatch):
     downloader._complete_track_details([track])
 
     assert track["artists"] == ["A", "B"]
-
-
-def test_multi模式才交给embed(monkeypatch):
-    monkeypatch.setattr(downloader, "get_artist_mode", lambda: "multi")
-    assert downloader._artists_for_embed(["A", "B"]) == ["A", "B"]
-
-    monkeypatch.setattr(downloader, "get_artist_mode", lambda: "single")
-    assert downloader._artists_for_embed(["A", "B"]) is None

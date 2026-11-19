@@ -51,27 +51,24 @@ def _read_track_id_flac(audio: FLAC) -> list[str]:
     return [str(value) for value in audio.get(TRACK_ID, [])]
 
 
-def _read_info_mp3(tags) -> tuple[str, str, list[str]]:
+def _read_info_mp3(tags) -> tuple[str, list[str], list[str]]:
     if tags is None:
-        return "", "", []
+        return "", [], []
     title_frames = tags.getall("TIT2")
     title = title_frames[0].text[0] if title_frames and title_frames[0].text else ""
     artists = [value for frame in tags.getall("TPE1") for value in (frame.text or [])]
-    return title, join_artists(artists), _read_track_id_mp3(tags)
+    return title, artists, _read_track_id_mp3(tags)
 
 
-def _read_info_flac(audio: FLAC) -> tuple[str, str, list[str]]:
+def _read_info_flac(audio: FLAC) -> tuple[str, list[str], list[str]]:
     titles = audio.get("title", [])
     title = str(titles[0]) if titles else ""
     artists = [str(value) for value in audio.get("artist", [])]
-    return title, join_artists(artists), _read_track_id_flac(audio)
+    return title, artists, _read_track_id_flac(audio)
 
 
-def read_track_info(path: str) -> tuple[str, str, list[str]]:
-    """读取标题、艺术家与已有 track_id，支持 MP3 与 FLAC
-
-    artist 多值时按上游习惯用逗号加空格拼接
-    """
+def read_track_info(path: str) -> tuple[str, list[str], list[str]]:
+    """读取标题、艺术家数组与已有 track_id，支持 MP3 与 FLAC"""
     music_type = _music_type(path)
     if music_type == "mp3":
         return _read_info_mp3(MP3(path).tags)
@@ -143,7 +140,6 @@ def _embed_mp3(
     cover_mime: str | None,
     lyric_text: str | None,
     song_title: str | None,
-    song_artist: str | None,
     song_album: str | None,
     publish_time: str | None,
     track_no: int | None,
@@ -151,6 +147,7 @@ def _embed_mp3(
     credits: dict[str, str] | None,
     track_id: int | None,
     song_artists: list[str] | None,
+    multi_artist: bool,
 ) -> None:
     try:
         audio = MP3(music_path)
@@ -173,9 +170,10 @@ def _embed_mp3(
     if song_title is not None:
         _set_text(tags, "TIT2", TIT2, song_title)
     if song_artists:
-        _set_texts(tags, "TPE1", TPE1, song_artists)
-    elif song_artist is not None:
-        _set_text(tags, "TPE1", TPE1, song_artist)
+        if multi_artist:
+            _set_texts(tags, "TPE1", TPE1, song_artists)
+        else:
+            _set_text(tags, "TPE1", TPE1, join_artists(song_artists))
     if song_album is not None:
         _set_text(tags, "TALB", TALB, song_album)
     if publish_time:
@@ -206,7 +204,6 @@ def _embed_flac(
     cover_mime: str | None,
     lyric_text: str | None,
     song_title: str | None,
-    song_artist: str | None,
     song_album: str | None,
     publish_time: str | None,
     track_no: int | None,
@@ -214,6 +211,7 @@ def _embed_flac(
     credits: dict[str, str] | None,
     track_id: int | None,
     song_artists: list[str] | None,
+    multi_artist: bool,
 ) -> None:
     audio = FLAC(music_path)
 
@@ -232,9 +230,10 @@ def _embed_flac(
     if song_title is not None:
         audio["title"] = song_title
     if song_artists:
-        audio["artist"] = song_artists
-    elif song_artist is not None:
-        audio["artist"] = song_artist
+        if multi_artist:
+            audio["artist"] = song_artists
+        else:
+            audio["artist"] = join_artists(song_artists)
     if song_album is not None:
         audio["album"] = song_album
     if publish_time:
@@ -266,7 +265,6 @@ def embed(
     cover_mime: str | None,
     lyric_text: str | None,
     song_title: str | None,
-    song_artist: str | None,
     song_album: str | None,
     publish_time: str | None,
     track_no: int | None = None,
@@ -274,6 +272,7 @@ def embed(
     credits: dict[str, str] | None = None,
     track_id: int | None = None,
     song_artists: list[str] | None = None,
+    multi_artist: bool = False,
 ) -> None:
     if music_type == "mp3":
         _embed_mp3(
@@ -282,7 +281,6 @@ def embed(
             cover_mime,
             lyric_text,
             song_title,
-            song_artist,
             song_album,
             publish_time,
             track_no,
@@ -290,6 +288,7 @@ def embed(
             credits,
             track_id,
             song_artists,
+            multi_artist,
         )
     elif music_type == "flac":
         _embed_flac(
@@ -298,7 +297,6 @@ def embed(
             cover_mime,
             lyric_text,
             song_title,
-            song_artist,
             song_album,
             publish_time,
             track_no,
@@ -306,4 +304,5 @@ def embed(
             credits,
             track_id,
             song_artists,
+            multi_artist,
         )

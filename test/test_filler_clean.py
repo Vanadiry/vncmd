@@ -67,7 +67,7 @@ class TestNormalizationReachesFiller:
             }
         )
         assert out["title"] == "歌名"
-        assert out["artist"] == "人物"
+        assert out["artists"] == ["人物"]
         assert out["album"] == ""
 
     def test_清理后宽度不再错位(self):

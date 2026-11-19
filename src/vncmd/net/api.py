@@ -11,7 +11,6 @@ import requests
 from requests.adapters import HTTPAdapter
 from urllib3.util.retry import Retry
 
-from vncmd.core.artists import join_artists
 from vncmd.core.config import get_cookie
 from vncmd.core.output import warning
 from vncmd.net.cache import (
@@ -158,7 +157,6 @@ def _normalize_song(song: dict) -> dict:
     return {
         "id": song["id"],
         "title": _text(song.get("name")),
-        "artist": join_artists(artists),
         "artists": artists,
         "album": _text(album.get("name")),
         # 无专辑的曲目返回 id 为 0，显示时按没有处理
@@ -178,7 +176,6 @@ def _normalize_song(song: dict) -> dict:
 _DETAIL_KEYS = (
     "id",
     "title",
-    "artist",
     "artists",
     "album",
     "album_id",
@@ -192,7 +189,11 @@ _DETAIL_KEYS = (
 
 def _complete_details(data: dict | None) -> bool:
     """判断缓存是否包含当前版本需要的全部键"""
-    return isinstance(data, dict) and all(key in data for key in _DETAIL_KEYS)
+    return (
+        isinstance(data, dict)
+        and all(key in data for key in _DETAIL_KEYS)
+        and "artist" not in data
+    )
 
 
 def get_song_details(song_id: int) -> dict:
@@ -313,7 +314,7 @@ def get_playlist_details(playlist_id: int) -> dict:
             {
                 "id": sid,
                 "title": details[sid]["title"],
-                "artist": details[sid]["artist"],
+                "artists": details[sid]["artists"],
                 "album": details[sid]["album"],
             }
             for sid in removed_ids
@@ -333,7 +334,6 @@ def get_playlist_details(playlist_id: int) -> dict:
             {
                 "id": t["id"],
                 "title": _clean(t["name"]),
-                "artist": join_artists(artists),
                 "artists": artists,
                 "album": _clean(al.get("name", "")),
                 "cover": al.get("picUrl", ""),
@@ -378,7 +378,6 @@ def get_album_details(album_id: int) -> dict:
             {
                 "id": s["id"],
                 "title": _clean(s["name"]),
-                "artist": join_artists(artists),
                 "artists": artists,
                 "album": _clean(album.get("name", "")),
                 "cover": album.get("picUrl", ""),
@@ -391,10 +390,11 @@ def get_album_details(album_id: int) -> dict:
             }
         )
 
+    album_artist = album.get("artist", {}).get("name", "")
     return {
         "id": album["id"],
         "name": album["name"],
-        "artist": album.get("artist", {}).get("name", ""),
+        "artists": [album_artist] if album_artist else [],
         "cover": album.get("picUrl", ""),
         "track_count": album.get("size", len(tracks)),
         "tracks": tracks,
@@ -422,7 +422,6 @@ def search(q: str, limit: int = 10, offset: int = 0) -> dict:
             {
                 "id": s["id"],
                 "title": _clean(s["name"]),
-                "artist": join_artists(artists),
                 "artists": artists,
                 "album": _clean((s.get("al") or {}).get("name", "")),
                 "cover": (s.get("al") or {}).get("picUrl", ""),

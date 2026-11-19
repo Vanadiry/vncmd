@@ -7,7 +7,6 @@ from vncmd import downloader
 DETAIL = {
     "id": 1,
     "title": "T",
-    "artist": "A",
     "artists": ["A"],
     "album": "AL",
     "album_id": 9,
@@ -59,7 +58,7 @@ class Test补全详情:
         track = {
             "id": 1,
             "title": "T",
-            "artist": "A",
+            "artists": ["A"],
             "publish_time": "2021-01-01 08:00:00",
         }
         calls, ids = _run_batch(monkeypatch, tmp_path, [track], details={1: DETAIL})
@@ -74,7 +73,7 @@ class Test补全详情:
         track = {
             "id": 1,
             "title": "T",
-            "artist": "A",
+            "artists": ["A"],
             "publish_time": "2021-01-01 08:00:00",
         }
         detail = {**DETAIL, "publish_time": ""}
@@ -86,7 +85,7 @@ class Test补全详情:
         track = {
             "id": 1,
             "title": "T",
-            "artist": "A",
+            "artists": ["A"],
             "album": "AL",
             "cover": "https://x/c.jpg",
             "track_no": 3,
@@ -106,13 +105,13 @@ class Test补全详情:
         full = {
             "id": 1,
             "title": "T1",
-            "artist": "A",
+            "artists": ["A"],
             "album": "AL",
             "cover": "https://x/1.jpg",
             "track_no": 1,
             "cd_no": 1,
         }
-        partial = {"id": 2, "title": "T2", "artist": "A"}
+        partial = {"id": 2, "title": "T2", "artists": ["A"]}
         calls, ids = _run_batch(
             monkeypatch,
             tmp_path,
@@ -126,7 +125,7 @@ class Test补全详情:
     def test_详情失败时继续下载(self, monkeypatch, tmp_path):
         warns = []
         monkeypatch.setattr(downloader, "warning", warns.append)
-        track = {"id": 1, "title": "T", "artist": "A"}
+        track = {"id": 1, "title": "T", "artists": ["A"]}
 
         calls, _ids = _run_batch(
             monkeypatch, tmp_path, [track], details=RuntimeError("网络坏了")
@@ -139,7 +138,7 @@ class Test补全详情:
     def test_没有返回详情时继续下载(self, monkeypatch, tmp_path):
         warns = []
         monkeypatch.setattr(downloader, "warning", warns.append)
-        track = {"id": 1, "title": "T", "artist": "A"}
+        track = {"id": 1, "title": "T", "artists": ["A"]}
 
         calls, _ids = _run_batch(monkeypatch, tmp_path, [track], details={})
 
@@ -147,7 +146,7 @@ class Test补全详情:
         assert any("未取到详情" in w for w in warns)
 
     def test_只下载歌词时不补详情(self, monkeypatch, tmp_path):
-        track = {"id": 1, "title": "T", "artist": "A"}
+        track = {"id": 1, "title": "T", "artists": ["A"]}
         calls, ids = _run_batch(monkeypatch, tmp_path, [track], content="l")
 
         assert ids == []
@@ -155,7 +154,7 @@ class Test补全详情:
         assert calls[0]["song_url"] == ""
 
     def test_只下载封面时补详情(self, monkeypatch, tmp_path):
-        track = {"id": 1, "title": "T", "artist": "A"}
+        track = {"id": 1, "title": "T", "artists": ["A"]}
         calls, ids = _run_batch(
             monkeypatch, tmp_path, [track], content="c", details={1: DETAIL}
         )
@@ -187,7 +186,7 @@ class Test封面提示:
     def test_批量缺少封面时提示一次(self, monkeypatch, tmp_path):
         warns = []
         monkeypatch.setattr(downloader, "warning", warns.append)
-        track = {"id": 1, "title": "T", "artist": "A"}
+        track = {"id": 1, "title": "T", "artists": ["A"]}
         detail = {**DETAIL, "cover": ""}
 
         _run_batch(monkeypatch, tmp_path, [track], details={1: detail})
@@ -204,3 +203,6 @@ class Test缓存完整性:
         assert not _complete_details(
             {k: v for k, v in DETAIL.items() if k != "artists"}
         ), "旧缓存没有 artists，要重新取一次"
+        assert not _complete_details({**DETAIL, "artist": "A"}), (
+            "旧缓存还带 artist，要重新取一次"
+        )

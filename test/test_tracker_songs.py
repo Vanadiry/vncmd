@@ -32,7 +32,7 @@ def songs(n=200, with_artist=True):
     for i in range(1, n + 1):
         s = {"id": i, "title": f"曲目{i}"}
         if with_artist:
-            s["artist"] = f"艺术家{i % 3}"
+            s["artists"] = [f"艺术家{i % 3}"]
         out.append(s)
     return out
 
@@ -64,17 +64,17 @@ def ready(monkeypatch, tmp_path):
 
 
 class TestArtist入库:
-    def test_raw里存了artist(self):
+    def test_raw里存了单个artists(self):
         """直接测拼 raw 的那一步，走 fetch_all_songs 要联网"""
         raw = {}
-        tracker._add_to_raw(raw, {"id": 1, "title": "T", "artist": "A"}, "album", 5)
-        assert raw[1]["artist"] == "A"
+        tracker._add_to_raw(raw, {"id": 1, "title": "T", "artists": ["A"]}, "album", 5)
+        assert raw[1]["artists"] == ["A"]
 
-    def test_raw里存了artists(self):
+    def test_raw里存了多个artists(self):
         raw = {}
         tracker._add_to_raw(
             raw,
-            {"id": 1, "title": "T", "artist": "A, B", "artists": ["A", "B"]},
+            {"id": 1, "title": "T", "artists": ["A", "B"]},
             "album",
             5,
         )
@@ -84,7 +84,7 @@ class TestArtist入库:
         import inspect
 
         src = inspect.getsource(tracker.fetch_all_songs)
-        assert '"artists": artists' in src, "entry 少了 artists"
+        assert '"artists": data.get("artists", [])' in src, "entry 少了 artists"
 
     def test_后一个源补上artists(self):
         raw = {}
@@ -97,18 +97,19 @@ class TestArtist入库:
         )
         assert raw[1]["artists"] == ["A", "B"]
 
-    def test_曲目没有artist时留空(self):
+    def test_曲目没有artists时给空数组(self):
         raw = {}
         tracker._add_to_raw(raw, {"id": 1, "title": "T"}, "song", 5)
-        assert raw[1]["artist"] == "", "缺了就留空，不要回退到现查 API"
         assert raw[1]["artists"] == []
 
-    def test_同一首来自多个源时artist一致(self):
+    def test_同一首来自多个源时artists一致(self):
         raw = {}
-        tracker._add_to_raw(raw, {"id": 1, "title": "T", "artist": "A"}, "album", 1)
-        tracker._add_to_raw(raw, {"id": 1, "title": "T", "artist": "B"}, "playlist", 2)
+        tracker._add_to_raw(raw, {"id": 1, "title": "T", "artists": ["A"]}, "album", 1)
+        tracker._add_to_raw(
+            raw, {"id": 1, "title": "T", "artists": ["B"]}, "playlist", 2
+        )
         # 第一次解析到的为准，第二次只补 source_ref
-        assert raw[1]["artist"] == "A"
+        assert raw[1]["artists"] == ["A"]
         assert len(raw[1]["sources"]) == 2
 
     def test_老库读出来仍能用(self):
@@ -136,21 +137,25 @@ class TestArtist入库:
         assert data["songs"][0]["artists"] == ["A", "B"]
         assert "artist" not in data["songs"][0]
 
-    def test_读取时把artists拼成artist(self, monkeypatch, tmp_path):
+    def test_读取时只保留artists(self, monkeypatch, tmp_path):
         (tmp_path / "like").mkdir()
         monkeypatch.setattr(tracker, "_tracker_path", lambda name: tmp_path / name)
         (tmp_path / "like" / "songs.json").write_text(
             json.dumps(
                 {
                     "updated_at": "",
-                    "songs": [{"id": 1, "title": "T", "artists": ["A", "B"]}],
+                    "songs": [
+                        {"id": 1, "title": "T", "artist": "A, B", "artists": ["A", "B"]}
+                    ],
                 },
                 ensure_ascii=False,
             ),
             encoding="utf-8",
         )
 
-        assert tracker.load_songs_db("like")[0]["artist"] == "A, B"
+        song = tracker.load_songs_db("like")[0]
+        assert song["artists"] == ["A", "B"]
+        assert "artist" not in song
 
 
 class TestPublishTime入库:
@@ -596,7 +601,7 @@ class Test艺术家着色:
     def test_虚拟歌手有代表色(self, monkeypatch):
         """代表色片段带 38;2 色值，其余部分保持白字"""
         out = self._rendered(
-            monkeypatch, [{"id": 1, "title": "A", "artist": "なきそ, 初音ミク"}]
+            monkeypatch, [{"id": 1, "title": "A", "artists": ["なきそ", "初音ミク"]}]
         )
         cell = self._artist_cell(out)
         assert "38;2;" in cell, f"没有代表色：{cell!r}"
@@ -604,7 +609,7 @@ class Test艺术家着色:
 
     def test_普通歌手仍是白字(self, monkeypatch):
         out = self._rendered(
-            monkeypatch, [{"id": 1, "title": "A", "artist": "杉森雅和"}]
+            monkeypatch, [{"id": 1, "title": "A", "artists": ["杉森雅和"]}]
         )
         cell = self._artist_cell(out)
         assert "38;2;" not in cell, f"普通歌手不该有代表色：{cell!r}"
@@ -613,7 +618,7 @@ class Test艺术家着色:
         # 要 patch output 模块里的名字，config_mod 那个改不了已绑定的引用
         monkeypatch.setattr("vncmd.core.output.is_artist_color", lambda: False)
         out = self._rendered(
-            monkeypatch, [{"id": 1, "title": "A", "artist": "なきそ, 初音ミク"}]
+            monkeypatch, [{"id": 1, "title": "A", "artists": ["なきそ", "初音ミク"]}]
         )
         cell = self._artist_cell(out)
         assert "38;2;" not in cell, cell
@@ -741,11 +746,47 @@ class TestLimitOffset现在对面板生效:
         assert [s["id"] for s in data["tracker"]["songs"]] == [4, 5]
 
 
-class TestJson带artist:
-    def test_json里的song有artist(self, ready, capsys):
+class TestJson带artists:
+    def test_json里的song只有artists数组(self, ready, monkeypatch, capsys):
+        monkeypatch.setattr(
+            tracker,
+            "load_songs_db_full",
+            lambda n: {
+                "updated_at": "",
+                "songs": [{"id": 1, "title": "曲目1", "artists": ["艺术家1"]}],
+            },
+        )
         tracker.cmd_tracker(ns(json=True, count=1))
         data, _out, _err = parsed(capsys)
-        assert data["tracker"]["songs"][0]["artist"] == "艺术家1"
+        song = data["tracker"]["songs"][0]
+        assert song["artists"] == ["艺术家1"]
+        assert "artist" not in song
+
+    def test_旧条目的artist被丢弃(self, monkeypatch, tmp_path, capsys):
+        """旧数据里的 artist 不读取，也不写回 JSON"""
+        (tmp_path / "like").mkdir()
+        monkeypatch.setattr(tracker, "_tracker_path", lambda name: tmp_path / name)
+        monkeypatch.setattr(
+            tracker,
+            "load_settings",
+            lambda name: {"description": "", "sources": []},
+        )
+        (tmp_path / "like" / "songs.json").write_text(
+            json.dumps(
+                {
+                    "updated_at": "",
+                    "songs": [{"id": 1, "title": "T", "artist": "A, B"}],
+                },
+                ensure_ascii=False,
+            ),
+            encoding="utf-8",
+        )
+
+        tracker.cmd_tracker(ns(json=True, count=1))
+        data, _out, _err = parsed(capsys)
+        song = data["tracker"]["songs"][0]
+        assert "artist" not in song
+        assert song["artists"] == []
 
     def test_老条目没有artist键也照样输出(self, ready, monkeypatch, capsys):
         """不补键：那会让 songs.json 的形状随是否 fetch 过而变"""

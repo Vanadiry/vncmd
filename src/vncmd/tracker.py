@@ -23,7 +23,7 @@ from vncmd.core.config import (
 from vncmd.core.defaults import TRACKER_SETTINGS_TOML
 from vncmd.core.jsonstore import read_json_safe, write_json_atomic
 from vncmd.core.output import (
-    _artist_text,
+    _artists_text,
     _range_suffix,
     console,
     err_console,
@@ -104,19 +104,9 @@ def create_tracker(name: str) -> None:
     info("settings.toml 用于添加需要跟踪的曲目、歌单或专辑 ID")
 
 
-def _join_artists(song: dict) -> str:
-    """数组在调用处才拼成字符串，存盘只保留数组"""
-    artists = song.get("artists")
-    if isinstance(artists, list) and artists:
-        return join_artists(artists)
-    return song.get("artist", "")
-
-
 def _song_for_storage(song: dict) -> dict:
-    """有 artists 数组时不再重复保存拼接后的 artist"""
-    if song.get("artists"):
-        return {key: value for key, value in song.items() if key != "artist"}
-    return song
+    """旧 artist 字段不落盘，艺术家只保存 artists 数组"""
+    return {key: value for key, value in song.items() if key != "artist"}
 
 
 def load_songs_db_full(name: str) -> dict:
@@ -140,8 +130,9 @@ def load_songs_db_full(name: str) -> dict:
         if not isinstance(song, dict):
             continue
         item = dict(song)
-        if item.get("artists"):
-            item["artist"] = _join_artists(item)
+        item.pop("artist", None)
+        if not isinstance(item.get("artists"), list):
+            item["artists"] = []
         songs.append(item)
     return {"updated_at": data.get("updated_at", ""), "songs": songs}
 
@@ -228,8 +219,8 @@ def _display_songs(songs: list[dict], offset: int) -> None:
             str(i),
             str(s["id"]),
             escape(s.get("title", "")),
-            # 走 _artist_text 才有虚拟歌手的代表色
-            _artist_text(s.get("artist", ""), "bright_white"),
+            # 走 _artists_text 才有虚拟歌手的代表色
+            _artists_text(s.get("artists"), "bright_white"),
         )
     console.print(table)
 
@@ -328,7 +319,7 @@ def fetch_all_songs(settings: dict) -> tuple[dict[str, dict], list[dict]]:
                             {
                                 "id": rt["id"],
                                 "title": rt["title"],
-                                "artist": rt.get("artist", ""),
+                                "artists": rt.get("artists", []),
                                 "album": rt.get("album", ""),
                                 "source_type": src_type,
                                 "source_id": src_id,
@@ -346,14 +337,10 @@ def fetch_all_songs(settings: dict) -> tuple[dict[str, dict], list[dict]]:
 
     result = {}
     for sid, data in raw.items():
-        artists = data.get("artists") or []
-        if not artists and data.get("artist"):
-            # 上游只给了拼接字符串时按单个艺术家处理，不拆逗号
-            artists = [data["artist"]]
         entry = {
             "id": data["id"],
             "title": data["title"],
-            "artists": artists,
+            "artists": data.get("artists", []),
             "publish_time": data.get("publish_time", ""),
         }
         if len(data["sources"]) > 1:
@@ -379,8 +366,6 @@ def _add_to_raw(raw: dict, track: dict, src_type: str, src_id: int) -> None:
         raw[sid] = {
             "id": sid,
             "title": track["title"],
-            # artist 已在三种来源里解析好
-            "artist": track.get("artist", ""),
             "artists": track.get("artists", []),
             "publish_time": publish_time,
             "sources": [source_ref],
@@ -594,7 +579,7 @@ def _format_song_choice(s: dict) -> str:
 def _apply_force(name: str, fresh: dict, comparison: dict) -> None:
     """无条件覆盖 songs.json，diff.json 有变化才更新
 
-    compare_songs 只比标题，artist 变化不算 changed
+    compare_songs 只比标题，艺术家变化不算 changed
     """
     save_songs_db(name, list(fresh.values()))
     success(f"已用上游覆盖 {len(fresh)} 首曲目")
@@ -726,9 +711,10 @@ def cmd_tracker(args: argparse.Namespace) -> None:
             err_console.print()
             warning(f"检测到 {len(removed)} 首已下架曲目，不计入 diff：")
             for r in removed:
+                artist_text = join_artists(r.get("artists"))
                 err_console.print(
                     f"    [dim]{r['id']}[/]  [red]{escape(r['title'])}[/]"
-                    f"  [dim]{escape(r['artist'])}，{escape(r['album'])}[/]"
+                    f"  [dim]{escape(artist_text)}，{escape(r['album'])}[/]"
                 )
 
         if not fresh:

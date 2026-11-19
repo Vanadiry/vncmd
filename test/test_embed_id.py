@@ -39,7 +39,7 @@ def _tagged_flac(path, title, artist):
         cover_mime=None,
         lyric_text=None,
         song_title=title,
-        song_artist=artist,
+        song_artists=[artist],
         song_album=None,
         publish_time=None,
     )
@@ -184,7 +184,7 @@ class Test自动写入:
         path = tmp_path / "a.flac"
         _tagged_flac(path, "T", "A")
         source = _songs_source(
-            tmp_path / "songs.json", {"id": 123, "title": "T", "artist": "A"}
+            tmp_path / "songs.json", {"id": 123, "title": "T", "artists": ["A"]}
         )
 
         commands.cmd_embed_id(ns(path, from_file=source))
@@ -197,7 +197,7 @@ class Test自动写入:
         _tagged_flac(path, "T", "A")
         write_track_id(str(path), 123)
         source = _songs_source(
-            tmp_path / "songs.json", {"id": 123, "title": "T", "artist": "A"}
+            tmp_path / "songs.json", {"id": 123, "title": "T", "artists": ["A"]}
         )
         called = []
         monkeypatch.setattr(commands, "write_track_id", lambda *a: called.append(a))
@@ -212,7 +212,7 @@ class Test自动写入:
         _tagged_flac(path, "T", "A")
         write_track_id(str(path), 999)
         source = _songs_source(
-            tmp_path / "songs.json", {"id": 123, "title": "T", "artist": "A"}
+            tmp_path / "songs.json", {"id": 123, "title": "T", "artists": ["A"]}
         )
 
         commands.cmd_embed_id(ns(path, from_file=source))
@@ -228,8 +228,8 @@ class Test自动写入:
         _tagged_flac(path, "T", "A")
         source = _songs_source(
             tmp_path / "songs.json",
-            {"id": 1, "title": "T", "artist": "A"},
-            {"id": 2, "title": "T", "artist": "A"},
+            {"id": 1, "title": "T", "artists": ["A"]},
+            {"id": 2, "title": "T", "artists": ["A"]},
         )
 
         commands.cmd_embed_id(ns(path, from_file=source))
@@ -243,7 +243,7 @@ class Test自动写入:
         path = tmp_path / "a.flac"
         _tagged_flac(path, "T", "A")
         source = _songs_source(
-            tmp_path / "songs.json", {"id": 123, "title": "T", "artist": "B"}
+            tmp_path / "songs.json", {"id": 123, "title": "T", "artists": ["B"]}
         )
 
         commands.cmd_embed_id(ns(path, from_file=source))
@@ -280,7 +280,7 @@ class Test自动写入:
         for name in ("a.flac", "b.flac"):
             _tagged_flac(tmp_path / name, "T", "A")
         source = _songs_source(
-            tmp_path / "songs.json", {"id": 123, "title": "T", "artist": "A"}
+            tmp_path / "songs.json", {"id": 123, "title": "T", "artists": ["A"]}
         )
 
         commands.cmd_embed_id(ns(tmp_path, from_file=source))
@@ -294,8 +294,8 @@ class Test自动写入:
             _tagged_flac(tmp_path / name, title, "A")
         source = _songs_source(
             tmp_path / "songs.json",
-            {"id": 1, "title": "T1", "artist": "A"},
-            {"id": 2, "title": "T2", "artist": "A"},
+            {"id": 1, "title": "T1", "artists": ["A"]},
+            {"id": 2, "title": "T2", "artists": ["A"]},
         )
         original = commands.write_track_id
 
