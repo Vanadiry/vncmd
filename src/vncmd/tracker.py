@@ -20,6 +20,8 @@ from vncmd.core.config import (
     get_download_dir,
     get_quality,
 )
+from vncmd.core.data_version_checker import check
+from vncmd.core.data_version_rules import CURRENT_TRACKER_VERSION
 from vncmd.core.defaults import TRACKER_SETTINGS_TOML
 from vncmd.core.jsonstore import read_json_safe, write_json_atomic
 from vncmd.core.output import (
@@ -95,7 +97,11 @@ def create_tracker(name: str) -> None:
 
     _settings_path(name).write_text(TRACKER_SETTINGS_TOML, encoding="utf-8")
 
-    empty_db = {"updated_at": "", "songs": []}
+    empty_db = {
+        "version": CURRENT_TRACKER_VERSION,
+        "updated_at": "",
+        "songs": [],
+    }
     _songs_path(name).write_text(
         json.dumps(empty_db, ensure_ascii=False, indent=2), encoding="utf-8"
     )
@@ -116,7 +122,7 @@ def load_songs_db_full(name: str) -> dict:
     """
     path = _songs_path(name)
     if not path.exists():
-        return {"updated_at": "", "songs": []}
+        return {"version": 0, "updated_at": "", "songs": []}
     data = read_json_safe(path, None, what="曲目库")
     if data is None:
         bak = path.with_name(f"{path.name}.bak")
@@ -124,7 +130,7 @@ def load_songs_db_full(name: str) -> dict:
         if data is not None:
             warning(f"已改用备份：{bak}")
     if not isinstance(data, dict):
-        return {"updated_at": "", "songs": []}
+        return {"version": 0, "updated_at": "", "songs": []}
     songs = []
     for song in data.get("songs", []):
         if not isinstance(song, dict):
@@ -134,7 +140,11 @@ def load_songs_db_full(name: str) -> dict:
         if not isinstance(item.get("artists"), list):
             item["artists"] = []
         songs.append(item)
-    return {"updated_at": data.get("updated_at", ""), "songs": songs}
+    return {
+        "version": data.get("version", 0),
+        "updated_at": data.get("updated_at", ""),
+        "songs": songs,
+    }
 
 
 def load_songs_db(name: str) -> list[dict]:
@@ -155,9 +165,10 @@ def backup_db(name: str) -> None:
     os.replace(bak_tmp, bak_path)
 
 
-def save_songs_db(name: str, songs: list[dict]) -> None:
+def save_songs_db(name: str, songs: list[dict], *, version: int) -> None:
     backup_db(name)
     data = {
+        "version": version,
         "updated_at": datetime.now(UTC).strftime("%Y-%m-%dT%H:%M:%SZ"),
         "songs": [_song_for_storage(song) for song in songs],
     }
@@ -424,12 +435,14 @@ def _applied_changes(cached_list: list[dict], resolved: list[dict]) -> dict:
     return {"added": added, "removed": removed, "changed": changed}
 
 
-def _save_fetch_result(name: str, cached: list[dict], resolved: list[dict]) -> None:
+def _save_fetch_result(
+    name: str, cached: list[dict], resolved: list[dict], *, version: int
+) -> None:
     """写入曲目库，并只记录实际接受的变更
 
     一次都没确认时不写 diff，保留上次的记录。
     """
-    save_songs_db(name, resolved)
+    save_songs_db(name, resolved, version=version)
     applied = _applied_changes(cached, resolved)
     if any(applied.values()):
         save_diff(name, applied)
@@ -581,7 +594,7 @@ def _apply_force(name: str, fresh: dict, comparison: dict) -> None:
 
     compare_songs 只比标题，艺术家变化不算 changed
     """
-    save_songs_db(name, list(fresh.values()))
+    save_songs_db(name, list(fresh.values()), version=CURRENT_TRACKER_VERSION)
     success(f"已用上游覆盖 {len(fresh)} 首曲目")
 
     if any(comparison[k] for k in ("added", "removed", "changed")):
@@ -659,6 +672,25 @@ def download_diff(name: str, quality: int, output_dir: str) -> None:
         info(f"{'、'.join(parts)}，详见 {note_path}")
 
 
+def _tracker_permission(args: argparse.Namespace) -> str:
+    """命令行参数映射为权限请求"""
+    if args.fetch:
+        if args.force:
+            return "tracker.fetch_force"
+        if args.auto_accept:
+            return "tracker.fetch_auto"
+        return "tracker.fetch"
+    if args.download:
+        if args.diff:
+            return "tracker.diff_download"
+        return "tracker.download"
+    if args.json:
+        if args.diff:
+            return "tracker.diff_json"
+        return "tracker.view_json"
+    return "tracker.view"
+
+
 def cmd_tracker(args: argparse.Namespace) -> None:
     name = args.name
 
@@ -690,6 +722,16 @@ def cmd_tracker(args: argparse.Namespace) -> None:
         else:
             info("已取消")
         return
+
+    db = load_songs_db_full(name)
+    version = db["version"]
+    decision = check(version, _tracker_permission(args), name=name)
+    if decision.message:
+        if decision.allowed:
+            warning(decision.message)
+        else:
+            error(decision.message)
+            sys.exit(1)
 
     if args.fetch:
         settings = load_settings(name)
@@ -723,12 +765,12 @@ def cmd_tracker(args: argparse.Namespace) -> None:
         elif args.auto_accept:
             resolved = auto_resolve(comparison, cached, fresh)
             if resolved is not None:
-                _save_fetch_result(name, cached, resolved)
+                _save_fetch_result(name, cached, resolved, version=version)
                 success(f"已保存 {len(resolved)} 首曲目")
         else:
             resolved = resolve_conflicts(comparison, cached, fresh)
             if resolved is not None:
-                _save_fetch_result(name, cached, resolved)
+                _save_fetch_result(name, cached, resolved, version=version)
                 success(f"已保存 {len(resolved)} 首曲目")
 
     elif args.download:

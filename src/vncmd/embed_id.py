@@ -152,15 +152,20 @@ def build_index(records: list[dict]) -> SongIndex:
     return index
 
 
-def load_songs_file(path: Path) -> list[dict]:
-    """读取一份 songs.json，损坏或形状不对时抛出 ValueError"""
+def load_songs_document(path: Path) -> tuple[object, list[dict]]:
+    """读取一份 songs.json 的版本与曲目，损坏或形状不对时抛出 ValueError"""
     try:
         data = json.loads(Path(path).read_text(encoding="utf-8"))
     except (OSError, UnicodeDecodeError, json.JSONDecodeError) as e:
         raise ValueError(f"无法解析 {path}：{e}") from e
     if not isinstance(data, dict) or not isinstance(data.get("songs"), list):
         raise ValueError(f"{path} 缺少 songs 列表")
-    return data["songs"]
+    return data.get("version", 0), data["songs"]
+
+
+def load_songs_file(path: Path) -> list[dict]:
+    """读取一份 songs.json 的曲目"""
+    return load_songs_document(path)[1]
 
 
 def load_tracker_songs(root: Path) -> list[dict]:

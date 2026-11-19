@@ -45,8 +45,10 @@ def _tagged_flac(path, title, artist):
     )
 
 
-def _songs_source(path, *songs):
-    path.write_text(json.dumps({"songs": list(songs)}), encoding="utf-8")
+def _songs_source(path, *songs, version=1):
+    path.write_text(
+        json.dumps({"version": version, "songs": list(songs)}), encoding="utf-8"
+    )
     return path
 
 
@@ -356,7 +358,7 @@ class Test收集文件:
         path.mkdir()
         (path / "a.m4a").write_bytes(b"")
         source = tmp_path / "songs.json"
-        source.write_text(json.dumps({"songs": []}), encoding="utf-8")
+        source.write_text(json.dumps({"version": 1, "songs": []}), encoding="utf-8")
 
         commands.cmd_embed_id(ns(path, from_file=source))
 
@@ -368,7 +370,7 @@ class Test收集文件:
         path = tmp_path / "empty"
         path.mkdir()
         source = tmp_path / "songs.json"
-        source.write_text(json.dumps({"songs": []}), encoding="utf-8")
+        source.write_text(json.dumps({"version": 1, "songs": []}), encoding="utf-8")
 
         commands.cmd_embed_id(ns(path, from_file=source))
 
@@ -376,6 +378,19 @@ class Test收集文件:
 
 
 class TestFrom:
+    def test_版本0阻断(self, capsys, audio_file, tmp_path):
+        source = _songs_source(
+            tmp_path / "songs.json",
+            {"id": 123, "title": "T", "artists": ["A"]},
+            version=0,
+        )
+
+        with pytest.raises(SystemExit) as exc:
+            commands.cmd_embed_id(ns(audio_file, from_file=source))
+
+        assert exc.value.code == 1
+        assert "数据版本为 0" in capsys.readouterr().err
+
     def test_文件不存在退一(self, capsys, audio_file):
         with pytest.raises(SystemExit) as exc:
             commands.cmd_embed_id(ns(audio_file, from_file="/tmp/不存在.json"))
@@ -419,7 +434,7 @@ class Test没有来源:
         tracker_dir = no_trackers / "tracker" / "like"
         tracker_dir.mkdir(parents=True)
         (tracker_dir / "songs.json").write_text(
-            json.dumps({"songs": []}), encoding="utf-8"
+            json.dumps({"version": 1, "songs": []}), encoding="utf-8"
         )
         commands.cmd_embed_id(ns(audio_file))
         assert "未能匹配到" in capsys.readouterr().err

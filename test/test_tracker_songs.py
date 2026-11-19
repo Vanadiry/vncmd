@@ -39,6 +39,7 @@ def songs(n=200, with_artist=True):
 
 def db(n=200, with_artist=True):
     return {
+        "version": 1,
         "updated_at": "2026-10-01T00:00:00Z",
         "songs": songs(n, with_artist),
     }
@@ -130,7 +131,8 @@ class TestArtist入库:
     def test_保存artists时不重复写artist(self, ready):
         tracker.save_songs_db(
             "like",
-            [{"id": 1, "title": "T", "artist": "A, B", "artists": ["A", "B"]}],
+            [{"id": 1, "title": "T", "artists": ["A", "B"]}],
+            version=1,
         )
 
         data = json.loads((ready / "like" / "songs.json").read_text(encoding="utf-8"))
@@ -770,6 +772,7 @@ class TestJson带artists:
             tracker,
             "load_songs_db_full",
             lambda n: {
+                "version": 1,
                 "updated_at": "",
                 "songs": [{"id": 1, "title": "曲目1", "artists": ["艺术家1"]}],
             },

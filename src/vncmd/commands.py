@@ -26,6 +26,7 @@ from vncmd.core.config import (
     unknown_keys,
     validate_config,
 )
+from vncmd.core.data_version_checker import check
 from vncmd.core.output import (
     console,
     display_album,
@@ -48,8 +49,7 @@ from vncmd.downloader import (
 from vncmd.embed_id import (
     build_index,
     decide_action,
-    load_songs_file,
-    load_tracker_songs,
+    load_songs_document,
 )
 from vncmd.media.checker import (
     any_check_tool,
@@ -640,19 +640,34 @@ def cmd_embed_id(args: argparse.Namespace) -> None:
             error(f"--from 文件不存在：{args.from_file}")
             sys.exit(1)
         try:
-            index = build_index(load_songs_file(source))
+            version, songs = load_songs_document(source)
         except ValueError as e:
             error(f"--from 文件无法解析：{e}")
             sys.exit(1)
+        decision = check(version, "embed_id.use")
+        if not decision.allowed:
+            error(f"--from 文件：{decision.message}")
+            sys.exit(1)
+        index = build_index(songs)
     elif not _tracker_song_files():
         error("未找到 Tracker 曲目库")
         sys.exit(1)
     else:
-        try:
-            index = build_index(load_tracker_songs(VNCMD_HOME / "tracker"))
-        except ValueError as e:
-            error(f"Tracker 曲目库无法解析：{e}")
-            sys.exit(1)
+        records = []
+        for song_file in _tracker_song_files():
+            try:
+                version, songs = load_songs_document(song_file)
+            except ValueError as e:
+                error(f"Tracker 曲目库无法解析：{e}")
+                sys.exit(1)
+            decision = check(version, "embed_id.use", name=song_file.parent.name)
+            if not decision.allowed:
+                error(f"{song_file.parent.name}：{decision.message}")
+                sys.exit(1)
+            if decision.message:
+                warning(f"{song_file.parent.name}：{decision.message}")
+            records.extend(songs)
+        index = build_index(records)
 
     files = _collect_audio_files(path, args.recursive)
     if not files:

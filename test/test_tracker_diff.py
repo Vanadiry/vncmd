@@ -92,7 +92,9 @@ class Test单独给diff要报错:
 
     def test_配了d就不报(self, ready, monkeypatch):
         monkeypatch.setattr(
-            tracker, "load_songs_db_full", lambda n: {"updated_at": "", "songs": []}
+            tracker,
+            "load_songs_db_full",
+            lambda n: {"version": 1, "updated_at": "", "songs": []},
         )
         ran = []
         monkeypatch.setattr(tracker, "download_diff", lambda *a, **k: ran.append(a))
@@ -165,7 +167,7 @@ class Test只记录已接受的变更:
         )
         monkeypatch.setattr(tracker, "fetch_all_songs", lambda s: (fresh, []))
         monkeypatch.setattr(tracker, "load_songs_db", lambda name: cached)
-        monkeypatch.setattr(tracker, "save_songs_db", lambda name, songs: None)
+        monkeypatch.setattr(tracker, "save_songs_db", lambda name, songs, **_k: None)
         written = {}
         monkeypatch.setattr(tracker, "save_diff", lambda name, cmp: written.update(cmp))
         return written
@@ -331,7 +333,9 @@ class TestJsonDiff:
 
     def test_不给diff时不给songs(self, ready, monkeypatch, capsys):
         monkeypatch.setattr(
-            tracker, "load_songs_db_full", lambda n: {"updated_at": "", "songs": []}
+            tracker,
+            "load_songs_db_full",
+            lambda n: {"version": 1, "updated_at": "", "songs": []},
         )
         tracker.cmd_tracker(ns(diff=True, json=True))
         data, _out, _err = parsed(capsys)
@@ -386,7 +390,9 @@ class Test下载时取配置里的音质与目录:
     def test_音质来自配置(self, monkeypatch):
         看到 = []
         monkeypatch.setattr(
-            tracker, "load_songs_db_full", lambda n: {"updated_at": "", "songs": []}
+            tracker,
+            "load_songs_db_full",
+            lambda n: {"version": 1, "updated_at": "", "songs": []},
         )
         monkeypatch.setattr(tracker, "load_settings", lambda n: {"sources": []})
         monkeypatch.setattr(tracker, "_tracker_path", lambda n: Path("/tmp"))
@@ -400,7 +406,9 @@ class Test下载时取配置里的音质与目录:
     def test_输出目录来自配置(self, monkeypatch):
         看到 = []
         monkeypatch.setattr(
-            tracker, "load_songs_db_full", lambda n: {"updated_at": "", "songs": []}
+            tracker,
+            "load_songs_db_full",
+            lambda n: {"version": 1, "updated_at": "", "songs": []},
         )
         monkeypatch.setattr(tracker, "load_settings", lambda n: {"sources": []})
         monkeypatch.setattr(tracker, "_tracker_path", lambda n: Path("/tmp"))

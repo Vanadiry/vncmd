@@ -81,7 +81,7 @@ class Test修饰必须配fetch:
     def test_配了fetch就不报(self, ready, monkeypatch):
         ran = []
         monkeypatch.setattr(
-            tracker, "save_songs_db", lambda n, s: ran.append(("db", len(s)))
+            tracker, "save_songs_db", lambda n, s, **_k: ran.append(("db", len(s)))
         )
         monkeypatch.setattr(tracker, "save_diff", lambda n, c: ran.append(("diff",)))
         tracker.cmd_tracker(ns(fetch=True, force=True))
@@ -109,7 +109,9 @@ class Test互斥:
 class TestForce:
     def test_无条件覆盖(self, ready, monkeypatch):
         got = {}
-        monkeypatch.setattr(tracker, "save_songs_db", lambda n, s: got.update(n=s))
+        monkeypatch.setattr(
+            tracker, "save_songs_db", lambda n, s, **_k: got.update(n=s)
+        )
         tracker.cmd_tracker(ns(fetch=True, force=True))
         assert [s["id"] for s in got["n"]] == [1, 2, 3, 4, 5]
 
@@ -117,7 +119,9 @@ class TestForce:
         """无变更不动为那两个 resolve 的行为，--force 恰恰要写库"""
         monkeypatch.setattr(tracker, "load_songs_db", lambda name: songs())
         called = []
-        monkeypatch.setattr(tracker, "save_songs_db", lambda n, s: called.append(1))
+        monkeypatch.setattr(
+            tracker, "save_songs_db", lambda n, s, **_k: called.append(1)
+        )
         tracker.cmd_tracker(ns(fetch=True, force=True))
         assert called, "无变更时也该覆盖"
 
@@ -131,20 +135,20 @@ class TestForce:
     def test_无变更时说清diff没更新(self, ready, monkeypatch, capsys):
         """“覆盖了但 diff 没变”用户看不到，不说就以为 diff 已是新的"""
         monkeypatch.setattr(tracker, "load_songs_db", lambda name: songs())
-        monkeypatch.setattr(tracker, "save_songs_db", lambda n, s: None)
+        monkeypatch.setattr(tracker, "save_songs_db", lambda n, s, **_k: None)
         tracker.cmd_tracker(ns(fetch=True, force=True))
         err = capsys.readouterr().err
         assert "diff" in err and "保持" in err, err
 
     def test_有变更时diff照写(self, ready, monkeypatch):
         written = []
-        monkeypatch.setattr(tracker, "save_songs_db", lambda n, s: None)
+        monkeypatch.setattr(tracker, "save_songs_db", lambda n, s, **_k: None)
         monkeypatch.setattr(tracker, "save_diff", lambda n, c: written.append(1))
         tracker.cmd_tracker(ns(fetch=True, force=True))
         assert written, "有变更时 diff 该更新"
 
     def test_覆盖了要报首数(self, ready, monkeypatch, capsys):
-        monkeypatch.setattr(tracker, "save_songs_db", lambda n, s: None)
+        monkeypatch.setattr(tracker, "save_songs_db", lambda n, s, **_k: None)
         tracker.cmd_tracker(ns(fetch=True, force=True))
         assert "5 首" in capsys.readouterr().err
 
@@ -158,7 +162,7 @@ class TestForce:
         monkeypatch.setattr(
             tracker, "resolve_conflicts", lambda *a: pytest.fail("不该弹交互")
         )
-        monkeypatch.setattr(tracker, "save_songs_db", lambda n, s: None)
+        monkeypatch.setattr(tracker, "save_songs_db", lambda n, s, **_k: None)
         tracker.cmd_tracker(ns(fetch=True, force=True))
 
     def test_照常算diff而不是绕过(self, ready, monkeypatch):
@@ -171,7 +175,7 @@ class TestForce:
                 seen.append((f, c)) or {"added": [], "removed": [], "changed": []}
             ),
         )
-        monkeypatch.setattr(tracker, "save_songs_db", lambda n, s: None)
+        monkeypatch.setattr(tracker, "save_songs_db", lambda n, s, **_k: None)
         tracker.cmd_tracker(ns(fetch=True, force=True))
         assert seen, "应该先算 diff"
 
@@ -182,7 +186,7 @@ class TestAutoAccept:
         monkeypatch.setattr(
             tracker, "auto_resolve", lambda c, cached, fresh: ran.append(1) or songs()
         )
-        monkeypatch.setattr(tracker, "save_songs_db", lambda n, s: None)
+        monkeypatch.setattr(tracker, "save_songs_db", lambda n, s, **_k: None)
         monkeypatch.setattr(tracker, "save_diff", lambda n, c: None)
         tracker.cmd_tracker(ns(fetch=True, auto_accept=True))
         assert ran
@@ -192,14 +196,16 @@ class TestAutoAccept:
             tracker, "resolve_conflicts", lambda *a: pytest.fail("不该弹交互")
         )
         monkeypatch.setattr(tracker, "auto_resolve", lambda c, cached, fresh: songs())
-        monkeypatch.setattr(tracker, "save_songs_db", lambda n, s: None)
+        monkeypatch.setattr(tracker, "save_songs_db", lambda n, s, **_k: None)
         monkeypatch.setattr(tracker, "save_diff", lambda n, c: None)
         tracker.cmd_tracker(ns(fetch=True, auto_accept=True))
 
     def test_无变更时不写(self, ready, monkeypatch):
         monkeypatch.setattr(tracker, "load_songs_db", lambda name: songs())
         called = []
-        monkeypatch.setattr(tracker, "save_songs_db", lambda n, s: called.append(1))
+        monkeypatch.setattr(
+            tracker, "save_songs_db", lambda n, s, **_k: called.append(1)
+        )
         tracker.cmd_tracker(ns(fetch=True, auto_accept=True))
         assert not called, "无变更时 auto_accept 不该动库"
 
@@ -210,7 +216,7 @@ class TestAutoAccept:
             "resolve_conflicts",
             lambda c, cached, fresh: ran.append(1) or songs(),
         )
-        monkeypatch.setattr(tracker, "save_songs_db", lambda n, s: None)
+        monkeypatch.setattr(tracker, "save_songs_db", lambda n, s, **_k: None)
         monkeypatch.setattr(tracker, "save_diff", lambda n, c: None)
         tracker.cmd_tracker(ns(fetch=True))
         assert ran

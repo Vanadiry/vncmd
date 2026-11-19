@@ -100,7 +100,7 @@ class TestSongsDb:
                 "at": [{"type": "song", "id": 2}, {"type": "playlist", "id": 99}],
             },
         ]
-        save_songs_db(NAME_DB, cls._songs)
+        save_songs_db(NAME_DB, cls._songs, version=1)
 
     @classmethod
     def teardown_class(cls):
@@ -126,7 +126,7 @@ class TestSongsDb:
         assert Path(_songs_path(NAME_DB).__str__() + ".bak").exists()
 
     def test_backup_persists_after_second_save(self):
-        save_songs_db(NAME_DB, [{"id": 3, "title": "Song C"}])
+        save_songs_db(NAME_DB, [{"id": 3, "title": "Song C"}], version=1)
         assert Path(_songs_path(NAME_DB).__str__() + ".bak").exists()
 
 
@@ -225,7 +225,7 @@ ids = []
         resolved = auto_resolve(cmp, cached, fresh)
         assert resolved is not None
         assert len(resolved) > 0
-        save_songs_db(NET_NAME, resolved)
+        save_songs_db(NET_NAME, resolved, version=1)
         # Re-fetch — should be up to date
         fresh2, _ = fetch_all_songs(settings)
         cached2 = load_songs_db(NET_NAME)
@@ -239,7 +239,7 @@ ids = []
         # Ensure songs are in the DB
         settings = load_settings(NET_NAME)
         fresh, _ = fetch_all_songs(settings)
-        save_songs_db(NET_NAME, list(fresh.values()))
+        save_songs_db(NET_NAME, list(fresh.values()), version=1)
         download_tracker(NET_NAME, get_quality(), str(dl_dir))
         files = list(dl_dir.iterdir()) if dl_dir.is_dir() else []
         assert len(files) >= 1

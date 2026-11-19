@@ -10,6 +10,7 @@ from vncmd import tracker
 
 def db(n=5, updated_at="2026-10-01T00:00:00Z"):
     return {
+        "version": 1,
         "updated_at": updated_at,
         "songs": [{"id": i, "title": f"曲目{i}"} for i in range(1, n + 1)],
     }
@@ -160,6 +161,7 @@ class Test读整个库:
         )
         monkeypatch.setattr(tracker, "_songs_path", lambda name: path)
         got = tracker.load_songs_db_full("x")
+        assert got["version"] == 0
         assert got["updated_at"] == "2026-01-01T00:00:00Z"
         assert got["songs"] == [{"id": 1, "artists": []}]
 
@@ -182,6 +184,7 @@ class Test读整个库:
         )
         monkeypatch.setattr(tracker, "_songs_path", lambda name: path)
         got = tracker.load_songs_db_full("x")
+        assert got["version"] == 0
         assert got["updated_at"] == "2026-02-02T00:00:00Z"
         assert got["songs"] == [{"id": 9, "artists": []}]
 
