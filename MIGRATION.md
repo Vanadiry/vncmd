@@ -1,5 +1,28 @@
 # 迁移说明
 
+## v1.3
+
+适用于从 1.2.x 升级至 1.3.x。  
+1.3.0 统一了艺术家字段，并为 Tracker 曲目库加入了数据版本。
+
+### 对于一般用户
+
+由于修改了 Tracker 数据的结构，在执行 `vncmd tracker <name>` 时，艺术家字段可能为空。
+
+建议先执行 `vncmd tracker <name> -f`，然后确认全部变更。你也可以使用 `-fA` 来自动接受所有变更。  
+然后执行 `vncmd tracker <name> -fF`，覆盖更新上游数据。
+
+### JSON 用户
+
+本次更新将曲目等详情的返回值中的 artist 字符串改为了 artist 数组。  
+以下命令受到影响：
+
+- `vncmd song --json`
+- `vncmd album --json`
+- `vncmd playlist --json`
+- `vncmd search --json`
+- `vncmd tracker --json`
+
 ## v1
 
 适用于从 0.x 迁移至 1.x。  

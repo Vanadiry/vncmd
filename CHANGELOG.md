@@ -1,5 +1,24 @@
 # Changelog
 
+## [v1.3.0] - 2026-11-19
+
+> 本次变更了 JSON 输出，如果你将 vncmd 集成到你的工具，请阅读[迁移说明](MIGRATION.md)
+
+### Breaking Changes
+
+- 曲目 JSON 与 Tracker songs.json 移除 artist 字段
+- 旧 Tracker 数据不再读取 artist`
+
+### Added
+
+- 新增 download.audio.artist_mode 配置，可选择单值逗号分隔，或多值 ARTIST 标签
+- 曲目 JSON 与 Tracker songs.json 新增 artists 数组
+- songs.json 加入版本
+
+### Changed
+
+- Tracker 下载不再将 songs.json 数据作为元数据回退
+
 ## [v1.2.2] - 2026-11-08
 
 ### Fixed
