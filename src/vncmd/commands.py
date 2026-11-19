@@ -182,7 +182,7 @@ def cmd_song(args: argparse.Namespace) -> None:
         sys.exit(2)
 
     try:
-        song = get_song_details(args.id)
+        song = get_song_details(args.id, use_cache=not args.download)
     except Exception as e:
         error(f"获取曲目详情失败：{e}")
         sys.exit(1)

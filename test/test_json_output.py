@@ -71,14 +71,14 @@ def parsed(capsys):
 
 class Test四条命令:
     def test_song(self, monkeypatch, capsys):
-        monkeypatch.setattr(commands, "get_song_details", lambda _i: SONG)
+        monkeypatch.setattr(commands, "get_song_details", lambda _i, **_k: SONG)
         commands.cmd_song(ns(json=True))
         data, _out, _err = parsed(capsys)
         assert list(data) == ["song"]
         assert data["song"] == SONG
 
     def test_artist字符串不再输出(self, monkeypatch, capsys):
-        monkeypatch.setattr(commands, "get_song_details", lambda _i: SONG)
+        monkeypatch.setattr(commands, "get_song_details", lambda _i, **_k: SONG)
         commands.cmd_song(ns(json=True))
         data, _out, _err = parsed(capsys)
         assert data["song"]["artists"] == ["TAK", "初音ミク"]
@@ -112,7 +112,7 @@ class Test四条命令:
 
 class TestJSON模式不画表格:
     def test_song没有面板(self, monkeypatch, capsys):
-        monkeypatch.setattr(commands, "get_song_details", lambda _i: SONG)
+        monkeypatch.setattr(commands, "get_song_details", lambda _i, **_k: SONG)
         commands.cmd_song(ns(json=True))
         out = capsys.readouterr().out
         assert "曲目详情" not in out
@@ -170,7 +170,7 @@ class TestJSON给全量而面板截断:
 class Test输出形状:
     def test_中文不转义(self, monkeypatch, capsys):
         """ensure_ascii=False，中文原样可读，不转成 \\uXXXX"""
-        monkeypatch.setattr(commands, "get_song_details", lambda _i: SONG)
+        monkeypatch.setattr(commands, "get_song_details", lambda _i, **_k: SONG)
         commands.cmd_song(ns(json=True))
         out = capsys.readouterr().out
         assert "初音ミク" in out
@@ -178,14 +178,14 @@ class Test输出形状:
 
     def test_方括号不被吃(self, monkeypatch, capsys):
         """走 rich 的话 [Live] 会被当样式标记解析掉"""
-        monkeypatch.setattr(commands, "get_song_details", lambda _i: SONG)
+        monkeypatch.setattr(commands, "get_song_details", lambda _i, **_k: SONG)
         commands.cmd_song(ns(json=True))
         data, out, _err = parsed(capsys)
         assert data["song"]["title"] == "PPPP [Live]"
         assert "[Live]" in out
 
     def test_有缩进能diff(self, monkeypatch, capsys):
-        monkeypatch.setattr(commands, "get_song_details", lambda _i: SONG)
+        monkeypatch.setattr(commands, "get_song_details", lambda _i, **_k: SONG)
         commands.cmd_song(ns(json=True))
         out = capsys.readouterr().out
         assert '\n  "song": {' in out
@@ -205,7 +205,7 @@ class Test空结果:
 
 class Test失败:
     def test_stdout留空退出码非零(self, monkeypatch, capsys):
-        def boom(_i):
+        def boom(_i, **_k):
             raise ValueError("接口炸了")
 
         monkeypatch.setattr(commands, "get_song_details", boom)
@@ -302,7 +302,7 @@ class Test与dlink同给:
             "payed": 1,
             "code": 200,
         }
-        monkeypatch.setattr(commands, "get_song_details", lambda _i: SONG)
+        monkeypatch.setattr(commands, "get_song_details", lambda _i, **_k: SONG)
         monkeypatch.setattr(
             commands, "fetch_player_url", lambda _i, quality=None: download
         )
@@ -314,7 +314,7 @@ class Test与dlink同给:
 
     def test_不给dlink就不查(self, monkeypatch, capsys):
         """不该白花一次请求去取下载信息"""
-        monkeypatch.setattr(commands, "get_song_details", lambda _i: SONG)
+        monkeypatch.setattr(commands, "get_song_details", lambda _i, **_k: SONG)
 
         def boom(*a, **k):
             raise AssertionError("没给 --dlink 却去查了 player/url")

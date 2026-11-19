@@ -776,10 +776,10 @@ class Testtranslate要配合lyric:
         monkeypatch.setattr(
             commands,
             "get_song_details",
-            lambda _i: {
+            lambda _i, **_k: {
                 "id": 1,
                 "title": "T",
-                "artist": "A",
+                "artists": ["A"],
                 "album": "B",
                 "cover": "",
                 "publish_time": "",

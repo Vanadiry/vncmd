@@ -228,10 +228,10 @@ class Test批量取链接:
         monkeypatch.setattr(
             commands,
             "get_song_details",
-            lambda _i: {
+            lambda _i, **_k: {
                 "id": 1,
                 "title": "曲目1",
-                "artist": "A",
+                "artists": ["A"],
                 "album": "B",
                 "album_id": 0,
                 "cover": "",

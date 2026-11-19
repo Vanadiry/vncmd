@@ -205,22 +205,24 @@ class Test只记录已接受的变更:
 
 
 class Test旧diff兼容:
-    def test_库里没有的id跳过而不是崩(self, ready, monkeypatch, tmp_path, capsys):
-        """旧版本可能把没接受的变更写进 diff，读到时不能 KeyError"""
+    def test_库里没有的id也交给下载器(self, ready, monkeypatch, tmp_path):
+        """不再查 songs.json，未知 ID 交给上游判断"""
         monkeypatch.setattr(
             tracker,
             "load_diff",
             lambda name: {"added": [999], "removed": [], "changed": []},
         )
         called = []
-        monkeypatch.setattr(
-            tracker, "download_song_batch", lambda *a, **k: called.append(1)
-        )
+
+        def fake(songs, *_a, **_k):
+            called.extend(songs)
+            return 0, 0, str(tmp_path / "out")
+
+        monkeypatch.setattr(tracker, "download_song_batch", fake)
 
         tracker.download_diff("like", 320, str(tmp_path / "out"))
 
-        assert not called
-        assert "跳过" in capsys.readouterr().err
+        assert called == [{"id": 999}]
 
 
 class Test下载diff落盘:
@@ -234,7 +236,7 @@ class Test下载diff落盘:
 
         monkeypatch.setattr(tracker, "download_song_batch", fake)
 
-    def test_added按id回songs_json取整条(self, ready, monkeypatch, tmp_path):
+    def test_added只按id传入(self, ready, monkeypatch, tmp_path):
         got = {}
 
         def fake(songs, *_a, **_k):
@@ -245,7 +247,7 @@ class Test下载diff落盘:
 
         monkeypatch.setattr(tracker, "download_song_batch", fake)
         tracker.download_diff("like", 320, str(tmp_path / "out"))
-        assert got["songs"] == [SONGS[2]]
+        assert got["songs"] == [{"id": 3}]
 
     def test_下载后不清空diff(self, ready, monkeypatch, tmp_path):
         """再次 fetch 之前，-dx 下载的应始终是同一批"""

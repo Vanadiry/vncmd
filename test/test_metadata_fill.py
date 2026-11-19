@@ -27,7 +27,7 @@ def _run_batch(monkeypatch, tmp_path, tracks, content="alc", details=None):
         calls.append(kwargs)
         return True, "", None
 
-    def fake_details(got_ids):
+    def fake_details(got_ids, **_kwargs):
         ids.append(list(got_ids))
         if isinstance(details, Exception):
             raise details
@@ -145,11 +145,11 @@ class Test补全详情:
         assert calls
         assert any("未取到详情" in w for w in warns)
 
-    def test_只下载歌词时不补详情(self, monkeypatch, tmp_path):
+    def test_只下载歌词也补详情(self, monkeypatch, tmp_path):
         track = {"id": 1, "title": "T", "artists": ["A"]}
         calls, ids = _run_batch(monkeypatch, tmp_path, [track], content="l")
 
-        assert ids == []
+        assert ids == [[1]]
         assert calls
         assert calls[0]["song_url"] == ""
 

@@ -22,11 +22,11 @@ def test_规范化保留艺术家数组():
 
 
 def test_补详情复制艺术家数组(monkeypatch):
-    track = {"id": 1, "title": "T", "artist": "A, B"}
+    track = {"id": 1, "title": "T"}
     monkeypatch.setattr(
         downloader,
         "get_song_details_many",
-        lambda ids: {1: {"id": 1, "artists": ["A", "B"]}},
+        lambda ids, **_kwargs: {1: {"id": 1, "artists": ["A", "B"]}},
     )
 
     downloader._complete_track_details([track])
@@ -34,12 +34,37 @@ def test_补详情复制艺术家数组(monkeypatch):
     assert track["artists"] == ["A", "B"]
 
 
+def test_补详情强制绕过缓存(monkeypatch):
+    seen = {}
+
+    def fake(ids, **kwargs):
+        seen.update(kwargs)
+        return {}
+
+    monkeypatch.setattr(downloader, "get_song_details_many", fake)
+
+    downloader._complete_track_details(
+        [
+            {
+                "id": 1,
+                "title": "T",
+                "album": "A",
+                "cover": "c",
+                "track_no": 1,
+                "cd_no": 1,
+            }
+        ]
+    )
+
+    assert seen["use_cache"] is False
+
+
 def test_补详情的空艺术家列表不覆盖(monkeypatch):
-    track = {"id": 1, "title": "T", "artist": "A, B", "artists": ["A", "B"]}
+    track = {"id": 1, "title": "T", "artists": ["A", "B"]}
     monkeypatch.setattr(
         downloader,
         "get_song_details_many",
-        lambda ids: {1: {"id": 1, "artists": []}},
+        lambda ids, **_kwargs: {1: {"id": 1, "artists": []}},
     )
 
     downloader._complete_track_details([track])

@@ -150,10 +150,10 @@ class Test命令行不再单独传校验开关:
         monkeypatch.setattr(
             commands,
             "get_song_details",
-            lambda _i: {
+            lambda _i, **_k: {
                 "id": 1,
                 "title": "T",
-                "artist": "A",
+                "artists": ["A"],
                 "album": "B",
                 "cover": "",
                 "publish_time": "",

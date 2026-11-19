@@ -217,7 +217,9 @@ def _complete_track_details(tracks: list[dict]) -> None:
         return
 
     try:
-        details = get_song_details_many([int(track["id"]) for track in pending])
+        details = get_song_details_many(
+            [int(track["id"]) for track in pending], use_cache=False
+        )
     except Exception as e:
         warning(f"补全曲目详情失败，本次使用已有字段：{e}")
         return
@@ -287,7 +289,7 @@ def _download_and_verify(
 
 def download_song(
     song_url: str,
-    song_title: str,
+    song_title: str | None,
     song_album: str,
     song_id: int,
     cover_url: str,
@@ -327,7 +329,9 @@ def download_song(
 
     song_artists = song_artists or []
     artists_text = join_artists(song_artists)
-    filename_base, full_name = build_filename(song_title, artists_text)
+    title_text = song_title or str(song_id)
+    label_text = f"{title_text} - {artists_text}" if artists_text else title_text
+    filename_base, full_name = build_filename(title_text, artists_text)
 
     # 取歌词
     lyric_text, tlyric_text = "", ""
@@ -373,7 +377,7 @@ def download_song(
         verify_err = _download_and_verify(
             temp_music_path,
             song_url=song_url,
-            label=f"{song_title} - {artists_text}",
+            label=label_text,
             progress=progress,
             task_id=task_id,
             song_size=song_size,
@@ -399,7 +403,7 @@ def download_song(
             embed_cover_data,
             embed_cover_mime,
             embed_lyric,
-            song_title,
+            song_title or None,
             song_album,
             publish_time,
             track_no,
@@ -412,7 +416,7 @@ def download_song(
         if embed_err:
             # 音频已通过校验，标签失败不判整首失败，但要提示
             warning(
-                f"“{song_title} - {artists_text}”元数据嵌入失败，"
+                f"“{label_text}”元数据嵌入失败，"
                 f"已重试 {_EMBED_ATTEMPTS} 次，本次不带标签：{embed_err}"
             )
 
@@ -593,9 +597,9 @@ def download_song_batch(
         success(f"所有曲目已下载完毕，目录为 {session_dir}")
         return success_count, fail_count, session_dir
 
-    # Tracker 只存少量字段，进入 worker 前统一补成完整曲目
+    # 下载需要的元数据一律实时取上游，Tracker/缓存只用于展示
+    _complete_track_details(tracks)
     if want_song or want_cover:
-        _complete_track_details(tracks)
         missing_cover = sum(1 for track in tracks if not track.get("cover"))
         if missing_cover:
             warning(f"{missing_cover} 首曲目没有封面，本次不会写入封面")
@@ -616,28 +620,35 @@ def download_song_batch(
 
             sid = track["id"]
             task_id = workers.slots[slot_id]
-            title = track.get("title", "?")
+            title = track.get("title") or ""
             artists = track.get("artists") or []
             artists_text = join_artists(artists)
+            label = f"ID {sid}"
             workers.show(task_id)
 
             try:
                 if not artists:
                     workers.describe(task_id, f"解析中，ID {sid}")
                     try:
-                        track = get_song_details(sid)
-                        title = track["title"]
+                        track = get_song_details(sid, use_cache=False)
+                        title = track.get("title") or ""
                         artists = track.get("artists") or []
                         artists_text = join_artists(artists)
                     except Exception as e:
                         workers.release(task_id)
-                        warning(f"跳过 {title}，ID {sid}，获取详情失败：{e}")
+                        warning(f"跳过 {title or f'ID {sid}'}，获取详情失败：{e}")
                         with counter_lock:
                             fail_count += 1
                             fail_ids.append(sid)
                         continue
 
-                workers.describe(task_id, f"{title} - {artists_text}")
+                title_text = title or f"ID {sid}"
+                label = f"{title_text} - {artists_text}" if artists_text else title_text
+                if not title:
+                    warning(f"曲目 {sid} 缺少标题，文件名将使用曲目 ID")
+                if not artists_text:
+                    warning(f"曲目 {sid} 缺少艺术家信息，继续下载")
+                workers.describe(task_id, label)
 
                 if not want_song:
                     lyrics_api = get_lyrics_url(sid)
@@ -659,17 +670,13 @@ def download_song_batch(
                         sid,
                         quality,
                         # 默认参数绑定循环变量，避免闭包捕获
-                        lambda n, t=task_id, ti=title, ar=artists_text: (
-                            workers.describe(
-                                t, f"{ti} - {ar}，获取链接重试 {n}/{_LINK_ATTEMPTS}"
-                            )
+                        lambda n, t=task_id, text=label: workers.describe(
+                            t, f"{text}，获取链接重试 {n}/{_LINK_ATTEMPTS}"
                         ),
                     )
                     if not source:
                         workers.release(task_id)
-                        warning(
-                            f"跳过 {title} - {artists_text}，ID {sid}，无法提取下载链接"
-                        )
+                        warning(f"跳过 {label}，ID {sid}，无法提取下载链接")
                         with counter_lock:
                             fail_count += 1
                             fail_ids.append(sid)
@@ -706,19 +713,17 @@ def download_song_batch(
                             break
                         workers.restart(task_id)
                         if attempt < 3:
-                            workers.describe(
-                                task_id, f"{title} - {artists_text}，重试 {attempt}/3"
-                            )
+                            workers.describe(task_id, f"{label}，重试 {attempt}/3")
 
                 workers.release(task_id)
                 if ok:
                     with counter_lock:
-                        success(f"{title} - {artists_text}")
+                        success(label)
                         success_count += 1
                         _mark_done(dl_type, dl_id, sid)
                 else:
                     with counter_lock:
-                        error(f"“{title} - {artists_text}”{msg}")
+                        error(f"“{label}”{msg}")
                         fail_count += 1
                         fail_ids.append(sid)
 
@@ -727,7 +732,7 @@ def download_song_batch(
                 # 未预期异常不能让 worker 退出，否则队列剩余曲目无人处理
                 workers.release(task_id)
                 with counter_lock:
-                    error(f"“{title} - {artists_text}”{type(e).__name__}：{e}")
+                    error(f"“{label}”{type(e).__name__}：{e}")
                     fail_count += 1
                     fail_ids.append(sid)
 

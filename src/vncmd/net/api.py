@@ -196,9 +196,9 @@ def _complete_details(data: dict | None) -> bool:
     )
 
 
-def get_song_details(song_id: int) -> dict:
+def get_song_details(song_id: int, use_cache: bool = True) -> dict:
     cached = cache_get_song(song_id)
-    if _complete_details(cached):
+    if use_cache and _complete_details(cached):
         return cached
 
     v0_data = {}
@@ -229,13 +229,15 @@ def get_song_details(song_id: int) -> dict:
     return result
 
 
-def get_song_details_many(song_ids: list[int]) -> dict[int, dict]:
+def get_song_details_many(
+    song_ids: list[int], use_cache: bool = True
+) -> dict[int, dict]:
     """批量取曲目详情，缓存命中的部分不再请求"""
     result: dict[int, dict] = {}
     missing: list[int] = []
     for song_id in song_ids:
         cached = cache_get_song(song_id)
-        if _complete_details(cached):
+        if use_cache and _complete_details(cached):
             result[song_id] = cached
         else:
             missing.append(song_id)

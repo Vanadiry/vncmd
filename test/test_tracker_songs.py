@@ -158,6 +158,24 @@ class TestArtist入库:
         assert "artist" not in song
 
 
+class Test下载只传ID:
+    def test_download_tracker只传id(self, monkeypatch, tmp_path):
+        monkeypatch.setattr(
+            tracker,
+            "load_songs_db",
+            lambda name: [{"id": 1, "title": "T", "artists": ["A"]}],
+        )
+        got = []
+
+        def fake(tracks, *_a, **_k):
+            got.extend(tracks)
+
+        monkeypatch.setattr(tracker, "download_song_batch", fake)
+        tracker.download_tracker("like", 320, str(tmp_path))
+
+        assert got == [{"id": 1}]
+
+
 class TestPublishTime入库:
     def test_raw里存了publish_time(self):
         raw = {}

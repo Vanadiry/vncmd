@@ -597,7 +597,8 @@ def download_tracker(name: str, quality: int, output_dir: str) -> None:
         error(f"Tracker “{name}”未缓存曲目")
         sys.exit(1)
 
-    download_song_batch(songs, quality, output_dir, dl_type="tracker", dl_id=name)
+    tracks = [{"id": song["id"]} for song in songs if "id" in song]
+    download_song_batch(tracks, quality, output_dir, dl_type="tracker", dl_id=name)
 
 
 def _diff_note(diff: dict) -> str:
@@ -629,15 +630,7 @@ def download_diff(name: str, quality: int, output_dir: str) -> None:
         info("未找到 diff")
         return
 
-    added_songs = []
-    missing = []
-    if added:
-        songs_by_id = {s["id"]: s for s in load_songs_db(name)}
-        added_songs = [songs_by_id[sid] for sid in added if sid in songs_by_id]
-        missing = [sid for sid in added if sid not in songs_by_id]
-    if missing:
-        # 旧版本会把未接受的变更也写进 diff，这里兜底跳过
-        warning(f"diff 中有 {len(missing)} 首曲目不在曲目库，已跳过")
+    added_songs = [{"id": sid} for sid in added]
 
     if added_songs:
         _, _, session_dir = download_song_batch(
