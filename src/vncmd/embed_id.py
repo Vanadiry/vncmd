@@ -5,6 +5,8 @@ import unicodedata
 from dataclasses import dataclass, field
 from pathlib import Path
 
+from vncmd.core.artists import join_artists
+
 
 def normalize(text) -> str:
     """标题与艺术家归一化，只做 NFKC、casefold 与空白合并"""
@@ -137,7 +139,7 @@ def build_index(records: list[dict]) -> SongIndex:
             and isinstance(artists, list)
             and artists
         ):
-            raw_artist = ", ".join(str(artist) for artist in artists)
+            raw_artist = join_artists(artists)
         title = normalize(raw_title)
         artist = normalize(raw_artist)
         index.entries.setdefault(

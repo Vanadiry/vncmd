@@ -11,6 +11,7 @@ import requests
 from requests.adapters import HTTPAdapter
 from urllib3.util.retry import Retry
 
+from vncmd.core.artists import join_artists
 from vncmd.core.config import get_cookie
 from vncmd.core.output import warning
 from vncmd.net.cache import (
@@ -157,7 +158,7 @@ def _normalize_song(song: dict) -> dict:
     return {
         "id": song["id"],
         "title": _text(song.get("name")),
-        "artist": ", ".join(artists),
+        "artist": join_artists(artists),
         "artists": artists,
         "album": _text(album.get("name")),
         # 无专辑的曲目返回 id 为 0，显示时按没有处理
@@ -332,7 +333,7 @@ def get_playlist_details(playlist_id: int) -> dict:
             {
                 "id": t["id"],
                 "title": _clean(t["name"]),
-                "artist": ", ".join(artists),
+                "artist": join_artists(artists),
                 "artists": artists,
                 "album": _clean(al.get("name", "")),
                 "cover": al.get("picUrl", ""),
@@ -377,7 +378,7 @@ def get_album_details(album_id: int) -> dict:
             {
                 "id": s["id"],
                 "title": _clean(s["name"]),
-                "artist": ", ".join(artists),
+                "artist": join_artists(artists),
                 "artists": artists,
                 "album": _clean(album.get("name", "")),
                 "cover": album.get("picUrl", ""),
@@ -421,7 +422,7 @@ def search(q: str, limit: int = 10, offset: int = 0) -> dict:
             {
                 "id": s["id"],
                 "title": _clean(s["name"]),
-                "artist": ", ".join(artists),
+                "artist": join_artists(artists),
                 "artists": artists,
                 "album": _clean((s.get("al") or {}).get("name", "")),
                 "cover": (s.get("al") or {}).get("picUrl", ""),

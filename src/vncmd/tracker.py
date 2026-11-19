@@ -13,6 +13,7 @@ import questionary
 from rich.markup import escape
 
 from vncmd.commands import _dump_json
+from vncmd.core.artists import join_artists
 from vncmd.core.config import (
     VNCMD_HOME,
     abbrev_home,
@@ -107,7 +108,7 @@ def _join_artists(song: dict) -> str:
     """数组在调用处才拼成字符串，存盘只保留数组"""
     artists = song.get("artists")
     if isinstance(artists, list) and artists:
-        return ", ".join(str(artist) for artist in artists)
+        return join_artists(artists)
     return song.get("artist", "")
 
 

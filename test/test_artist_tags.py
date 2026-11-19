@@ -1,7 +1,15 @@
 """艺术家数组与 artist_mode 的传递"""
 
 from vncmd import downloader
+from vncmd.core.artists import join_artists
 from vncmd.net.api import _normalize_song
+
+
+def test_公共拼接规则():
+    assert join_artists(["A", "B"]) == "A, B"
+    assert join_artists([]) == ""
+    assert join_artists(None) == ""
+    assert join_artists("A, B") == "A, B"
 
 
 def test_规范化保留艺术家数组():

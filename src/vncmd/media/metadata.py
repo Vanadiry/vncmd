@@ -19,6 +19,7 @@ from mutagen.id3 import (
 )
 from mutagen.mp3 import MP3
 
+from vncmd.core.artists import join_artists
 from vncmd.media.lyrics import CREDIT_ROLES
 
 # MP3 写法为帧 ID 或 TIPL 角色名
@@ -56,14 +57,14 @@ def _read_info_mp3(tags) -> tuple[str, str, list[str]]:
     title_frames = tags.getall("TIT2")
     title = title_frames[0].text[0] if title_frames and title_frames[0].text else ""
     artists = [value for frame in tags.getall("TPE1") for value in (frame.text or [])]
-    return title, ", ".join(artists), _read_track_id_mp3(tags)
+    return title, join_artists(artists), _read_track_id_mp3(tags)
 
 
 def _read_info_flac(audio: FLAC) -> tuple[str, str, list[str]]:
     titles = audio.get("title", [])
     title = str(titles[0]) if titles else ""
     artists = [str(value) for value in audio.get("artist", [])]
-    return title, ", ".join(artists), _read_track_id_flac(audio)
+    return title, join_artists(artists), _read_track_id_flac(audio)
 
 
 def read_track_info(path: str) -> tuple[str, str, list[str]]:
