@@ -1032,6 +1032,18 @@
       "default": true
     },
     {
+      "path": "download.audio.artist_mode",
+      "description": "艺术家标签写入方式：single=逗号分隔的单值，multi=多值",
+      "kind": "enum",
+      "values": [
+        "single",
+        "multi"
+      ],
+      "minimum": null,
+      "maximum": null,
+      "default": "single"
+    },
+    {
       "path": "download.lyric.auto_trim",
       "description": "自动裁剪无用歌词数据，如纯音乐占位行等",
       "kind": "bool",
