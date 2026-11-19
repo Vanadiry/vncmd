@@ -20,6 +20,9 @@ QUALITY_MAP = {
 # 下载内容字母，任意组合，alc 为全要
 CONTENT_LETTERS = "alc"
 
+# 艺术家标签写入方式
+ARTIST_MODES = ("single", "multi")
+
 
 @dataclass(frozen=True)
 class Setting:
@@ -135,6 +138,12 @@ SCHEMA = (
         "bool",
         default=True,
         wrong_value="不合法，应当为 true 或 false",
+    ),
+    _enum(
+        "download.audio.artist_mode",
+        ARTIST_MODES,
+        "single",
+        "不合法，应当为 single 或 multi，实际是 {value!r}",
     ),
     Setting(
         "download.lyric.auto_trim",

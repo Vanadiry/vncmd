@@ -24,6 +24,7 @@ from vncmd.checkpoint import (
 )
 from vncmd.core.config import (
     abbrev_home,
+    get_artist_mode,
     get_auto_trim,
     get_check_enabled,
     get_concurrency,
@@ -102,12 +103,12 @@ def _move_unique(temp_path: str, base: str, ext: str, directory: str) -> str:
     return target
 
 
-def _embed_with_retry(fn, *args) -> str:
+def _embed_with_retry(fn, *args, **kwargs) -> str:
     """嵌入元数据，失败后重试，返回最后一次错误或空串"""
     last = ""
     for attempt in range(1, _EMBED_ATTEMPTS + 1):
         try:
-            fn(*args)
+            fn(*args, **kwargs)
             return ""
         except Exception as e:
             last = f"{type(e).__name__}: {e}"
@@ -182,6 +183,7 @@ def _process_cover(cover_data, cover_url):
 _DETAIL_FIELDS = (
     "title",
     "artist",
+    "artists",
     "album",
     "album_id",
     "cover",
@@ -194,13 +196,20 @@ _DETAIL_REQUIRED = ("title", "artist", "album", "cover", "track_no", "cd_no")
 
 
 def _has_detail_value(value) -> bool:
-    """空串与 None 视为缺失，数字 0 仍是有效值"""
+    """空串、None 与空列表视为缺失，数字 0 仍是有效值"""
+    if isinstance(value, list):
+        return bool(value)
     return value is not None and value != ""
 
 
 def _needs_details(track: dict) -> bool:
     """判断批量入口传进来的曲目是否缺嵌入字段"""
     return any(not _has_detail_value(track.get(key)) for key in _DETAIL_REQUIRED)
+
+
+def _artists_for_embed(song_artists: list[str] | None) -> list[str] | None:
+    """multi 模式下才写多值，其余保持单字符串"""
+    return song_artists if get_artist_mode() == "multi" else None
 
 
 def _complete_track_details(tracks: list[dict]) -> None:
@@ -302,6 +311,7 @@ def download_song(
     use_curl: bool | None = None,
     song_level: str = "",
     want_br: int = 0,
+    song_artists: list[str] | None = None,
 ) -> tuple[bool, str, str | None]:
     """下载一首歌，写入音频、歌词与封面
 
@@ -401,6 +411,7 @@ def download_song(
             cd_no,
             credits or None,
             song_id if get_embed_track_id() else None,
+            song_artists=_artists_for_embed(song_artists),
         )
         if embed_err:
             # 音频已通过校验，标签失败不判整首失败，但要提示
@@ -644,6 +655,7 @@ def download_song_batch(
                         download_dir=session_dir,
                         track_no=track.get("track_no"),
                         cd_no=track.get("cd_no"),
+                        song_artists=track.get("artists"),
                     )
                 else:
                     source = _fetch_source_with_retry(
@@ -688,6 +700,7 @@ def download_song_batch(
                             use_curl=use_curl,
                             song_level=source.level,
                             want_br=quality,
+                            song_artists=track.get("artists"),
                         )
                         if ok:
                             break

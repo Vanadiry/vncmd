@@ -116,6 +116,12 @@ def _set_text(tags, frame_id: str, frame_cls, text: str) -> None:
     tags.add(frame_cls(encoding=3, text=[text]))
 
 
+def _set_texts(tags, frame_id: str, frame_cls, texts: list[str]) -> None:
+    """一个帧写入多个文本值，ID3v2.4 用空字符分隔"""
+    tags.delall(frame_id)
+    tags.add(frame_cls(encoding=3, text=texts))
+
+
 def _write_credits_mp3(tags, credits: dict[str, str]) -> None:
     # TIPL 只能 add 一次，所有角色攒进同一列表
     tipl: list[tuple[str, str]] = []
@@ -143,6 +149,7 @@ def _embed_mp3(
     cd_no: int | None,
     credits: dict[str, str] | None,
     track_id: int | None,
+    song_artists: list[str] | None,
 ) -> None:
     try:
         audio = MP3(music_path)
@@ -164,7 +171,9 @@ def _embed_mp3(
 
     if song_title is not None:
         _set_text(tags, "TIT2", TIT2, song_title)
-    if song_artist is not None:
+    if song_artists:
+        _set_texts(tags, "TPE1", TPE1, song_artists)
+    elif song_artist is not None:
         _set_text(tags, "TPE1", TPE1, song_artist)
     if song_album is not None:
         _set_text(tags, "TALB", TALB, song_album)
@@ -203,6 +212,7 @@ def _embed_flac(
     cd_no: int | None,
     credits: dict[str, str] | None,
     track_id: int | None,
+    song_artists: list[str] | None,
 ) -> None:
     audio = FLAC(music_path)
 
@@ -220,7 +230,9 @@ def _embed_flac(
 
     if song_title is not None:
         audio["title"] = song_title
-    if song_artist is not None:
+    if song_artists:
+        audio["artist"] = song_artists
+    elif song_artist is not None:
         audio["artist"] = song_artist
     if song_album is not None:
         audio["album"] = song_album
@@ -260,6 +272,7 @@ def embed(
     cd_no: int | None = None,
     credits: dict[str, str] | None = None,
     track_id: int | None = None,
+    song_artists: list[str] | None = None,
 ) -> None:
     if music_type == "mp3":
         _embed_mp3(
@@ -275,6 +288,7 @@ def embed(
             cd_no,
             credits,
             track_id,
+            song_artists,
         )
     elif music_type == "flac":
         _embed_flac(
@@ -290,4 +304,5 @@ def embed(
             cd_no,
             credits,
             track_id,
+            song_artists,
         )

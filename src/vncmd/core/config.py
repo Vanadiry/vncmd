@@ -9,6 +9,7 @@ from filelock import FileLock, Timeout
 from vncmd.core.defaults import CONFIG_TOML
 
 # 值域在 schema.py，这里转发给旧调用点
+from vncmd.core.schema import ARTIST_MODES as ARTIST_MODES
 from vncmd.core.schema import CONTENT_LETTERS as CONTENT_LETTERS
 from vncmd.core.schema import FILENAME_ARTIST as FILENAME_ARTIST
 from vncmd.core.schema import LYRIC_MODES as LYRIC_MODES
@@ -242,6 +243,10 @@ def get_parse_credits() -> bool:
 
 def get_embed_track_id() -> bool:
     return value_of(_get_cfg(), "download.audio.embed_track_id")
+
+
+def get_artist_mode() -> str:
+    return value_of(_get_cfg(), "download.audio.artist_mode")
 
 
 def get_auto_trim() -> bool:

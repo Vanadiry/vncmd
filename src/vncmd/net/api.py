@@ -140,6 +140,11 @@ def _text(value) -> str:
     return _clean(value) if isinstance(value, str) else ""
 
 
+def _artist_names(artists) -> list[str]:
+    """提取艺术家名，保留上游顺序"""
+    return [_clean(a["name"]) for a in artists or [] if a.get("name")]
+
+
 def _normalize_song(song: dict) -> dict:
     """把 v0 或 v1 返回的 song 对象转成统一结构"""
     if "ar" in song:
@@ -148,10 +153,12 @@ def _normalize_song(song: dict) -> dict:
         song["album"] = song.pop("al")
     # v1 接口对部分歌曲返回 al 为 null，.get 的默认值不生效
     album = song.get("album") or {}
+    artists = _artist_names(song.get("artists"))
     return {
         "id": song["id"],
         "title": _text(song.get("name")),
-        "artist": _clean(", ".join(a["name"] for a in song.get("artists") or [])),
+        "artist": ", ".join(artists),
+        "artists": artists,
         "album": _text(album.get("name")),
         # 无专辑的曲目返回 id 为 0，显示时按没有处理
         "album_id": album.get("id") or 0,
@@ -171,6 +178,7 @@ _DETAIL_KEYS = (
     "id",
     "title",
     "artist",
+    "artists",
     "album",
     "album_id",
     "cover",
@@ -316,6 +324,7 @@ def get_playlist_details(playlist_id: int) -> dict:
     for t in full_tracks:
         ar = t.get("ar") or []
         al = t.get("al") or {}
+        artists = _artist_names(ar)
         publish_time = _fmt_publish_time(t.get("publishTime") or al.get("publishTime"))
         if not publish_time:
             missing_dates.append(t["id"])
@@ -323,7 +332,8 @@ def get_playlist_details(playlist_id: int) -> dict:
             {
                 "id": t["id"],
                 "title": _clean(t["name"]),
-                "artist": _clean(", ".join(a["name"] for a in ar)),
+                "artist": ", ".join(artists),
+                "artists": artists,
                 "album": _clean(al.get("name", "")),
                 "cover": al.get("picUrl", ""),
                 "publish_time": publish_time,
@@ -362,11 +372,13 @@ def get_album_details(album_id: int) -> dict:
 
     tracks = []
     for s in data.get("songs", []):
+        artists = _artist_names(s.get("ar"))
         tracks.append(
             {
                 "id": s["id"],
                 "title": _clean(s["name"]),
-                "artist": _clean(", ".join(a["name"] for a in s.get("ar", []))),
+                "artist": ", ".join(artists),
+                "artists": artists,
                 "album": _clean(album.get("name", "")),
                 "cover": album.get("picUrl", ""),
                 "publish_time": _fmt_publish_time(
@@ -404,11 +416,13 @@ def search(q: str, limit: int = 10, offset: int = 0) -> dict:
 
     songs = []
     for s in data.get("result", {}).get("songs", []):
+        artists = _artist_names(s.get("ar"))
         songs.append(
             {
                 "id": s["id"],
                 "title": _clean(s["name"]),
-                "artist": _clean(", ".join(a["name"] for a in s.get("ar") or [])),
+                "artist": ", ".join(artists),
+                "artists": artists,
                 "album": _clean((s.get("al") or {}).get("name", "")),
                 "cover": (s.get("al") or {}).get("picUrl", ""),
                 "publish_time": _fmt_publish_time(s.get("publishTime")),

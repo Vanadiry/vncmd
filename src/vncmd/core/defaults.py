@@ -22,6 +22,8 @@ quality = "max"
 parse_credits = false
 # 新下载音频是否写入 track_id 标签
 embed_track_id = true
+# 艺术家标签写入方式：single=逗号分隔的单值，multi=多值
+artist_mode = "single"
 
 [download.lyric]
 # 嵌入译文时，与原文的合并模式：line=交错，block=拼接，drop=丢弃译文

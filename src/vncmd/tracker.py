@@ -327,6 +327,7 @@ def fetch_all_songs(settings: dict) -> tuple[dict[str, dict], list[dict]]:
             "title": data["title"],
             # 老条目缺 artist 时留空，下次 --fetch 补齐
             "artist": data.get("artist", ""),
+            "artists": data.get("artists", []),
             "publish_time": data.get("publish_time", ""),
         }
         if len(data["sources"]) > 1:
@@ -343,15 +344,18 @@ def _add_to_raw(raw: dict, track: dict, src_type: str, src_id: int) -> None:
         existing_sources = raw[sid]["sources"]
         if source_ref not in existing_sources:
             existing_sources.append(source_ref)
-        # 第一次有值的为准，后面的源只补空日期，不覆盖已有值
+        # 第一次有值的为准，后面的源只补空日期与艺术家数组
         if not raw[sid].get("publish_time"):
             raw[sid]["publish_time"] = publish_time
+        if not raw[sid].get("artists"):
+            raw[sid]["artists"] = track.get("artists", [])
     else:
         raw[sid] = {
             "id": sid,
             "title": track["title"],
             # artist 已在三种来源里解析好
             "artist": track.get("artist", ""),
+            "artists": track.get("artists", []),
             "publish_time": publish_time,
             "sources": [source_ref],
         }

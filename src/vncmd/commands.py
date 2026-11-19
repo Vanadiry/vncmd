@@ -258,6 +258,7 @@ def cmd_song(args: argparse.Namespace) -> None:
         use_curl=None,
         song_level=source.level if source else "",
         want_br=quality,
+        song_artists=song.get("artists"),
     )
     if ok:
         success(msg)
